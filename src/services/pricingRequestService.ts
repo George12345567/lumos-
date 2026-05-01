@@ -1,0 +1,1 @@
+export const submitPricingRequest = async (data: any): Promise<{ success: boolean }> => ({ success: false });

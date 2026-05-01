@@ -1,0 +1,711 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
+All colors MUST be HSL.
+*/
+
+@layer base {
+  :root {
+    /* Wizard's Green Dark Theme */
+    --background: 220 10% 8%;
+    /* Premium Dark Charcoal #121417 */
+    --foreground: 0 0% 100%;
+    /* Crisp Off-White */
+
+    --card: 220 10% 11%;
+    /* Sleek slightly lighter charcoal */
+    --card-foreground: 0 0% 100%;
+
+    --popover: 220 10% 11%;
+    --popover-foreground: 0 0% 100%;
+
+    --primary: 150 100% 40%;
+    /* Vibrant Emerald Green */
+    --primary-foreground: 220 10% 8%;
+    /* Dark text for contrast */
+
+    --secondary: 160 70% 18%;
+    /* Rich Forest Green */
+    --secondary-foreground: 0 0% 100%;
+
+    --muted: 150 20% 20%;
+    /* Muted Earthy Moss */
+    --muted-foreground: 150 15% 80%;
+
+    --accent: 150 100% 40%;
+    --accent-foreground: 220 10% 8%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 150 20% 20%;
+    --input: 150 20% 20%;
+    --ring: 150 100% 40%;
+
+    --radius: 0.75rem;
+
+    /* Glass effect variables - Dark Theme */
+    --glass-bg: 220 10% 9% / 0.75;
+    --glass-border: 150 100% 40% / 0.15;
+
+    /* Glow effect */
+    --glow-color: 150 100% 40%;
+
+    /* Animations */
+    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+    /* Portal design tokens */
+    --portal-space-xs: 0.25rem;
+    --portal-space-sm: 0.5rem;
+    --portal-space-md: 0.75rem;
+    --portal-space-lg: 1rem;
+    --portal-space-xl: 1.5rem;
+    --portal-radius-sm: 0.5rem;
+    --portal-radius-md: 0.75rem;
+    --portal-radius-lg: 1rem;
+    --portal-shadow-sm: 0 2px 10px rgba(2, 6, 23, 0.08);
+    --portal-shadow-md: 0 8px 26px rgba(2, 6, 23, 0.14);
+    --portal-shadow-lg: 0 14px 38px rgba(2, 6, 23, 0.18);
+    --portal-motion-fast: 140ms cubic-bezier(0.4, 0, 0.2, 1);
+    --portal-motion-base: 220ms cubic-bezier(0.4, 0, 0.2, 1);
+    --portal-motion-slow: 340ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+
+  .theme-default {
+    --background: 220 10% 8%;
+    --foreground: 0 0% 100%;
+    --card: 220 10% 11%;
+    --card-foreground: 0 0% 100%;
+    --muted: 220 10% 18%;
+    --muted-foreground: 220 10% 72%;
+    --border: 220 10% 22%;
+    --ring: 190 90% 52%;
+  }
+
+  .theme-brand {
+    --background: 222 35% 7%;
+    --foreground: 210 30% 97%;
+    --card: 224 29% 10%;
+    --card-foreground: 210 30% 97%;
+    --muted: 222 25% 16%;
+    --muted-foreground: 213 18% 74%;
+    --border: 220 24% 20%;
+    --ring: 186 100% 42%;
+  }
+
+  .theme-high-contrast {
+    --background: 0 0% 4%;
+    --foreground: 0 0% 100%;
+    --card: 0 0% 8%;
+    --card-foreground: 0 0% 100%;
+    --muted: 0 0% 14%;
+    --muted-foreground: 0 0% 88%;
+    --border: 0 0% 34%;
+    --ring: 52 100% 50%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Poppins', sans-serif;
+    overflow-x: hidden;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  html {
+    scroll-behavior: smooth;
+    color-scheme: dark;
+    scrollbar-gutter: stable both-edges;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+  }
+}
+
+/* Optimize below-the-fold section rendering for smoother scroll. */
+.scroll-section-optimized {
+  content-visibility: auto;
+  contain-intrinsic-size: 900px;
+}
+
+/*
+ * SAFETY NET: Ensure toast/notification containers never block page interaction.
+ * Sonner renders a <section> with z-index: 999999999 (!) that can intercept
+ * pointer events across the entire viewport when no toasts are visible.
+ * Individual toasts opt back in with pointer-events: auto via [data-sonner-toast].
+ */
+section[data-sonner-toaster] {
+  pointer-events: none !important;
+}
+
+section[data-sonner-toaster] [data-sonner-toast] {
+  pointer-events: auto !important;
+}
+
+@layer utilities {
+
+  .portal-elevation-sm {
+    box-shadow: var(--portal-shadow-sm);
+  }
+
+  .portal-elevation-md {
+    box-shadow: var(--portal-shadow-md);
+  }
+
+  .portal-elevation-lg {
+    box-shadow: var(--portal-shadow-lg);
+  }
+
+  .portal-radius-sm {
+    border-radius: var(--portal-radius-sm);
+  }
+
+  .portal-radius-md {
+    border-radius: var(--portal-radius-md);
+  }
+
+  .portal-radius-lg {
+    border-radius: var(--portal-radius-lg);
+  }
+
+  .portal-motion-fast {
+    transition: all var(--portal-motion-fast);
+  }
+
+  .portal-motion-base {
+    transition: all var(--portal-motion-base);
+  }
+
+  .portal-motion-slow {
+    transition: all var(--portal-motion-slow);
+  }
+
+  /* Sleek glass card for Wizard's Green theme */
+  .glass-card {
+    background: hsla(220, 10%, 11%, 0.7);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid hsla(150, 100%, 40%, 0.1);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3), inset 0 1px 1px hsla(150, 100%, 40%, 0.05);
+  }
+
+  /* Magical glow effects for logo and accents */
+  .glow-text {
+    color: hsl(var(--primary));
+    font-weight: bold;
+    text-shadow: 0 0 12px hsla(150, 100%, 40%, 0.4);
+  }
+
+  .glow-border {
+    box-shadow: 0 0 0 1px hsla(150, 100%, 40%, 0.3);
+  }
+
+  .glow-border-hover {
+    transition: var(--transition-smooth);
+  }
+
+  .glow-border-hover:hover {
+    box-shadow: 0 0 20px hsla(150, 100%, 40%, 0.3);
+    border-color: hsla(150, 100%, 40%, 0.6);
+    transform: translateY(-3px);
+  }
+
+  /* Vibrant Emerald Green button */
+  .btn-glow {
+    background: hsl(var(--primary));
+    color: hsl(var(--primary-foreground));
+    box-shadow: 0 4px 15px hsla(150, 100%, 40%, 0.3);
+    transition: var(--transition-smooth);
+    border: 1px solid hsla(150, 100%, 60%, 0.2);
+  }
+
+  .btn-glow:hover {
+    background: hsl(160, 70%, 18%);
+    color: hsl(150, 40%, 95%);
+    box-shadow: 0 8px 25px hsla(150, 100%, 40%, 0.4);
+    border-color: hsl(var(--primary));
+    transform: translateY(-2px);
+  }
+
+  .btn-glow:active {
+    transform: scale(0.95);
+  }
+
+  .link-underline {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+
+  .link-underline::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    bottom: -4px;
+    height: 2px;
+    width: 100%;
+    background: linear-gradient(90deg, hsl(var(--primary)), transparent);
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 0.3s ease;
+  }
+
+  .link-underline:hover::after {
+    transform: scaleX(1);
+  }
+
+  .hover-lift {
+    transition: var(--transition-smooth);
+  }
+
+  .hover-lift:hover {
+    transform: translateY(-6px) scale(1.02);
+  }
+
+  .glow-ring {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .glow-ring::after {
+    content: "";
+    position: absolute;
+    inset: -2px;
+    border-radius: inherit;
+    padding: 2px;
+    background: conic-gradient(from 90deg,
+        hsl(var(--primary)),
+        transparent 35%,
+        hsl(var(--primary)) 70%,
+        transparent 100%);
+    filter: blur(4px);
+    opacity: 0;
+    transition: opacity 0.4s ease;
+    z-index: -1;
+  }
+
+  .glow-ring:hover::after {
+    opacity: 0.5;
+  }
+}
+
+/* Custom animations */
+@keyframes float {
+
+  0%,
+  100% {
+    transform: translateY(0px);
+  }
+
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+@keyframes glow-pulse {
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.7;
+  }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-50px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(50px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes scroll {
+  0% {
+    transform: translate3d(0, 0, 0);
+  }
+
+  100% {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+
+/* Star Animations for Hero Section - Ultra Smooth */
+@keyframes starTwinkle {
+
+  0%,
+  100% {
+    opacity: 0.3;
+    transform: scale(1) rotate(0deg);
+  }
+
+  25% {
+    opacity: 0.6;
+    transform: scale(1.1) rotate(90deg);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1.2) rotate(180deg);
+  }
+
+  75% {
+    opacity: 0.6;
+    transform: scale(1.1) rotate(270deg);
+  }
+}
+
+@keyframes starPulse {
+
+  0%,
+  100% {
+    opacity: 0.5;
+    transform: scale(1);
+    filter: brightness(1) blur(0.5px);
+  }
+
+  25% {
+    opacity: 0.7;
+    transform: scale(1.15);
+    filter: brightness(1.2) blur(0.4px);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1.3);
+    filter: brightness(1.5) blur(0.3px);
+  }
+
+  75% {
+    opacity: 0.7;
+    transform: scale(1.15);
+    filter: brightness(1.2) blur(0.4px);
+  }
+}
+
+@keyframes starGlow {
+
+  0%,
+  100% {
+    opacity: 0.4;
+    transform: scale(1) rotate(0deg);
+    filter: brightness(1) blur(1px);
+  }
+
+  25% {
+    opacity: 0.7;
+    transform: scale(1.2) rotate(90deg);
+    filter: brightness(1.5) blur(0.7px);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1.4) rotate(180deg);
+    filter: brightness(2) blur(0.5px);
+  }
+
+  75% {
+    opacity: 0.7;
+    transform: scale(1.2) rotate(270deg);
+    filter: brightness(1.5) blur(0.7px);
+  }
+}
+
+@keyframes shootingStar {
+  0% {
+    opacity: 0;
+    transform: translateY(-150px) translateX(-150px) rotate(-45deg) scale(0.5);
+  }
+
+  5% {
+    opacity: 0.5;
+  }
+
+  10% {
+    opacity: 1;
+    transform: translateY(-100px) translateX(-100px) rotate(-45deg) scale(1);
+  }
+
+  90% {
+    opacity: 1;
+    transform: translateY(150px) translateX(150px) rotate(-45deg) scale(1);
+  }
+
+  95% {
+    opacity: 0.5;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateY(250px) translateX(250px) rotate(-45deg) scale(0.5);
+  }
+}
+
+@keyframes floatUp {
+  0% {
+    opacity: 0;
+    transform: translateY(0) translateX(0) scale(0);
+  }
+
+  10% {
+    opacity: 0.6;
+    transform: translateY(-20px) translateX(10px) scale(1);
+  }
+
+  50% {
+    opacity: 1;
+    transform: translateY(-200px) translateX(30px) scale(1.2);
+  }
+
+  90% {
+    opacity: 0.8;
+    transform: translateY(-400px) translateX(50px) scale(1);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateY(-500px) translateX(60px) scale(0.5);
+  }
+}
+
+/* Mobile-optimized scroll animation (faster, uses GPU) */
+@keyframes scroll-mobile {
+  0% {
+    transform: translate3d(0, 0, 0);
+  }
+
+  100% {
+    transform: translate3d(-33.333%, 0, 0);
+  }
+}
+
+@keyframes drift {
+  0% {
+    transform: translate3d(0, 0, 0) rotate(0deg);
+  }
+
+  50% {
+    transform: translate3d(20px, -20px, 0) rotate(10deg);
+  }
+
+  100% {
+    transform: translate3d(0, 0, 0) rotate(0deg);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes scrollHintFade {
+  0%   { opacity: 0;    transform: translateY(-6px); }
+  40%  { opacity: 1;    transform: translateY(0);    }
+  70%  { opacity: 1;    transform: translateY(0);    }
+  100% { opacity: 0;    transform: translateY(6px);  }
+}
+
+.animate-orb {
+  animation: drift 12s ease-in-out infinite;
+}
+
+.animate-orb-delayed {
+  animation: drift 14s ease-in-out infinite reverse;
+}
+
+.shimmer-line {
+  position: relative;
+  overflow: hidden;
+}
+
+.shimmer-line::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(120deg,
+      transparent,
+      hsl(var(--primary) / 0.2),
+      transparent);
+  transform: translateX(-100%);
+  animation: shimmer 2.5s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+.animate-glow-pulse {
+  animation: glow-pulse 2s ease-in-out infinite;
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.6s ease-out forwards;
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.8s ease-out forwards;
+}
+
+.animate-slide-in-left {
+  animation: slideInLeft 0.6s ease-out forwards;
+}
+
+.animate-slide-in-right {
+  animation: slideInRight 0.6s ease-out forwards;
+}
+
+.animate-shimmer {
+  animation: shimmer 3s ease-in-out infinite;
+}
+
+/* Scroll reveal */
+.reveal {
+  opacity: 0;
+}
+
+.reveal.active {
+  opacity: 1;
+}
+
+/* Line clamp utility */
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Hide scrollbar utility */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  /* IE and Edge */
+  scrollbar-width: none;
+  /* Firefox */
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+  /* Chrome, Safari and Opera */
+}
+
+/* Thin scrollbar utility */
+.scrollbar-thin {
+  scrollbar-width: thin;
+  /* Firefox */
+  scrollbar-color: hsl(var(--primary) / 0.2) transparent;
+}
+
+.scrollbar-thin::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background-color: hsl(var(--primary) / 0.2);
+  border-radius: 3px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background-color: hsl(var(--primary) / 0.3);
+}
+
+/* Custom Modal Scrollbar */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--primary) / 0.3) transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 8px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: hsl(var(--secondary));
+  border-radius: 10px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: hsl(var(--primary) / 0.4);
+  border-radius: 10px;
+  border: 2px solid hsl(var(--secondary));
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--primary) / 0.6);
+}
+
+/* Enhanced Select Dropdown */
+select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23000' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  background-size: 1em 1em;
+  padding-right: 2.5rem;
+}
+
+select:focus {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='hsl(188, 100%25, 42%25)' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+}

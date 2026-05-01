@@ -1,0 +1,1 @@
+export const submitContactForm = async (data: any): Promise<{ success: boolean }> => ({ success: false });

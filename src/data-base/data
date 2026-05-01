@@ -1,0 +1,6231 @@
+[
+  {
+    "table_schema": "auth",
+    "table_name": "audit_log_entries",
+    "columns": [
+      {
+        "column_name": "instance_id",
+        "data_type": "uuid",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": true,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "payload",
+        "data_type": "json",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "ip_address",
+        "data_type": "character varying",
+        "is_nullable": "NO",
+        "column_default": "''::character varying",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      }
+    ],
+    "relationships": []
+  },
+  {
+    "table_schema": "auth",
+    "table_name": "custom_oauth_providers",
+    "columns": [
+      {
+        "column_name": "id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": "gen_random_uuid()",
+        "is_primary_key": true,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "provider_type",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "identifier",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "name",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "client_id",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "client_secret",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "acceptable_client_ids",
+        "data_type": "ARRAY",
+        "is_nullable": "NO",
+        "column_default": "'{}'::text[]",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "scopes",
+        "data_type": "ARRAY",
+        "is_nullable": "NO",
+        "column_default": "'{}'::text[]",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "pkce_enabled",
+        "data_type": "boolean",
+        "is_nullable": "NO",
+        "column_default": "true",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "attribute_mapping",
+        "data_type": "jsonb",
+        "is_nullable": "NO",
+        "column_default": "'{}'::jsonb",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "authorization_params",
+        "data_type": "jsonb",
+        "is_nullable": "NO",
+        "column_default": "'{}'::jsonb",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "enabled",
+        "data_type": "boolean",
+        "is_nullable": "NO",
+        "column_default": "true",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "email_optional",
+        "data_type": "boolean",
+        "is_nullable": "NO",
+        "column_default": "false",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "issuer",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "discovery_url",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "skip_nonce_check",
+        "data_type": "boolean",
+        "is_nullable": "NO",
+        "column_default": "false",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "cached_discovery",
+        "data_type": "jsonb",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "discovery_cached_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "authorization_url",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "token_url",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "userinfo_url",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "jwks_uri",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "NO",
+        "column_default": "now()",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "updated_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "NO",
+        "column_default": "now()",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      }
+    ],
+    "relationships": []
+  },
+  {
+    "table_schema": "auth",
+    "table_name": "flow_state",
+    "columns": [
+      {
+        "column_name": "id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": true,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "user_id",
+        "data_type": "uuid",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "auth_code",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "code_challenge_method",
+        "data_type": "code_challenge_method",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "code_challenge",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "provider_type",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "provider_access_token",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "provider_refresh_token",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "updated_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "authentication_method",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "auth_code_issued_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "invite_token",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "referrer",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "oauth_client_state_id",
+        "data_type": "uuid",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "linking_target_id",
+        "data_type": "uuid",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "email_optional",
+        "data_type": "boolean",
+        "is_nullable": "NO",
+        "column_default": "false",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      }
+    ],
+    "relationships": []
+  },
+  {
+    "table_schema": "auth",
+    "table_name": "identities",
+    "columns": [
+      {
+        "column_name": "provider_id",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "user_id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "identity_data",
+        "data_type": "jsonb",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "provider",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "last_sign_in_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "updated_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "email",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": "gen_random_uuid()",
+        "is_primary_key": true,
+        "is_foreign_key": false
+      }
+    ],
+    "relationships": []
+  },
+  {
+    "table_schema": "auth",
+    "table_name": "instances",
+    "columns": [
+      {
+        "column_name": "id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": true,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "uuid",
+        "data_type": "uuid",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "raw_base_config",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "updated_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      }
+    ],
+    "relationships": []
+  },
+  {
+    "table_schema": "auth",
+    "table_name": "mfa_amr_claims",
+    "columns": [
+      {
+        "column_name": "session_id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "updated_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "authentication_method",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": true,
+        "is_foreign_key": false
+      }
+    ],
+    "relationships": []
+  },
+  {
+    "table_schema": "auth",
+    "table_name": "mfa_challenges",
+    "columns": [
+      {
+        "column_name": "id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": true,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "factor_id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "verified_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "ip_address",
+        "data_type": "inet",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "otp_code",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "web_authn_session_data",
+        "data_type": "jsonb",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      }
+    ],
+    "relationships": []
+  },
+  {
+    "table_schema": "auth",
+    "table_name": "mfa_factors",
+    "columns": [
+      {
+        "column_name": "id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": true,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "user_id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "friendly_name",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "factor_type",
+        "data_type": "factor_type",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "status",
+        "data_type": "factor_status",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "updated_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "secret",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "phone",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "last_challenged_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "web_authn_credential",
+        "data_type": "jsonb",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "web_authn_aaguid",
+        "data_type": "uuid",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "last_webauthn_challenge_data",
+        "data_type": "jsonb",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      }
+    ],
+    "relationships": []
+  },
+  {
+    "table_schema": "auth",
+    "table_name": "oauth_authorizations",
+    "columns": [
+      {
+        "column_name": "id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": true,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "authorization_id",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "client_id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "user_id",
+        "data_type": "uuid",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "redirect_uri",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "scope",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "state",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "resource",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "code_challenge",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "code_challenge_method",
+        "data_type": "code_challenge_method",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "response_type",
+        "data_type": "oauth_response_type",
+        "is_nullable": "NO",
+        "column_default": "'code'::auth.oauth_response_type",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "status",
+        "data_type": "oauth_authorization_status",
+        "is_nullable": "NO",
+        "column_default": "'pending'::auth.oauth_authorization_status",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "authorization_code",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "NO",
+        "column_default": "now()",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "expires_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "NO",
+        "column_default": "(now() + '00:03:00'::interval)",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "approved_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "nonce",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      }
+    ],
+    "relationships": []
+  },
+  {
+    "table_schema": "auth",
+    "table_name": "oauth_client_states",
+    "columns": [
+      {
+        "column_name": "id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": true,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "provider_type",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "code_verifier",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      }
+    ],
+    "relationships": []
+  },
+  {
+    "table_schema": "auth",
+    "table_name": "oauth_clients",
+    "columns": [
+      {
+        "column_name": "id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": true,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "client_secret_hash",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "registration_type",
+        "data_type": "oauth_registration_type",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "redirect_uris",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "grant_types",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "client_name",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "client_uri",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "logo_uri",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "NO",
+        "column_default": "now()",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "updated_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "NO",
+        "column_default": "now()",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "deleted_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "client_type",
+        "data_type": "oauth_client_type",
+        "is_nullable": "NO",
+        "column_default": "'confidential'::auth.oauth_client_type",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "token_endpoint_auth_method",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      }
+    ],
+    "relationships": []
+  },
+  {
+    "table_schema": "auth",
+    "table_name": "oauth_consents",
+    "columns": [
+      {
+        "column_name": "id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": true,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "user_id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "client_id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "scopes",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "granted_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "NO",
+        "column_default": "now()",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "revoked_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      }
+    ],
+    "relationships": []
+  },
+  {
+    "table_schema": "auth",
+    "table_name": "one_time_tokens",
+    "columns": [
+      {
+        "column_name": "id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": true,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "user_id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "token_type",
+        "data_type": "one_time_token_type",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "token_hash",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "relates_to",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "created_at",
+        "data_type": "timestamp without time zone",
+        "is_nullable": "NO",
+        "column_default": "now()",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "updated_at",
+        "data_type": "timestamp without time zone",
+        "is_nullable": "NO",
+        "column_default": "now()",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      }
+    ],
+    "relationships": []
+  },
+  {
+    "table_schema": "auth",
+    "table_name": "refresh_tokens",
+    "columns": [
+      {
+        "column_name": "instance_id",
+        "data_type": "uuid",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "id",
+        "data_type": "bigint",
+        "is_nullable": "NO",
+        "column_default": "nextval('auth.refresh_tokens_id_seq'::regclass)",
+        "is_primary_key": true,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "token",
+        "data_type": "character varying",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "user_id",
+        "data_type": "character varying",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "revoked",
+        "data_type": "boolean",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "updated_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "parent",
+        "data_type": "character varying",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "session_id",
+        "data_type": "uuid",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      }
+    ],
+    "relationships": []
+  },
+  {
+    "table_schema": "auth",
+    "table_name": "saml_providers",
+    "columns": [
+      {
+        "column_name": "id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": true,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "sso_provider_id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "entity_id",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "metadata_xml",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "metadata_url",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "attribute_mapping",
+        "data_type": "jsonb",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "updated_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "name_id_format",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      }
+    ],
+    "relationships": []
+  },
+  {
+    "table_schema": "auth",
+    "table_name": "saml_relay_states",
+    "columns": [
+      {
+        "column_name": "id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": true,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "sso_provider_id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "request_id",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "for_email",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "redirect_to",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "updated_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "flow_state_id",
+        "data_type": "uuid",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      }
+    ],
+    "relationships": []
+  },
+  {
+    "table_schema": "auth",
+    "table_name": "schema_migrations",
+    "columns": [
+      {
+        "column_name": "version",
+        "data_type": "character varying",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      }
+    ],
+    "relationships": []
+  },
+  {
+    "table_schema": "auth",
+    "table_name": "sessions",
+    "columns": [
+      {
+        "column_name": "id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": true,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "user_id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "updated_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "factor_id",
+        "data_type": "uuid",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "aal",
+        "data_type": "aal_level",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "not_after",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "refreshed_at",
+        "data_type": "timestamp without time zone",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "user_agent",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "ip",
+        "data_type": "inet",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "tag",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "oauth_client_id",
+        "data_type": "uuid",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "refresh_token_hmac_key",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "refresh_token_counter",
+        "data_type": "bigint",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "scopes",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      }
+    ],
+    "relationships": []
+  },
+  {
+    "table_schema": "auth",
+    "table_name": "sso_domains",
+    "columns": [
+      {
+        "column_name": "id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": true,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "sso_provider_id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "domain",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "updated_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      }
+    ],
+    "relationships": []
+  },
+  {
+    "table_schema": "auth",
+    "table_name": "sso_providers",
+    "columns": [
+      {
+        "column_name": "id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": true,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "resource_id",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "updated_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "disabled",
+        "data_type": "boolean",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      }
+    ],
+    "relationships": []
+  },
+  {
+    "table_schema": "auth",
+    "table_name": "users",
+    "columns": [
+      {
+        "column_name": "instance_id",
+        "data_type": "uuid",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": true,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "aud",
+        "data_type": "character varying",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "role",
+        "data_type": "character varying",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "email",
+        "data_type": "character varying",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "encrypted_password",
+        "data_type": "character varying",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "email_confirmed_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "invited_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "confirmation_token",
+        "data_type": "character varying",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "confirmation_sent_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "recovery_token",
+        "data_type": "character varying",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "recovery_sent_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "email_change_token_new",
+        "data_type": "character varying",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "email_change",
+        "data_type": "character varying",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "email_change_sent_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "last_sign_in_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "raw_app_meta_data",
+        "data_type": "jsonb",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "raw_user_meta_data",
+        "data_type": "jsonb",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "is_super_admin",
+        "data_type": "boolean",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "updated_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "phone",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "NULL::character varying",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "phone_confirmed_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "phone_change",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "''::character varying",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "phone_change_token",
+        "data_type": "character varying",
+        "is_nullable": "YES",
+        "column_default": "''::character varying",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "phone_change_sent_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "confirmed_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "email_change_token_current",
+        "data_type": "character varying",
+        "is_nullable": "YES",
+        "column_default": "''::character varying",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "email_change_confirm_status",
+        "data_type": "smallint",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "banned_until",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "reauthentication_token",
+        "data_type": "character varying",
+        "is_nullable": "YES",
+        "column_default": "''::character varying",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "reauthentication_sent_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "is_sso_user",
+        "data_type": "boolean",
+        "is_nullable": "NO",
+        "column_default": "false",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "deleted_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "is_anonymous",
+        "data_type": "boolean",
+        "is_nullable": "NO",
+        "column_default": "false",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      }
+    ],
+    "relationships": []
+  },
+  {
+    "table_schema": "public",
+    "table_name": "activity_log",
+    "columns": [
+      {
+        "column_name": "id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": "uuid_generate_v4()",
+        "is_primary_key": true,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "activity_type",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "activity_data",
+        "data_type": "jsonb",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      }
+    ],
+    "relationships": []
+  },
+  {
+    "table_schema": "public",
+    "table_name": "app_config",
+    "columns": [
+      {
+        "column_name": "key",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": true,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "value",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "note",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "updated_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      }
+    ],
+    "relationships": []
+  },
+  {
+    "table_schema": "public",
+    "table_name": "avatar_presets",
+    "columns": [
+      {
+        "column_name": "id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": "gen_random_uuid()",
+        "is_primary_key": true,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "name",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "style",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "config",
+        "data_type": "jsonb",
+        "is_nullable": "NO",
+        "column_default": "'{}'::jsonb",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "preview_url",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "''::text",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "is_premium",
+        "data_type": "boolean",
+        "is_nullable": "YES",
+        "column_default": "false",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "sort_order",
+        "data_type": "integer",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      }
+    ],
+    "relationships": []
+  },
+  {
+    "table_schema": "public",
+    "table_name": "client_assets",
+    "columns": [
+      {
+        "column_name": "id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": "gen_random_uuid()",
+        "is_primary_key": true,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "client_id",
+        "data_type": "uuid",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": true
+      },
+      {
+        "column_name": "file_name",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "file_url",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "file_type",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "uploaded_at",
+        "data_type": "date",
+        "is_nullable": "YES",
+        "column_default": "CURRENT_DATE",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      }
+    ],
+    "relationships": [
+      {
+        "constraint_name": "client_assets_client_id_fkey",
+        "column_name": "client_id",
+        "references_schema": "public",
+        "references_table": "clients",
+        "references_column": "id",
+        "on_update": "NO ACTION",
+        "on_delete": "CASCADE"
+      }
+    ]
+  },
+  {
+    "table_schema": "public",
+    "table_name": "client_messages",
+    "columns": [
+      {
+        "column_name": "id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": "gen_random_uuid()",
+        "is_primary_key": true,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "client_id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": true
+      },
+      {
+        "column_name": "sender",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "message",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "is_read",
+        "data_type": "boolean",
+        "is_nullable": "NO",
+        "column_default": "false",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "NO",
+        "column_default": "now()",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      }
+    ],
+    "relationships": [
+      {
+        "constraint_name": "client_messages_client_id_fkey",
+        "column_name": "client_id",
+        "references_schema": "public",
+        "references_table": "clients",
+        "references_column": "id",
+        "on_update": "NO ACTION",
+        "on_delete": "CASCADE"
+      }
+    ]
+  },
+  {
+    "table_schema": "public",
+    "table_name": "client_updates",
+    "columns": [
+      {
+        "column_name": "id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": "gen_random_uuid()",
+        "is_primary_key": true,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "client_id",
+        "data_type": "uuid",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": true
+      },
+      {
+        "column_name": "update_date",
+        "data_type": "date",
+        "is_nullable": "YES",
+        "column_default": "CURRENT_DATE",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "title",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "type",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "'info'::text",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      }
+    ],
+    "relationships": [
+      {
+        "constraint_name": "client_updates_client_id_fkey",
+        "column_name": "client_id",
+        "references_schema": "public",
+        "references_table": "clients",
+        "references_column": "id",
+        "on_update": "NO ACTION",
+        "on_delete": "CASCADE"
+      }
+    ]
+  },
+  {
+    "table_schema": "public",
+    "table_name": "clients",
+    "columns": [
+      {
+        "column_name": "id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": "gen_random_uuid()",
+        "is_primary_key": true,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "username",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "password",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "company_name",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "package_name",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "status",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "'Active'::text",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "progress",
+        "data_type": "integer",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "next_steps",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "timezone('utc'::text, now())",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "security_question",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "security_answer",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "package_details",
+        "data_type": "jsonb",
+        "is_nullable": "YES",
+        "column_default": "'{\"posts_used\": 0, \"posts_limit\": 10, \"videos_used\": 0, \"videos_limit\": 2}'::jsonb",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "active_offer",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "active_offer_link",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "admin_notes",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "subscription_config",
+        "data_type": "jsonb",
+        "is_nullable": "YES",
+        "column_default": "'{}'::jsonb",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "email",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "phone_number",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "password_hash",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "last_login_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "login_attempts",
+        "data_type": "integer",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "locked_until",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "email_verified",
+        "data_type": "boolean",
+        "is_nullable": "YES",
+        "column_default": "false",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "two_factor_enabled",
+        "data_type": "boolean",
+        "is_nullable": "YES",
+        "column_default": "false",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "two_factor_secret",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "avatar_style",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "'geometric'::text",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "avatar_seed",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "''::text",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "avatar_config",
+        "data_type": "jsonb",
+        "is_nullable": "YES",
+        "column_default": "'{}'::jsonb",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "avatar_url",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "''::text",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "display_name",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "''::text",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "bio",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "''::text",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "tagline",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "''::text",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "website",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "''::text",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "location",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "''::text",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "timezone",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "''::text",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "social_links",
+        "data_type": "jsonb",
+        "is_nullable": "YES",
+        "column_default": "'{}'::jsonb",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "brand_colors",
+        "data_type": "jsonb",
+        "is_nullable": "YES",
+        "column_default": "'[]'::jsonb",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "logo_url",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "''::text",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "cover_gradient",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "'aurora'::text",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "theme_accent",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "'#64ffda'::text",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "profile_visible",
+        "data_type": "boolean",
+        "is_nullable": "YES",
+        "column_default": "true",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "profile_completed_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "last_profile_update",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "primary_color",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "secondary_color",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "headline",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "cover_image_url",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "avatar_alt_text",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "public_slug",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "profile_theme",
+        "data_type": "jsonb",
+        "is_nullable": "YES",
+        "column_default": "'{}'::jsonb",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "avatar_crop",
+        "data_type": "jsonb",
+        "is_nullable": "YES",
+        "column_default": "'{}'::jsonb",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "cover_crop",
+        "data_type": "jsonb",
+        "is_nullable": "YES",
+        "column_default": "'{}'::jsonb",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "profile_completion_score",
+        "data_type": "integer",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "profile_last_media_update",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "verified_email",
+        "data_type": "boolean",
+        "is_nullable": "YES",
+        "column_default": "false",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "verified_phone",
+        "data_type": "boolean",
+        "is_nullable": "YES",
+        "column_default": "false",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "profile_visibility",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "'private'::text",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "profile_sections",
+        "data_type": "jsonb",
+        "is_nullable": "YES",
+        "column_default": "'[]'::jsonb",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "is_phone_verified",
+        "data_type": "boolean",
+        "is_nullable": "YES",
+        "column_default": "false",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "role",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "'client'::text",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      }
+    ],
+    "relationships": []
+  },
+  {
+    "table_schema": "public",
+    "table_name": "contacts",
+    "columns": [
+      {
+        "column_name": "id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": "gen_random_uuid()",
+        "is_primary_key": true,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "name",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "email",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "phone",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "business_name",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "industry",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "service_needed",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "message",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "source",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "'contact_form'::text",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "auto_collected_data",
+        "data_type": "jsonb",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "status",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "'new'::text",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "updated_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "location_url",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      }
+    ],
+    "relationships": []
+  },
+  {
+    "table_schema": "public",
+    "table_name": "discount_codes",
+    "columns": [
+      {
+        "column_name": "id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": "gen_random_uuid()",
+        "is_primary_key": true,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "code",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "discount_type",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "discount_value",
+        "data_type": "numeric",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "max_uses",
+        "data_type": "integer",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "current_uses",
+        "data_type": "integer",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "valid_until",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "is_active",
+        "data_type": "boolean",
+        "is_nullable": "YES",
+        "column_default": "true",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "updated_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      }
+    ],
+    "relationships": []
+  },
+  {
+    "table_schema": "public",
+    "table_name": "leads",
+    "columns": [
+      {
+        "column_name": "id",
+        "data_type": "bigint",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": true,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "NO",
+        "column_default": "timezone('utc'::text, now())",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "name",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "phone",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "message",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "status",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "'new'::text",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      }
+    ],
+    "relationships": []
+  },
+  {
+    "table_schema": "public",
+    "table_name": "login_attempts",
+    "columns": [
+      {
+        "column_name": "id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": "gen_random_uuid()",
+        "is_primary_key": true,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "username",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "email",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "success",
+        "data_type": "boolean",
+        "is_nullable": "YES",
+        "column_default": "false",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "failure_reason",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "ip_address",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "user_agent",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "device_info",
+        "data_type": "jsonb",
+        "is_nullable": "YES",
+        "column_default": "'{}'::jsonb",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "location",
+        "data_type": "jsonb",
+        "is_nullable": "YES",
+        "column_default": "'{}'::jsonb",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "attempted_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "NO",
+        "column_default": "now()",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      }
+    ],
+    "relationships": []
+  },
+  {
+    "table_schema": "public",
+    "table_name": "magic_links",
+    "columns": [
+      {
+        "column_name": "id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": "gen_random_uuid()",
+        "is_primary_key": true,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "token",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "client_id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": true
+      },
+      {
+        "column_name": "email",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "expires_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "used_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "is_used",
+        "data_type": "boolean",
+        "is_nullable": "YES",
+        "column_default": "false",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "ip_address",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "user_agent",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      }
+    ],
+    "relationships": [
+      {
+        "constraint_name": "magic_links_client_id_fkey",
+        "column_name": "client_id",
+        "references_schema": "public",
+        "references_table": "clients",
+        "references_column": "id",
+        "on_update": "NO ACTION",
+        "on_delete": "CASCADE"
+      }
+    ]
+  },
+  {
+    "table_schema": "public",
+    "table_name": "marketing_data",
+    "columns": [
+      {
+        "column_name": "id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": "gen_random_uuid()",
+        "is_primary_key": true,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "order_id",
+        "data_type": "uuid",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": true
+      },
+      {
+        "column_name": "contact_id",
+        "data_type": "uuid",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": true
+      },
+      {
+        "column_name": "package_id",
+        "data_type": "uuid",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": true
+      },
+      {
+        "column_name": "device_type",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "browser_vendor",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "platform",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "screen_width",
+        "data_type": "integer",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "screen_height",
+        "data_type": "integer",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "referrer",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "full_data",
+        "data_type": "jsonb",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "timestamp",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      }
+    ],
+    "relationships": [
+      {
+        "constraint_name": "marketing_data_contact_id_fkey",
+        "column_name": "contact_id",
+        "references_schema": "public",
+        "references_table": "contacts",
+        "references_column": "id",
+        "on_update": "NO ACTION",
+        "on_delete": "SET NULL"
+      },
+      {
+        "constraint_name": "marketing_data_order_id_fkey",
+        "column_name": "order_id",
+        "references_schema": "public",
+        "references_table": "orders",
+        "references_column": "id",
+        "on_update": "NO ACTION",
+        "on_delete": "SET NULL"
+      },
+      {
+        "constraint_name": "marketing_data_package_id_fkey",
+        "column_name": "package_id",
+        "references_schema": "public",
+        "references_table": "packages",
+        "references_column": "id",
+        "on_update": "NO ACTION",
+        "on_delete": "SET NULL"
+      }
+    ]
+  },
+  {
+    "table_schema": "public",
+    "table_name": "messages",
+    "columns": [
+      {
+        "column_name": "id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": "gen_random_uuid()",
+        "is_primary_key": true,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "client_id",
+        "data_type": "uuid",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": true
+      },
+      {
+        "column_name": "sender",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "message",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "is_read",
+        "data_type": "boolean",
+        "is_nullable": "YES",
+        "column_default": "false",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "timezone('utc'::text, now())",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      }
+    ],
+    "relationships": [
+      {
+        "constraint_name": "messages_client_id_fkey",
+        "column_name": "client_id",
+        "references_schema": "public",
+        "references_table": "clients",
+        "references_column": "id",
+        "on_update": "NO ACTION",
+        "on_delete": "CASCADE"
+      }
+    ]
+  },
+  {
+    "table_schema": "public",
+    "table_name": "notifications",
+    "columns": [
+      {
+        "column_name": "id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": "gen_random_uuid()",
+        "is_primary_key": true,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "type",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "client_id",
+        "data_type": "uuid",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": true
+      },
+      {
+        "column_name": "design_id",
+        "data_type": "uuid",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": true
+      },
+      {
+        "column_name": "message",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "is_read",
+        "data_type": "boolean",
+        "is_nullable": "YES",
+        "column_default": "false",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      }
+    ],
+    "relationships": [
+      {
+        "constraint_name": "notifications_client_id_fkey",
+        "column_name": "client_id",
+        "references_schema": "public",
+        "references_table": "clients",
+        "references_column": "id",
+        "on_update": "NO ACTION",
+        "on_delete": "CASCADE"
+      },
+      {
+        "constraint_name": "notifications_design_id_fkey",
+        "column_name": "design_id",
+        "references_schema": "public",
+        "references_table": "saved_designs",
+        "references_column": "id",
+        "on_update": "NO ACTION",
+        "on_delete": "CASCADE"
+      }
+    ]
+  },
+  {
+    "table_schema": "public",
+    "table_name": "orders",
+    "columns": [
+      {
+        "column_name": "id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": "gen_random_uuid()",
+        "is_primary_key": true,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "client_name",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "phone",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "email",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "package_type",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "total_price",
+        "data_type": "numeric",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "original_price",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "discount_amount",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "plan_details",
+        "data_type": "jsonb",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "auto_collected_data",
+        "data_type": "jsonb",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "status",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "'pending'::text",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "notes",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "updated_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "location_url",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "package_payload",
+        "data_type": "jsonb",
+        "is_nullable": "YES",
+        "column_default": "'{}'::jsonb",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "client_id",
+        "data_type": "uuid",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": true
+      }
+    ],
+    "relationships": [
+      {
+        "constraint_name": "orders_client_id_fkey",
+        "column_name": "client_id",
+        "references_schema": "public",
+        "references_table": "clients",
+        "references_column": "id",
+        "on_update": "NO ACTION",
+        "on_delete": "NO ACTION"
+      }
+    ]
+  },
+  {
+    "table_schema": "public",
+    "table_name": "packages",
+    "columns": [
+      {
+        "column_name": "id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": "gen_random_uuid()",
+        "is_primary_key": true,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "package_type",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "package_name",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "client_name",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "phone",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "email",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "message",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "auto_collected_data",
+        "data_type": "jsonb",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "status",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "'pending'::text",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "updated_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      }
+    ],
+    "relationships": []
+  },
+  {
+    "table_schema": "public",
+    "table_name": "password_resets",
+    "columns": [
+      {
+        "column_name": "id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": "gen_random_uuid()",
+        "is_primary_key": true,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "client_id",
+        "data_type": "uuid",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": true
+      },
+      {
+        "column_name": "email",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "reset_token",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "used",
+        "data_type": "boolean",
+        "is_nullable": "YES",
+        "column_default": "false",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "expires_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "used_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      }
+    ],
+    "relationships": [
+      {
+        "constraint_name": "password_resets_client_id_fkey",
+        "column_name": "client_id",
+        "references_schema": "public",
+        "references_table": "clients",
+        "references_column": "id",
+        "on_update": "NO ACTION",
+        "on_delete": "CASCADE"
+      }
+    ]
+  },
+  {
+    "table_schema": "public",
+    "table_name": "phone_verifications",
+    "columns": [
+      {
+        "column_name": "id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": "gen_random_uuid()",
+        "is_primary_key": true,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "phone_number",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "current_otp",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "is_verified",
+        "data_type": "boolean",
+        "is_nullable": "YES",
+        "column_default": "false",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "attempts_count",
+        "data_type": "integer",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "locked_until",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "otp_expires_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "updated_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      }
+    ],
+    "relationships": []
+  },
+  {
+    "table_schema": "public",
+    "table_name": "pricing_requests",
+    "columns": [
+      {
+        "column_name": "id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": "gen_random_uuid()",
+        "is_primary_key": true,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "client_id",
+        "data_type": "uuid",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": true
+      },
+      {
+        "column_name": "request_type",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "status",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": "'new'::text",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "request_source",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": "'pricing_modal'::text",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "package_id",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "package_name",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "selected_services",
+        "data_type": "jsonb",
+        "is_nullable": "NO",
+        "column_default": "'[]'::jsonb",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "estimated_subtotal",
+        "data_type": "numeric",
+        "is_nullable": "NO",
+        "column_default": "0",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "estimated_total",
+        "data_type": "numeric",
+        "is_nullable": "NO",
+        "column_default": "0",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "price_currency",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": "'EGP'::text",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "guest_name",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "guest_phone",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "guest_email",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "company_name",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "client_snapshot",
+        "data_type": "jsonb",
+        "is_nullable": "YES",
+        "column_default": "'{}'::jsonb",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "request_notes",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "admin_notes",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "converted_order_id",
+        "data_type": "uuid",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "location_url",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "auto_collected_data",
+        "data_type": "jsonb",
+        "is_nullable": "YES",
+        "column_default": "'{}'::jsonb",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "reviewed_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "NO",
+        "column_default": "now()",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "updated_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "NO",
+        "column_default": "now()",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      }
+    ],
+    "relationships": [
+      {
+        "constraint_name": "pricing_requests_client_id_fkey",
+        "column_name": "client_id",
+        "references_schema": "public",
+        "references_table": "clients",
+        "references_column": "id",
+        "on_update": "NO ACTION",
+        "on_delete": "SET NULL"
+      }
+    ]
+  },
+  {
+    "table_schema": "public",
+    "table_name": "profile_activity",
+    "columns": [
+      {
+        "column_name": "id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": "gen_random_uuid()",
+        "is_primary_key": true,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "client_id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": true
+      },
+      {
+        "column_name": "action",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "details",
+        "data_type": "jsonb",
+        "is_nullable": "YES",
+        "column_default": "'{}'::jsonb",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      }
+    ],
+    "relationships": [
+      {
+        "constraint_name": "profile_activity_client_id_fkey",
+        "column_name": "client_id",
+        "references_schema": "public",
+        "references_table": "clients",
+        "references_column": "id",
+        "on_update": "NO ACTION",
+        "on_delete": "CASCADE"
+      }
+    ]
+  },
+  {
+    "table_schema": "public",
+    "table_name": "profile_media",
+    "columns": [
+      {
+        "column_name": "id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": "gen_random_uuid()",
+        "is_primary_key": true,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "client_id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": true
+      },
+      {
+        "column_name": "media_kind",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "storage_path",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "public_url",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "mime_type",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "file_size_bytes",
+        "data_type": "bigint",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "width",
+        "data_type": "integer",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "height",
+        "data_type": "integer",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "metadata",
+        "data_type": "jsonb",
+        "is_nullable": "NO",
+        "column_default": "'{}'::jsonb",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "NO",
+        "column_default": "now()",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "updated_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "NO",
+        "column_default": "now()",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      }
+    ],
+    "relationships": [
+      {
+        "constraint_name": "profile_media_client_id_fkey",
+        "column_name": "client_id",
+        "references_schema": "public",
+        "references_table": "clients",
+        "references_column": "id",
+        "on_update": "NO ACTION",
+        "on_delete": "CASCADE"
+      }
+    ]
+  },
+  {
+    "table_schema": "public",
+    "table_name": "profiles",
+    "columns": [
+      {
+        "column_name": "id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": true,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "email",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "full_name",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "avatar_url",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "phone",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "role",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "'user'::text",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "permissions",
+        "data_type": "jsonb",
+        "is_nullable": "YES",
+        "column_default": "'{\"read\": true, \"admin\": false, \"write\": false, \"delete\": false}'::jsonb",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "status",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "'active'::text",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "email_verified",
+        "data_type": "boolean",
+        "is_nullable": "YES",
+        "column_default": "false",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "company",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "job_title",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "bio",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "settings",
+        "data_type": "jsonb",
+        "is_nullable": "YES",
+        "column_default": "'{\"theme\": \"light\", \"language\": \"ar\", \"notifications\": true}'::jsonb",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "last_sign_in_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "sign_in_count",
+        "data_type": "integer",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "updated_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      }
+    ],
+    "relationships": []
+  },
+  {
+    "table_schema": "public",
+    "table_name": "saved_designs",
+    "columns": [
+      {
+        "column_name": "id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": "gen_random_uuid()",
+        "is_primary_key": true,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "business_name",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "service_type",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": "'restaurant'::text",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "selected_theme",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "'default'::text",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "custom_theme",
+        "data_type": "jsonb",
+        "is_nullable": "YES",
+        "column_default": "'{\"accent\": \"#00bcd4\", \"primary\": \"#00bcd4\", \"gradient\": \"linear-gradient(135deg,#00bcd4,#00acc1)\"}'::jsonb",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "selected_template",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "'classic'::text",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "is_dark_mode",
+        "data_type": "boolean",
+        "is_nullable": "YES",
+        "column_default": "false",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "glass_effect",
+        "data_type": "boolean",
+        "is_nullable": "YES",
+        "column_default": "false",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "active_texture",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "'none'::text",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "font_size",
+        "data_type": "numeric",
+        "is_nullable": "YES",
+        "column_default": "1.0",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "view_mode",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "'list'::text",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "device_view",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "'mobile'::text",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "enable_3d",
+        "data_type": "boolean",
+        "is_nullable": "YES",
+        "column_default": "true",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "rotation_x",
+        "data_type": "integer",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "rotation_y",
+        "data_type": "integer",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "show_ratings",
+        "data_type": "boolean",
+        "is_nullable": "YES",
+        "column_default": "true",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "show_time",
+        "data_type": "boolean",
+        "is_nullable": "YES",
+        "column_default": "true",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "show_featured",
+        "data_type": "boolean",
+        "is_nullable": "YES",
+        "column_default": "true",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "image_quality",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "'standard'::text",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "sort_by",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "'name'::text",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "custom_items",
+        "data_type": "jsonb",
+        "is_nullable": "YES",
+        "column_default": "'[]'::jsonb",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "cart_items",
+        "data_type": "jsonb",
+        "is_nullable": "YES",
+        "column_default": "'{}'::jsonb",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "favorites",
+        "data_type": "jsonb",
+        "is_nullable": "YES",
+        "column_default": "'[]'::jsonb",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "client_id",
+        "data_type": "uuid",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": true
+      },
+      {
+        "column_name": "visitor_name",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "visitor_email",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "visitor_phone",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "visitor_note",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "browser_data",
+        "data_type": "jsonb",
+        "is_nullable": "YES",
+        "column_default": "'{}'::jsonb",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "status",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "'active'::text",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "view_count",
+        "data_type": "integer",
+        "is_nullable": "YES",
+        "column_default": "0",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "updated_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "view_token",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "expires_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "ref_source",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      }
+    ],
+    "relationships": [
+      {
+        "constraint_name": "saved_designs_client_id_fkey",
+        "column_name": "client_id",
+        "references_schema": "public",
+        "references_table": "clients",
+        "references_column": "id",
+        "on_update": "NO ACTION",
+        "on_delete": "SET NULL"
+      }
+    ]
+  },
+  {
+    "table_schema": "public",
+    "table_name": "subscriptions",
+    "columns": [
+      {
+        "column_name": "id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": "gen_random_uuid()",
+        "is_primary_key": true,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "user_id",
+        "data_type": "uuid",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "plan_name",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "status",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "'active'::text",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "billing_cycle",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "'monthly'::text",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "total",
+        "data_type": "numeric",
+        "is_nullable": "NO",
+        "column_default": "0",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "currency",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "'EGP'::text",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "start_date",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "next_billing_date",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "end_date",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "updated_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      }
+    ],
+    "relationships": []
+  },
+  {
+    "table_schema": "public",
+    "table_name": "user_sessions",
+    "columns": [
+      {
+        "column_name": "id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": "gen_random_uuid()",
+        "is_primary_key": true,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "user_id",
+        "data_type": "uuid",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "client_id",
+        "data_type": "uuid",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": true
+      },
+      {
+        "column_name": "session_token",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "refresh_token",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "device_info",
+        "data_type": "jsonb",
+        "is_nullable": "YES",
+        "column_default": "'{}'::jsonb",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "ip_address",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "user_agent",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "is_active",
+        "data_type": "boolean",
+        "is_nullable": "YES",
+        "column_default": "true",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "expires_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "last_activity_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      }
+    ],
+    "relationships": [
+      {
+        "constraint_name": "user_sessions_client_id_fkey",
+        "column_name": "client_id",
+        "references_schema": "public",
+        "references_table": "clients",
+        "references_column": "id",
+        "on_update": "NO ACTION",
+        "on_delete": "CASCADE"
+      }
+    ]
+  },
+  {
+    "table_schema": "realtime",
+    "table_name": "messages",
+    "columns": [
+      {
+        "column_name": "topic",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "extension",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "payload",
+        "data_type": "jsonb",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "event",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "private",
+        "data_type": "boolean",
+        "is_nullable": "YES",
+        "column_default": "false",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "updated_at",
+        "data_type": "timestamp without time zone",
+        "is_nullable": "NO",
+        "column_default": "now()",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "inserted_at",
+        "data_type": "timestamp without time zone",
+        "is_nullable": "NO",
+        "column_default": "now()",
+        "is_primary_key": true,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": "gen_random_uuid()",
+        "is_primary_key": true,
+        "is_foreign_key": false
+      }
+    ],
+    "relationships": []
+  },
+  {
+    "table_schema": "realtime",
+    "table_name": "messages_2026_03_08",
+    "columns": [
+      {
+        "column_name": "topic",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "extension",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "payload",
+        "data_type": "jsonb",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "event",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "private",
+        "data_type": "boolean",
+        "is_nullable": "YES",
+        "column_default": "false",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "updated_at",
+        "data_type": "timestamp without time zone",
+        "is_nullable": "NO",
+        "column_default": "now()",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "inserted_at",
+        "data_type": "timestamp without time zone",
+        "is_nullable": "NO",
+        "column_default": "now()",
+        "is_primary_key": true,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": "gen_random_uuid()",
+        "is_primary_key": true,
+        "is_foreign_key": false
+      }
+    ],
+    "relationships": []
+  },
+  {
+    "table_schema": "realtime",
+    "table_name": "messages_2026_03_09",
+    "columns": [
+      {
+        "column_name": "topic",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "extension",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "payload",
+        "data_type": "jsonb",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "event",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "private",
+        "data_type": "boolean",
+        "is_nullable": "YES",
+        "column_default": "false",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "updated_at",
+        "data_type": "timestamp without time zone",
+        "is_nullable": "NO",
+        "column_default": "now()",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "inserted_at",
+        "data_type": "timestamp without time zone",
+        "is_nullable": "NO",
+        "column_default": "now()",
+        "is_primary_key": true,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": "gen_random_uuid()",
+        "is_primary_key": true,
+        "is_foreign_key": false
+      }
+    ],
+    "relationships": []
+  },
+  {
+    "table_schema": "realtime",
+    "table_name": "messages_2026_03_10",
+    "columns": [
+      {
+        "column_name": "topic",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "extension",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "payload",
+        "data_type": "jsonb",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "event",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "private",
+        "data_type": "boolean",
+        "is_nullable": "YES",
+        "column_default": "false",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "updated_at",
+        "data_type": "timestamp without time zone",
+        "is_nullable": "NO",
+        "column_default": "now()",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "inserted_at",
+        "data_type": "timestamp without time zone",
+        "is_nullable": "NO",
+        "column_default": "now()",
+        "is_primary_key": true,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": "gen_random_uuid()",
+        "is_primary_key": true,
+        "is_foreign_key": false
+      }
+    ],
+    "relationships": []
+  },
+  {
+    "table_schema": "realtime",
+    "table_name": "messages_2026_03_11",
+    "columns": [
+      {
+        "column_name": "topic",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "extension",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "payload",
+        "data_type": "jsonb",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "event",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "private",
+        "data_type": "boolean",
+        "is_nullable": "YES",
+        "column_default": "false",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "updated_at",
+        "data_type": "timestamp without time zone",
+        "is_nullable": "NO",
+        "column_default": "now()",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "inserted_at",
+        "data_type": "timestamp without time zone",
+        "is_nullable": "NO",
+        "column_default": "now()",
+        "is_primary_key": true,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": "gen_random_uuid()",
+        "is_primary_key": true,
+        "is_foreign_key": false
+      }
+    ],
+    "relationships": []
+  },
+  {
+    "table_schema": "realtime",
+    "table_name": "messages_2026_03_12",
+    "columns": [
+      {
+        "column_name": "topic",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "extension",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "payload",
+        "data_type": "jsonb",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "event",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "private",
+        "data_type": "boolean",
+        "is_nullable": "YES",
+        "column_default": "false",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "updated_at",
+        "data_type": "timestamp without time zone",
+        "is_nullable": "NO",
+        "column_default": "now()",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "inserted_at",
+        "data_type": "timestamp without time zone",
+        "is_nullable": "NO",
+        "column_default": "now()",
+        "is_primary_key": true,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": "gen_random_uuid()",
+        "is_primary_key": true,
+        "is_foreign_key": false
+      }
+    ],
+    "relationships": []
+  },
+  {
+    "table_schema": "realtime",
+    "table_name": "messages_2026_03_13",
+    "columns": [
+      {
+        "column_name": "topic",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "extension",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "payload",
+        "data_type": "jsonb",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "event",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "private",
+        "data_type": "boolean",
+        "is_nullable": "YES",
+        "column_default": "false",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "updated_at",
+        "data_type": "timestamp without time zone",
+        "is_nullable": "NO",
+        "column_default": "now()",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "inserted_at",
+        "data_type": "timestamp without time zone",
+        "is_nullable": "NO",
+        "column_default": "now()",
+        "is_primary_key": true,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": "gen_random_uuid()",
+        "is_primary_key": true,
+        "is_foreign_key": false
+      }
+    ],
+    "relationships": []
+  },
+  {
+    "table_schema": "realtime",
+    "table_name": "messages_2026_03_14",
+    "columns": [
+      {
+        "column_name": "topic",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "extension",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "payload",
+        "data_type": "jsonb",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "event",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "private",
+        "data_type": "boolean",
+        "is_nullable": "YES",
+        "column_default": "false",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "updated_at",
+        "data_type": "timestamp without time zone",
+        "is_nullable": "NO",
+        "column_default": "now()",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "inserted_at",
+        "data_type": "timestamp without time zone",
+        "is_nullable": "NO",
+        "column_default": "now()",
+        "is_primary_key": true,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": "gen_random_uuid()",
+        "is_primary_key": true,
+        "is_foreign_key": false
+      }
+    ],
+    "relationships": []
+  },
+  {
+    "table_schema": "realtime",
+    "table_name": "schema_migrations",
+    "columns": [
+      {
+        "column_name": "version",
+        "data_type": "bigint",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": true,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "inserted_at",
+        "data_type": "timestamp without time zone",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      }
+    ],
+    "relationships": []
+  },
+  {
+    "table_schema": "realtime",
+    "table_name": "subscription",
+    "columns": [
+      {
+        "column_name": "id",
+        "data_type": "bigint",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": true,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "subscription_id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "entity",
+        "data_type": "regclass",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "filters",
+        "data_type": "ARRAY",
+        "is_nullable": "NO",
+        "column_default": "'{}'::realtime.user_defined_filter[]",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "claims",
+        "data_type": "jsonb",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "claims_role",
+        "data_type": "regrole",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "created_at",
+        "data_type": "timestamp without time zone",
+        "is_nullable": "NO",
+        "column_default": "timezone('utc'::text, now())",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "action_filter",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": "'*'::text",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      }
+    ],
+    "relationships": []
+  },
+  {
+    "table_schema": "storage",
+    "table_name": "buckets",
+    "columns": [
+      {
+        "column_name": "id",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": true,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "name",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "owner",
+        "data_type": "uuid",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "updated_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "public",
+        "data_type": "boolean",
+        "is_nullable": "YES",
+        "column_default": "false",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "avif_autodetection",
+        "data_type": "boolean",
+        "is_nullable": "YES",
+        "column_default": "false",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "file_size_limit",
+        "data_type": "bigint",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "allowed_mime_types",
+        "data_type": "ARRAY",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "owner_id",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "type",
+        "data_type": "buckettype",
+        "is_nullable": "NO",
+        "column_default": "'STANDARD'::storage.buckettype",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      }
+    ],
+    "relationships": []
+  },
+  {
+    "table_schema": "storage",
+    "table_name": "buckets_analytics",
+    "columns": [
+      {
+        "column_name": "name",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "type",
+        "data_type": "buckettype",
+        "is_nullable": "NO",
+        "column_default": "'ANALYTICS'::storage.buckettype",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "format",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": "'ICEBERG'::text",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "NO",
+        "column_default": "now()",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "updated_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "NO",
+        "column_default": "now()",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": "gen_random_uuid()",
+        "is_primary_key": true,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "deleted_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      }
+    ],
+    "relationships": []
+  },
+  {
+    "table_schema": "storage",
+    "table_name": "buckets_vectors",
+    "columns": [
+      {
+        "column_name": "id",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "type",
+        "data_type": "buckettype",
+        "is_nullable": "NO",
+        "column_default": "'VECTOR'::storage.buckettype",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "NO",
+        "column_default": "now()",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "updated_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "NO",
+        "column_default": "now()",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      }
+    ],
+    "relationships": []
+  },
+  {
+    "table_schema": "storage",
+    "table_name": "migrations",
+    "columns": [
+      {
+        "column_name": "id",
+        "data_type": "integer",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "name",
+        "data_type": "character varying",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "hash",
+        "data_type": "character varying",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "executed_at",
+        "data_type": "timestamp without time zone",
+        "is_nullable": "YES",
+        "column_default": "CURRENT_TIMESTAMP",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      }
+    ],
+    "relationships": []
+  },
+  {
+    "table_schema": "storage",
+    "table_name": "objects",
+    "columns": [
+      {
+        "column_name": "id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": "gen_random_uuid()",
+        "is_primary_key": true,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "bucket_id",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "name",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "owner",
+        "data_type": "uuid",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "updated_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "last_accessed_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "metadata",
+        "data_type": "jsonb",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "path_tokens",
+        "data_type": "ARRAY",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "version",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "owner_id",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "user_metadata",
+        "data_type": "jsonb",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      }
+    ],
+    "relationships": []
+  },
+  {
+    "table_schema": "storage",
+    "table_name": "s3_multipart_uploads",
+    "columns": [
+      {
+        "column_name": "id",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": true,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "in_progress_size",
+        "data_type": "bigint",
+        "is_nullable": "NO",
+        "column_default": "0",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "upload_signature",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "bucket_id",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "key",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "version",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "owner_id",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "NO",
+        "column_default": "now()",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "user_metadata",
+        "data_type": "jsonb",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      }
+    ],
+    "relationships": []
+  },
+  {
+    "table_schema": "storage",
+    "table_name": "s3_multipart_uploads_parts",
+    "columns": [
+      {
+        "column_name": "id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": "gen_random_uuid()",
+        "is_primary_key": true,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "upload_id",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "size",
+        "data_type": "bigint",
+        "is_nullable": "NO",
+        "column_default": "0",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "part_number",
+        "data_type": "integer",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "bucket_id",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "key",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "etag",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "owner_id",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "version",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "NO",
+        "column_default": "now()",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      }
+    ],
+    "relationships": []
+  },
+  {
+    "table_schema": "storage",
+    "table_name": "vector_indexes",
+    "columns": [
+      {
+        "column_name": "id",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": "gen_random_uuid()",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "name",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "bucket_id",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "data_type",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "dimension",
+        "data_type": "integer",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "distance_metric",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "metadata_configuration",
+        "data_type": "jsonb",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "NO",
+        "column_default": "now()",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "updated_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "NO",
+        "column_default": "now()",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      }
+    ],
+    "relationships": []
+  },
+  {
+    "table_schema": "vault",
+    "table_name": "secrets",
+    "columns": [
+      {
+        "column_name": "id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": "gen_random_uuid()",
+        "is_primary_key": true,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "name",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "description",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": "''::text",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "secret",
+        "data_type": "text",
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "key_id",
+        "data_type": "uuid",
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "nonce",
+        "data_type": "bytea",
+        "is_nullable": "YES",
+        "column_default": "vault._crypto_aead_det_noncegen()",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "NO",
+        "column_default": "CURRENT_TIMESTAMP",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      },
+      {
+        "column_name": "updated_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "NO",
+        "column_default": "CURRENT_TIMESTAMP",
+        "is_primary_key": false,
+        "is_foreign_key": false
+      }
+    ],
+    "relationships": []
+  }
+]
