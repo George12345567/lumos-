@@ -11,7 +11,7 @@ import {
   ArrowRight, Star, Shield, Layers, Code, Camera,
   Megaphone, Bot, Settings2, TrendingUp, Lock, ArrowLeft,
   Receipt, Calculator, Package as PackageIcon, MessageSquare,
-  User, Phone, Mail, FileText, Sparkles, Zap, Palette, RefreshCw, Save, AlertTriangle, Trash2
+  User, Phone, Mail, FileText, Sparkles, Zap, Palette, RefreshCw, Save, AlertTriangle, Trash2, Copy, CheckCircle2
 } from 'lucide-react';
 import {
   PACKAGES, SERVICES, CATEGORIES,
@@ -68,6 +68,7 @@ interface StoredRequest {
   guestPhone?: string;
   guestName?: string;
   guestEmail?: string;
+  lastCheckedAt?: string;
 }
 
 const savePendingRequest = (request: {
@@ -79,6 +80,7 @@ const savePendingRequest = (request: {
   guestPhone?: string;
   guestName?: string;
   guestEmail?: string;
+  lastCheckedAt?: string;
 }): void => {
   try {
     const now = new Date();
@@ -87,6 +89,7 @@ const savePendingRequest = (request: {
       ...request,
       createdAt: now.toISOString(),
       expiresAt: expiresAt.toISOString(),
+      lastCheckedAt: now.toISOString(),
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(stored));
   } catch (e) {
@@ -118,6 +121,29 @@ const clearPendingRequest = (): void => {
   }
 };
 
+const shouldRefreshStatus = (stored: StoredRequest): boolean => {
+  if (!stored.lastCheckedAt) return true;
+  const lastChecked = new Date(stored.lastCheckedAt);
+  const now = new Date();
+  const hoursDiff = (now.getTime() - lastChecked.getTime()) / (1000 * 60 * 60);
+  return hoursDiff >= 1;
+};
+
+const updateStoredRequestStatus = (id: string, status: string): void => {
+  try {
+    const data = localStorage.getItem(STORAGE_KEY);
+    if (!data) return;
+    const stored: StoredRequest = JSON.parse(data);
+    if (stored.id === id) {
+      stored.status = status;
+      stored.lastCheckedAt = new Date().toISOString();
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(stored));
+    }
+  } catch (e) {
+    console.error('Failed to update stored request status:', e);
+  }
+};
+
 // ════════════════════════════════════════════════════════════════════
 // MAIN COMPONENT
 // ════════════════════════════════════════════════════════════════════
@@ -144,6 +170,9 @@ const PricingModal = ({ open, onOpenChange, initialRequest = null }: PricingModa
   const [contact, setContact] = useState({ name: '', phone: '', email: '', notes: '' });
   const [submittedRequest, setSubmittedRequest] = useState<PricingRequest | null>(null);
   const [savedPendingRequest, setSavedPendingRequest] = useState<StoredRequest | null>(null);
+  const [isTrackingView, setIsTrackingView] = useState(false);
+  const [isEditingMode, setIsEditingMode] = useState(false);
+  const [isCopying, setIsCopying] = useState(false);
   
   /* ── Validation States ── */
   const [validationErrors, setValidationErrors] = useState<{
@@ -331,16 +360,51 @@ const PricingModal = ({ open, onOpenChange, initialRequest = null }: PricingModa
   useEffect(() => {
     if (!open) return;
     const saved = loadPendingRequest();
-    if (saved) {
-      setSavedPendingRequest(saved);
-      setStep('success');
-      setContact({
-        name: saved.guestName || '',
-        phone: saved.guestPhone || '',
-        email: saved.guestEmail || '',
-        notes: '',
-      });
-    }
+    if (!saved) return;
+
+    const fetchFreshStatus = async () => {
+      if (shouldRefreshStatus(saved)) {
+        try {
+          const { data: freshData } = await supabase
+            .from('pricing_requests')
+            .select('status, package_name, estimated_total, price_currency')
+            .eq('id', saved.id)
+            .single();
+          
+          if (freshData) {
+            const updated = {
+              ...saved,
+              status: freshData.status || saved.status,
+              packageName: freshData.package_name || saved.packageName,
+              estimatedTotal: freshData.estimated_total || saved.estimatedTotal,
+              currency: freshData.price_currency || saved.currency,
+              lastCheckedAt: new Date().toISOString(),
+            };
+            setSavedPendingRequest(updated);
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+          } else {
+            setSavedPendingRequest(saved);
+          }
+        } catch (e) {
+          console.error('Failed to fetch fresh status:', e);
+          setSavedPendingRequest(saved);
+        }
+      } else {
+        setSavedPendingRequest(saved);
+        setStep('success');
+      }
+    };
+
+    setStep('success');
+    setIsTrackingView(true);
+    setIsEditingMode(false);
+    setContact({
+      name: saved.guestName || '',
+      phone: saved.guestPhone || '',
+      email: saved.guestEmail || '',
+      notes: '',
+    });
+    fetchFreshStatus();
   }, [open]);
 
   /* ── 40-Second Easter Egg Trigger ── */
@@ -978,10 +1042,47 @@ const PricingModal = ({ open, onOpenChange, initialRequest = null }: PricingModa
   const handleEditRequest = useCallback(() => {
     if (submittedRequest) {
       hydrateRequest(submittedRequest);
+      setStep('build');
     } else if (latestClientRequest) {
       hydrateRequest(latestClientRequest);
+      setStep('build');
+    } else if (savedPendingRequest) {
+      // For guest users - load saved request into form
+      setIsEditingMode(true);
+      setStep('build');
+      setMode('packages');
+      // The savedPendingRequest has package info that can be used to pre-select
     }
-  }, [submittedRequest, latestClientRequest, hydrateRequest]);
+  }, [submittedRequest, latestClientRequest, savedPendingRequest, hydrateRequest]);
+
+  /* ── Cancel Order Forever (Delete from DB + localStorage) ── */
+  const handleCancelOrderForever = useCallback(async () => {
+    if (!savedPendingRequest) return;
+    
+    try {
+      // Delete from Supabase
+      await supabase
+        .from('pricing_requests')
+        .delete()
+        .eq('id', savedPendingRequest.id);
+      
+      // Clear from localStorage and state
+      clearPendingRequest();
+      setSavedPendingRequest(null);
+      setIsTrackingView(false);
+      setIsEditingMode(false);
+      setStep('mode');
+      setMode(null);
+      setSelectedPkg(null);
+      setSelectedServices(new Set());
+      setContact({ name: '', phone: '', email: '', notes: '' });
+      
+      toast.success(isAr ? 'تم إلغاء الطلب بنجاح' : 'Order cancelled successfully');
+    } catch (e) {
+      console.error('Failed to cancel order:', e);
+      toast.error(isAr ? 'فشل إلغاء الطلب' : 'Failed to cancel order');
+    }
+  }, [savedPendingRequest, isAr]);
 
   /* ── Cancel Request ── */
   const handleCancelRequest = useCallback(async () => {
@@ -1108,6 +1209,41 @@ const PricingModal = ({ open, onOpenChange, initialRequest = null }: PricingModa
                   </button>
                 </div>
               </div>
+
+{/* ════ SIMPLIFIED TRACKING BAR (Progress Only) ════ */}
+              {savedPendingRequest && step !== 'success' && (() => {
+                const statusMeta = {
+                  new: { label: isAr ? 'تم الاستلام' : 'Received', color: 'from-cyan-400 to-cyan-500', progress: 25 },
+                  reviewing: { label: isAr ? 'جاري المراجعة' : 'Under Review', color: 'from-purple-400 to-purple-500', progress: 50 },
+                  approved: { label: isAr ? 'تمت الموافقة' : 'Approved', color: 'from-emerald-400 to-emerald-500', progress: 75 },
+                  converted: { label: isAr ? 'تم التسليم' : 'Delivered', color: 'from-violet-400 to-violet-500', progress: 100 },
+                  rejected: { label: isAr ? 'ملغي' : 'Cancelled', color: 'from-rose-400 to-rose-500', progress: 100 },
+                }[savedPendingRequest.status] || { label: isAr ? 'جاري' : 'Pending', color: 'from-slate-400 to-slate-500', progress: 10 };
+
+                return (
+                  <div className="mt-3 px-4 py-2 rounded-xl bg-gradient-to-r from-slate-50 to-slate-100/50 border border-slate-200">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[9px] font-bold text-slate-500">
+                          #{savedPendingRequest.id?.slice(0, 8)}
+                        </span>
+                        <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-white border border-slate-200 text-slate-600">
+                          {statusMeta.label}
+                        </span>
+                      </div>
+                    </div>
+                    
+                    {/* Progress bar */}
+                    <div className="h-1 rounded-full bg-slate-200 overflow-hidden">
+                      <motion.div 
+                        initial={{ width: 0 }}
+                        animate={{ width: `${statusMeta.progress}%` }}
+                        className={`h-full rounded-full bg-gradient-to-r ${statusMeta.color}`}
+                      />
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* Step Progress bar */}
               {step !== 'mode' && (
@@ -2298,147 +2434,159 @@ const PricingModal = ({ open, onOpenChange, initialRequest = null }: PricingModa
                   </motion.div>
                 )}
 
-                {/* ──────── STEP 6: SUCCESS / TRACKING ──────── */}
+{/* ──────── STEP 6: SUCCESS / TRACKING (NEW TIMELINE UI) ──────── */}
                 {step === 'success' && (() => {
                   const activeReq = submittedRequest || latestClientRequest;
                   const isTrackingMode = savedPendingRequest && !submittedRequest && !latestClientRequest;
                   
-                  const statusMeta = activeReq ? (() => {
-                    switch (activeReq.status) {
-                      case 'reviewing':
-                        return {
-                          label: isAr ? 'قيد المراجعة' : 'Under Review',
-                          pill: 'bg-amber-50 text-amber-700 border-amber-200',
-                          note: isAr ? 'الفريق يراجع الآن التفاصيل والتسعير قبل الاعتماد.' : 'The team is reviewing the scope and pricing before approval.',
-                          progress: 50,
-                        };
-                      case 'approved':
-                        return {
-                          label: isAr ? 'تمت الموافقة' : 'Approved',
-                          pill: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-                          note: isAr ? 'تمت الموافقة على الطلب وأصبح جاهزاً للخطوة التجارية التالية.' : 'Your request is approved and ready for the next commercial step.',
-                          progress: 75,
-                        };
-                      case 'converted':
-                        return {
-                          label: isAr ? 'تم تحويله لأوردر' : 'Converted To Order',
-                          pill: 'bg-violet-50 text-violet-700 border-violet-200',
-                          note: isAr ? 'طلبك أصبح أوردر نشط ويتم متابعته داخل الحساب ولوحة الأدمن.' : 'Your request has been converted into a live order and is now tracked across your account and admin dashboard.',
-                          progress: 100,
-                        };
-                      case 'rejected':
-                        return {
-                          label: isAr ? 'تم الإلغاء' : 'Cancelled',
-                          pill: 'bg-rose-50 text-rose-700 border-rose-200',
-                          note: isAr ? 'تم إلغاء الطلب.' : 'The request has been cancelled.',
-                          progress: 100,
-                        };
-                      default:
-                        return {
-                          label: isAr ? 'تم الاستلام' : 'Received',
-                          pill: 'bg-cyan-50 text-cyan-700 border-cyan-200',
-                          note: isAr ? 'وصل طلبك إلى الفريق وينتظر بدء المراجعة.' : 'Your request has reached the team and is waiting for review.',
-                          progress: 25,
-                        };
+                  const currentRequest = isTrackingMode ? savedPendingRequest : (activeReq as any);
+                  const currentStatus = currentRequest?.status || 'new';
+                  
+                  const getStepStatus = (stepName: string) => {
+                    const statusOrder = ['new', 'reviewing', 'approved', 'converted'];
+                    const currentIdx = statusOrder.indexOf(currentStatus);
+                    const stepIdx = statusOrder.indexOf(stepName);
+                    
+                    if (currentStatus === 'rejected') {
+                      if (stepIdx <= 1) return 'completed';
+                      return 'pending';
                     }
-                  })() : (isTrackingMode ? {
-                    label: isAr ? 'جاري المراجعة' : 'Under Review',
-                    pill: 'bg-amber-50 text-amber-700 border-amber-200',
-                    note: isAr ? 'طلبك قيد المراجعة. سنتواصل معك قريباً.' : 'Your request is under review. We will contact you soon.',
-                    progress: 50,
-                  } : null);
+                    
+                    if (stepIdx < currentIdx) return 'completed';
+                    if (stepIdx === currentIdx) return 'current';
+                    return 'pending';
+                  };
 
-                  const canEdit = activeReq && ['new', 'reviewing', 'rejected'].includes(activeReq.status);
-                  const canCancel = activeReq && ['new', 'reviewing', 'approved'].includes(activeReq.status);
+                  const timelineSteps = [
+                    { key: 'new', label: isAr ? 'تم استلام الطلب' : 'Order Received', subLabel: isAr ? 'تم تسجيل طلبك بنجاح' : 'Your order has been registered' },
+                    { key: 'reviewing', label: isAr ? 'جاري المراجعة' : 'Under Review', subLabel: isAr ? 'الفريق يفحص تفاصيل طلبك' : 'Team is reviewing your details' },
+                    { key: 'approved', label: isAr ? 'تأكيد وبدء العمل' : 'Approved & Started', subLabel: isAr ? 'تم اعتماد الطلب وسيبدأ العمل' : 'Order approved, work begins soon' },
+                    { key: 'converted', label: isAr ? 'تسليم المشروع' : 'Project Delivery', subLabel: isAr ? 'سيتم تسليم المشروع النهائي' : 'Final project will be delivered' },
+                  ];
 
                   return (
-                    <motion.div key="success" {...slide} className="p-8 sm:p-12 max-w-2xl mx-auto h-full flex flex-col justify-center">
+                    <motion.div 
+                      key="success" 
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ duration: 0.2 }}
+                      className="p-6 sm:p-10 max-w-xl mx-auto h-full flex flex-col justify-center overflow-y-auto"
+                    >
+                      {/* ════ TOP SECTION: ORDER HEADER ════ */}
                       <div className="text-center mb-8">
-                        <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-emerald-100 mb-6 mx-auto border-4 border-emerald-200">
-                          <Check className="w-10 h-10 text-emerald-600" />
-                        </div>
-                        <h2 className="text-3xl font-black text-slate-900 mb-2">
-                          {isTrackingMode 
-                            ? (isAr ? 'تابع طلبك السابق' : 'Track Your Previous Request')
-                            : (isAr ? 'تم إرسال طلبك بنجاح!' : 'Your Request Submitted Successfully!')}
+                        <motion.div 
+                          className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-emerald-100 mb-4 mx-auto border-4 border-emerald-200"
+                          animate={{ scale: [1, 1.05, 1] }}
+                          transition={{ repeat: Infinity, duration: 2 }}
+                        >
+                          <CheckCircle2 className="w-8 h-8 text-emerald-600" />
+                        </motion.div>
+                        <h2 className="text-2xl sm:text-3xl font-black text-slate-900 mb-2">
+                          {isAr ? 'طلبك في أمان!' : 'Your Order is Safe!'}
                         </h2>
-                        <p className="text-slate-400 text-sm font-medium">
-                          {isTrackingMode 
-                            ? (isAr ? 'رقم الطلب: ' + savedPendingRequest?.id?.slice(0, 8) : 'Request ID: ' + savedPendingRequest?.id?.slice(0, 8))
-                            : (isAr ? 'رقم الطلب: ' + (activeReq?.id?.slice(0, 8) || 'N/A') : 'Request ID: ' + (activeReq?.id?.slice(0, 8) || 'N/A'))}
+                        <p className="text-slate-400 text-sm font-medium flex items-center justify-center gap-1">
+                          <span>{isAr ? 'رقم الطلب: ' : 'Order ID: '}</span>
+                          <span className="font-mono text-slate-600">#{currentRequest?.id?.slice(0, 8) || 'N/A'}</span>
+                          <button
+                            onClick={() => {
+                              setIsCopying(true);
+                              navigator.clipboard.writeText(currentRequest?.id?.slice(0, 8) || '');
+                              setTimeout(() => setIsCopying(false), 1500);
+                            }}
+                            className="p-1 hover:bg-slate-100 rounded transition-colors"
+                          >
+                            {isCopying ? (
+                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                            ) : (
+                              <Copy className="w-3.5 h-3.5 text-slate-400" />
+                            )}
+                          </button>
                         </p>
                       </div>
 
-                      {statusMeta && (
-                        <div className="bg-white border-2 border-slate-100 rounded-2xl p-7 shadow-[0_4px_24px_rgba(0,0,0,0.07)] mb-6">
-                          <div className="flex items-center justify-between mb-4">
-                            <span className={`rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-widest ${statusMeta.pill}`}>
-                              {statusMeta.label}
-                            </span>
-                            <span className="text-xs font-bold text-slate-400">{statusMeta.progress}%</span>
-                          </div>
+                      {/* ════ MIDDLE SECTION: TIMELINE ════ */}
+                      <div className="relative mb-8">
+                        {timelineSteps.map((step, idx) => {
+                          const status = getStepStatus(step.key);
+                          const isLast = idx === timelineSteps.length - 1;
                           
-                          <div className="h-2 overflow-hidden rounded-full bg-slate-100 mb-4">
-                            <motion.div
-                              initial={{ width: 0 }}
-                              animate={{ width: `${statusMeta.progress}%` }}
-                              className="h-full rounded-full bg-gradient-to-r from-emerald-500 via-teal-500 to-amber-400"
-                            />
-                          </div>
-                          
-                          <p className="text-sm text-slate-600">{statusMeta.note}</p>
-                        </div>
-)}
-
-                      {/* Saved Request Details (Tracking Mode) */}
-                      {isTrackingMode && savedPendingRequest && (
-                        <div className="bg-white border-2 border-slate-100 rounded-2xl p-6 shadow-[0_4px_24px_rgba(0,0,0,0.07)] mb-6">
-                          <div className="grid grid-cols-2 gap-4 text-sm">
-                            <div>
-                              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">
-                                {isAr ? 'الباقة' : 'Package'}
-                              </p>
-                              <p className="font-bold text-slate-800">{savedPendingRequest.packageName}</p>
-                            </div>
-                            <div>
-                              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">
-                                {isAr ? 'المبلغ' : 'Amount'}
-                              </p>
-                              <p className="font-bold text-slate-800">
-                                {savedPendingRequest.estimatedTotal.toLocaleString()} {savedPendingRequest.currency}
-                              </p>
-                            </div>
-                            {savedPendingRequest.guestPhone && (
-                              <div className="col-span-2">
-                                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">
-                                  {isAr ? 'رقم الهاتف' : 'Phone'}
+                          return (
+                            <div key={step.key} className="flex gap-4">
+                              <div className="flex flex-col items-center">
+                                <motion.div 
+                                  className={`w-5 h-5 rounded-full border-2 z-10 ${
+                                    status === 'completed' 
+                                      ? 'bg-emerald-500 border-emerald-500' 
+                                      : status === 'current'
+                                        ? 'bg-purple-500 border-purple-500 animate-pulse'
+                                        : 'bg-white border-slate-300'
+                                  }`}
+                                  animate={status === 'current' ? { scale: [1, 1.2, 1] } : {}}
+                                  transition={{ repeat: Infinity, duration: 1.5 }}
+                                >
+                                  {status === 'completed' && <Check className="w-3 h-3 text-white m-0.5" />}
+                                </motion.div>
+                                {!isLast && (
+                                  <div className={`w-0.5 h-12 ${status === 'completed' ? 'bg-emerald-400' : 'bg-slate-200'}`} />
+                                )}
+                              </div>
+                              <div className="pb-6">
+                                <p className={`text-sm font-bold ${status === 'pending' ? 'text-slate-400' : 'text-slate-800'}`}>
+                                  {step.label}
                                 </p>
-                                <p className="font-bold text-slate-800">{savedPendingRequest.guestPhone}</p>
+                                <p className={`text-xs ${status === 'pending' ? 'text-slate-300' : 'text-slate-500'}`}>
+                                  {step.subLabel}
+                                </p>
                               </div>
-                            )}
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      {/* ════ BOTTOM SECTION: ORDER SUMMARY CARD ════ */}
+                      <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 mb-6">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">
+                              {isAr ? 'الباقة' : 'Package'}
+                            </p>
+                            <p className="font-bold text-slate-800">{isTrackingMode ? savedPendingRequest?.packageName : (selectedPkg ? Object.values(PACKAGES).find(p => p.id === selectedPkg)?.nameEn : (isAr ? 'باقة مخصصة' : 'Custom Plan'))}</p>
                           </div>
+                          <div>
+                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">
+                              {isAr ? 'المبلغ الإجمالي' : 'Total Amount'}
+                            </p>
+                            <p className="font-bold text-slate-800">
+                              {(isTrackingMode ? savedPendingRequest?.estimatedTotal : totals.total)?.toLocaleString()} {isTrackingMode ? savedPendingRequest?.currency : currency}
+                            </p>
+                          </div>
+                          {contact.phone && (
+                            <div className="col-span-2">
+                              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">
+                                {isAr ? 'رقم الهاتف' : 'Phone'}
+                              </p>
+                              <p className="font-bold text-slate-800">{contact.phone}</p>
+                            </div>
+)}
                         </div>
-                      )}
-                      
-                      {/* Flow Steps */}
-                      {activeReq && (
-                        <div className="grid grid-cols-4 gap-2 mb-6">
-                          {['new', 'reviewing', 'approved', 'converted'].map((status, idx) => {
-                            const isDone = activeReq.status === 'rejected' 
-                              ? idx < 2 
-                              : ['new', 'reviewing', 'approved', 'converted'].indexOf(activeReq.status) >= idx;
-                            const isCurrent = activeReq.status === status;
-                            return (
-                              <div key={status} className={`rounded-xl border px-2 py-3 text-center ${isDone ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : isCurrent ? 'border-cyan-200 bg-cyan-50 text-cyan-700' : 'border-slate-200 bg-slate-50 text-slate-400'}`}>
-                                <div className="text-[8px] font-black uppercase tracking-widest">
-                                  {status === 'new' ? (isAr ? 'استلام' : 'Received') :
-                                   status === 'reviewing' ? (isAr ? 'مراجعة' : 'Review') :
-                                   status === 'approved' ? (isAr ? 'اعتماد' : 'Approved') :
-                                   (isAr ? 'أوردر' : 'Order')}
-                                </div>
-                              </div>
-                            );
-                          })}
+                      </div>
+
+                      {/* ════ ADMIN NOTE SECTION (If exists) ════ */}
+                      {(currentRequest as any)?.admin_notes && (
+                        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 mb-6">
+                          <div className="flex items-start gap-3">
+                            <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center shrink-0">
+                              <Sparkles className="w-4 h-4 text-amber-600" />
+                            </div>
+                            <div>
+                              <p className="text-[10px] font-black uppercase tracking-widest text-amber-600 mb-1">
+                                {isAr ? 'ملاحظة من الإدارة' : 'Note from Admin'}
+                              </p>
+                              <p className="text-sm font-medium text-slate-800">
+                                {(currentRequest as any)?.admin_notes}
+                              </p>
+                            </div>
+                          </div>
                         </div>
                       )}
 
