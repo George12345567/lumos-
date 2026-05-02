@@ -11,7 +11,7 @@ import {
   ArrowRight, Star, Shield, Layers, Code, Camera,
   Megaphone, Bot, Settings2, TrendingUp, Lock, ArrowLeft,
   Receipt, Calculator, Package as PackageIcon, MessageSquare,
-  User, Phone, Mail, FileText, Sparkles, Zap, Palette, RefreshCw
+  User, Phone, Mail, FileText, Sparkles, Zap, Palette, RefreshCw, Save, AlertTriangle, Trash2
 } from 'lucide-react';
 import {
   PACKAGES, SERVICES, CATEGORIES,
@@ -28,7 +28,6 @@ import { calculatePricing } from '@/lib/pricingEngine';
 import { toast } from 'sonner';
 import type { PricingRequest } from '@/types/dashboard';
 import { useLanguage } from '@/context/LanguageContext';
-import { VerifiedPhoneInput } from '@/components/shared/VerifiedPhoneInput';
 import { AnimatedPrice, isValidPhoneNumber, slide } from '@/components/pricing/pricingHelpers';
 
 
@@ -39,7 +38,7 @@ interface PricingModalProps {
   initialRequest?: PricingRequest | null;
 }
 
-type Step = 'mode' | 'build' | 'details' | 'summary' | 'review';
+type Step = 'mode' | 'build' | 'details' | 'summary' | 'review' | 'success';
 type Mode = 'packages' | 'custom' | null;
 
 // ── Category Icons ─────────────────────────────────────────────────
@@ -50,6 +49,73 @@ const catIcons: Record<string, React.ReactNode> = {
   [CATEGORIES.BRAND_IDENTITY]: <Palette className="w-3.5 h-3.5" />,
   [CATEGORIES.GROWTH_ADS]: <TrendingUp className="w-3.5 h-3.5" />,
   [CATEGORIES.SECURITY]: <Lock className="w-3.5 h-3.5" />,
+};
+
+// ════════════════════════════════════════════════════════════════════
+// LOCALSTORAGE HELPERS - Request Tracking (30-day expiry)
+// ════════════════════════════════════════════════════════════════════
+const STORAGE_KEY = 'lumos_pending_request';
+const EXPIRY_DAYS = 30;
+
+interface StoredRequest {
+  id: string;
+  status: string;
+  packageName: string;
+  estimatedTotal: number;
+  currency: string;
+  createdAt: string;
+  expiresAt: string;
+  guestPhone?: string;
+  guestName?: string;
+  guestEmail?: string;
+}
+
+const savePendingRequest = (request: {
+  id: string;
+  status: string;
+  packageName: string;
+  estimatedTotal: number;
+  currency: string;
+  guestPhone?: string;
+  guestName?: string;
+  guestEmail?: string;
+}): void => {
+  try {
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + EXPIRY_DAYS * 24 * 60 * 60 * 1000);
+    const stored: StoredRequest = {
+      ...request,
+      createdAt: now.toISOString(),
+      expiresAt: expiresAt.toISOString(),
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(stored));
+  } catch (e) {
+    console.error('Failed to save pending request:', e);
+  }
+};
+
+const loadPendingRequest = (): StoredRequest | null => {
+  try {
+    const data = localStorage.getItem(STORAGE_KEY);
+    if (!data) return null;
+    const stored: StoredRequest = JSON.parse(data);
+    if (new Date(stored.expiresAt) < new Date()) {
+      localStorage.removeItem(STORAGE_KEY);
+      return null;
+    }
+    return stored;
+  } catch (e) {
+    console.error('Failed to load pending request:', e);
+    return null;
+  }
+};
+
+const clearPendingRequest = (): void => {
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+  } catch (e) {
+    console.error('Failed to clear pending request:', e);
+  }
 };
 
 // ════════════════════════════════════════════════════════════════════
@@ -76,6 +142,159 @@ const PricingModal = ({ open, onOpenChange, initialRequest = null }: PricingModa
   const [latestRequestLoading, setLatestRequestLoading] = useState(false);
   const [activeCategory, setActiveCategory] = useState<string>(CATEGORIES.WEB);
   const [contact, setContact] = useState({ name: '', phone: '', email: '', notes: '' });
+  const [submittedRequest, setSubmittedRequest] = useState<PricingRequest | null>(null);
+  const [savedPendingRequest, setSavedPendingRequest] = useState<StoredRequest | null>(null);
+  
+  /* ── Validation States ── */
+  const [validationErrors, setValidationErrors] = useState<{
+    name?: string;
+    phone?: string;
+    email?: string;
+    notes?: string;
+  }>({});
+
+  /* ── Duplicate Check State ── */
+  const [duplicateCheck, setDuplicateCheck] = useState<{
+    isLoading: boolean;
+    found: boolean;
+    existingData: {
+      source: 'client' | 'pricing_request' | 'contact' | null;
+      name: string | null;
+      phone: string | null;
+      email: string | null;
+    } | null;
+  }>({ isLoading: false, found: false, existingData: null });
+
+  /* ── isAr Helper ── */
+  const isAr = lang === 'ar';
+
+  /* ── Validation Helpers ── */
+  const validateName = (name: string, isArVal: boolean): string | undefined => {
+    const trimmed = name.trim();
+    if (!trimmed) return isArVal ? 'الاسم مطلوب' : 'Name is required';
+    const words = trimmed.split(/\s+/).filter(w => w.length > 0);
+    if (words.length < 2) return isArVal ? 'الاسم يجب أن يكون مكون من كلمتين (اسم وكنية)' : 'Name must have at least 2 words';
+    return undefined;
+  };
+
+  const validatePhone = (phone: string, isArVal: boolean): string | undefined => {
+    const digits = phone.replace(/\D/g, '');
+    if (!digits) return isArVal ? 'رقم الهاتف مطلوب' : 'Phone is required';
+    if (digits.length !== 11) return isArVal ? 'رقم الهاتف يجب أن يكون 11 رقم' : 'Phone must be 11 digits';
+    if (!digits.startsWith('01')) return isArVal ? 'رقم الهاتف يجب أن يبدأ بـ 01' : 'Phone must start with 01';
+    const prefix = digits.substring(0, 3);
+    if (!['010', '011', '012', '015'].includes(prefix)) {
+      return isArVal ? 'بادئة غير صحيحة، استخدم: 010 أو 011 أو 012 أو 015' : 'Invalid prefix, use: 010, 011, 012, or 015';
+    }
+    return undefined;
+  };
+
+  const validateEmail = (email: string, isArVal: boolean): string | undefined => {
+    if (!email) return undefined;
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return isArVal ? 'بريد إلكتروني غير صحيح' : 'Invalid email address';
+    }
+    return undefined;
+  };
+
+  const validateNotes = (notes: string, isArVal: boolean): string | undefined => {
+    if (!notes.trim()) return undefined;
+    const words = notes.trim().split(/\s+/).filter(w => w.length > 0);
+    if (words.length < 5) {
+      return isArVal ? 'الوصف يجب أن يكون 5 كلمات على الأقل' : 'Notes must be at least 5 words';
+    }
+    return undefined;
+  };
+
+  const isNameValid = contact.name ? !validateName(contact.name, isAr) : undefined;
+  const isPhoneValid = contact.phone ? !validatePhone(contact.phone, isAr) : undefined;
+  const isEmailValid = contact.email ? !validateEmail(contact.email, isAr) : undefined;
+  const isNotesValid = contact.notes ? !validateNotes(contact.notes, isAr) : undefined;
+
+  /* ── Check Duplicate Contact in Database ── */
+  const checkDuplicateContact = useCallback(async (phone: string, email: string, name: string) => {
+    // Reset if no data to check
+    if (!phone && !email && !name) {
+      setDuplicateCheck({ isLoading: false, found: false, existingData: null });
+      return;
+    }
+
+    setDuplicateCheck(prev => ({ ...prev, isLoading: true }));
+
+    try {
+      // Check in clients table
+      const { data: clientData, error: clientError } = await supabase
+        .from('clients')
+        .select('display_name, username, phone, email')
+        .or(`phone.eq.${phone},email.ilike.${email},display_name.ilike.${encodeURIComponent(name)},username.ilike.${encodeURIComponent(name)}`)
+        .limit(1)
+        .maybeSingle();
+
+      if (!clientError && clientData) {
+        setDuplicateCheck({
+          isLoading: false,
+          found: true,
+          existingData: {
+            source: 'client',
+            name: clientData.display_name || clientData.username || null,
+            phone: clientData.phone,
+            email: clientData.email,
+          },
+        });
+        return;
+      }
+
+      // Check in pricing_requests table
+      const { data: requestData, error: requestError } = await supabase
+        .from('pricing_requests')
+        .select('guest_name, guest_phone, guest_email')
+        .or(`guest_phone.eq.${phone},guest_email.ilike.${email},guest_name.ilike.${encodeURIComponent(name)}`)
+        .limit(1)
+        .maybeSingle();
+
+      if (!requestError && requestData) {
+        setDuplicateCheck({
+          isLoading: false,
+          found: true,
+          existingData: {
+            source: 'pricing_request',
+            name: requestData.guest_name,
+            phone: requestData.guest_phone,
+            email: requestData.guest_email,
+          },
+        });
+        return;
+      }
+
+      // Check in contacts table
+      const { data: contactData, error: contactError } = await supabase
+        .from('contacts')
+        .select('name, phone, email')
+        .or(`phone.eq.${phone},email.ilike.${email},name.ilike.${encodeURIComponent(name)}`)
+        .limit(1)
+        .maybeSingle();
+
+      if (!contactError && contactData) {
+        setDuplicateCheck({
+          isLoading: false,
+          found: true,
+          existingData: {
+            source: 'contact',
+            name: contactData.name,
+            phone: contactData.phone,
+            email: contactData.email,
+          },
+        });
+        return;
+      }
+
+      // No duplicate found
+      setDuplicateCheck({ isLoading: false, found: false, existingData: null });
+    } catch (error) {
+      console.error('Error checking duplicate:', error);
+      setDuplicateCheck({ isLoading: false, found: false, existingData: null });
+    }
+  }, []);
 
   /* ── Promo Code States ── */
   const [promoCode, setPromoCode] = useState('');
@@ -89,11 +308,9 @@ const PricingModal = ({ open, onOpenChange, initialRequest = null }: PricingModa
   const [easterEggStage2Unlocked, setEasterEggStage2Unlocked] = useState(false);
   const [showEasterEggModal, setShowEasterEggModal] = useState(false);
   const [hasSeenEasterEggModal, setHasSeenEasterEggModal] = useState(false);
-  const [isPhoneVerified, setIsPhoneVerified] = useState(false);
 
   const [sending, setSending] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
-  const isAr = lang === 'ar';
   const isKnownClient = isAuthenticated && !isAdmin && !!client?.id;
 
   /* ── Sync geo language ── */
@@ -109,6 +326,22 @@ const PricingModal = ({ open, onOpenChange, initialRequest = null }: PricingModa
   useEffect(() => {
     setLanguage(lang);
   }, [lang, setLanguage]);
+
+  /* ── Load saved pending request on modal open ── */
+  useEffect(() => {
+    if (!open) return;
+    const saved = loadPendingRequest();
+    if (saved) {
+      setSavedPendingRequest(saved);
+      setStep('success');
+      setContact({
+        name: saved.guestName || '',
+        phone: saved.guestPhone || '',
+        email: saved.guestEmail || '',
+        notes: '',
+      });
+    }
+  }, [open]);
 
   /* ── 40-Second Easter Egg Trigger ── */
   useEffect(() => {
@@ -154,6 +387,7 @@ const PricingModal = ({ open, onOpenChange, initialRequest = null }: PricingModa
         setPromoCode('');
         setAppliedPromo(null);
         setPromoError('');
+        setDuplicateCheck({ isLoading: false, found: false, existingData: null });
       }
     }
   }, [hydrateRequest, initialRequest, open]);
@@ -385,17 +619,36 @@ const PricingModal = ({ open, onOpenChange, initialRequest = null }: PricingModa
       }
       setStep('details');
     } else if (step === 'details') {
-      const emailOk = !contact.email || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contact.email);
-      if (!isKnownClient && (!contact.name.trim() || !isValidPhoneNumber(contact.phone) || !emailOk)) {
-        toast.error(isAr ? 'أكمل بيانات التواصل بشكل صحيح قبل المتابعة.' : 'Please complete valid contact details before continuing.');
-        return;
+      if (!isKnownClient) {
+        const nameError = validateName(contact.name, isAr);
+        const phoneError = validatePhone(contact.phone, isAr);
+        const emailError = contact.email ? validateEmail(contact.email, isAr) : undefined;
+        
+        if (nameError || phoneError || emailError) {
+          setValidationErrors({
+            name: nameError,
+            phone: phoneError,
+            email: emailError,
+          });
+          toast.error(isAr ? 'أكمل بيانات التواصل بشكل صحيح قبل المتابعة.' : 'Please complete valid contact details before continuing.');
+          return;
+        }
+
+        // Block if duplicate contact found in database
+        if (duplicateCheck.found) {
+          toast.error(isAr 
+            ? 'هذا البيانات مسجلة بالفعل. يرجى التواصل معنا أو استخدام بيانات مختلفة.' 
+            : 'This contact information already exists. Please contact us or use different data.');
+          return;
+        }
       }
+      setValidationErrors({});
       setStep('summary');
     } else if (step === 'summary') {
       setStep('review');
     }
     scrollTop();
-  }, [step, mode, selectedPkg, selectedServices, contact, scrollTop, isKnownClient, isAr]);
+  }, [step, mode, selectedPkg, selectedServices, contact, scrollTop, isKnownClient, isAr, duplicateCheck]);
 
   const goBack = useCallback(() => {
     if (step === 'review') setStep('summary');
@@ -547,6 +800,212 @@ const PricingModal = ({ open, onOpenChange, initialRequest = null }: PricingModa
     setSending(false);
   }, [buildMessage, client?.id, contact, currency, editingRequestId, isAr, isEditing, isKnownClient, mode, onOpenChange, selectedPackageName, selectedPkg, totals]);
 
+  /* ── Save to Dashboard Only (without WhatsApp) ── */
+  const handleSaveToDashboard = useCallback(async () => {
+    setSending(true);
+    
+    if (isKnownClient && client?.id) {
+      const result = await submitPricingRequest({
+        requestId: editingRequestId,
+        clientId: client.id,
+        requestType: mode === 'packages' ? 'package' : 'custom',
+        packageId: mode === 'packages' ? selectedPkg : null,
+        packageName: mode === 'packages' ? selectedPackageName : 'Custom Plan',
+        selectedServices: totals.items,
+        estimatedSubtotal: totals.subtotal,
+        estimatedTotal: totals.total,
+        priceCurrency: currency || 'EGP',
+        requestNotes: contact.notes,
+      });
+
+      setSending(false);
+
+      if (!result.success) {
+        toast.error(result.error || (isAr ? 'فشل حفظ الطلب' : 'Failed to save request'));
+        return;
+      }
+
+      toast.success(isEditing
+        ? (isAr ? 'تم تحديث الطلب بنجاح' : 'Request updated successfully')
+        : (isAr ? 'تم حفظ الطلب بنجاح' : 'Request saved successfully'));
+      onOpenChange(false);
+      return;
+    }
+
+    // Guest: Save to dashboard only
+    try {
+      await submitPricingRequest({
+        requestId: editingRequestId,
+        requestType: mode === 'packages' ? 'package' : 'custom',
+        packageId: mode === 'packages' ? selectedPkg : null,
+        packageName: mode === 'packages' ? selectedPackageName : 'Custom Plan',
+        selectedServices: totals.items,
+        estimatedSubtotal: totals.subtotal,
+        estimatedTotal: totals.total,
+        priceCurrency: currency || 'EGP',
+        requestNotes: contact.notes,
+        guestContact: {
+          name: contact.name,
+          phone: contact.phone,
+          email: contact.email,
+        },
+        locationUrl: window.location.href,
+      });
+
+      await submitContactForm(
+        {
+          name: contact.name,
+          phone: contact.phone,
+          message: buildMessage(),
+          serviceNeeded: mode === 'packages' ? `Package: ${selectedPkg}` : 'Custom Plan',
+        },
+        null,
+        'Pricing Order'
+      );
+      
+      toast.success(isAr ? 'تم حفظ الطلب بنجاح' : 'Request saved successfully');
+      onOpenChange(false);
+    } catch (e) {
+      console.error('Order save failed:', e);
+      toast.error(isAr ? 'فشل حفظ الطلب' : 'Failed to save request');
+    }
+    
+    setSending(false);
+  }, [buildMessage, client?.id, contact, currency, editingRequestId, isAr, isEditing, isKnownClient, mode, onOpenChange, selectedPackageName, selectedPkg, totals]);
+
+  /* ── Confirm: Save to Database and Show Success ── */
+  const handleConfirm = useCallback(async () => {
+    setSending(true);
+    
+    try {
+      // 1. Save pricing request
+      const result = isKnownClient && client?.id
+        ? await submitPricingRequest({
+            requestId: editingRequestId,
+            clientId: client.id,
+            requestType: mode === 'packages' ? 'package' : 'custom',
+            packageId: mode === 'packages' ? selectedPkg : null,
+            packageName: mode === 'packages' ? selectedPackageName : 'Custom Plan',
+            selectedServices: totals.items,
+            estimatedSubtotal: totals.subtotal,
+            estimatedTotal: totals.total,
+            priceCurrency: currency || 'EGP',
+            requestNotes: contact.notes,
+          })
+        : await submitPricingRequest({
+            requestId: editingRequestId,
+            requestType: mode === 'packages' ? 'package' : 'custom',
+            packageId: mode === 'packages' ? selectedPkg : null,
+            packageName: mode === 'packages' ? selectedPackageName : 'Custom Plan',
+            selectedServices: totals.items,
+            estimatedSubtotal: totals.subtotal,
+            estimatedTotal: totals.total,
+            priceCurrency: currency || 'EGP',
+            requestNotes: contact.notes,
+            guestContact: {
+              name: contact.name,
+              phone: contact.phone,
+              email: contact.email,
+            },
+            locationUrl: window.location.href,
+          });
+
+      if (!result.success) {
+        toast.error(result.error || (isAr ? 'فشل حفظ الطلب' : 'Failed to save request'));
+        setSending(false);
+        return;
+      }
+
+      // 2. Save contact form
+      await submitContactForm(
+        {
+          name: contact.name,
+          phone: contact.phone,
+          email: contact.email,
+          message: buildMessage(),
+          serviceNeeded: mode === 'packages' ? `Package: ${selectedPkg}` : 'Custom Plan',
+        },
+        null,
+        'Pricing Order'
+      );
+
+      // 3. For guests: fetch the newly created request for tracking
+      if (!isKnownClient && contact.phone) {
+        const { data: requestData } = await supabase
+          .from('pricing_requests')
+          .select('*')
+          .eq('guest_phone', contact.phone)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .single();
+        
+        if (requestData) {
+          setSubmittedRequest(requestData as PricingRequest);
+          // Save to localStorage for tracking after modal close
+          savePendingRequest({
+            id: requestData.id,
+            status: requestData.status || 'pending',
+            packageName: requestData.package_name || selectedPackageName || 'Custom Plan',
+            estimatedTotal: requestData.estimated_total || totals.total,
+            currency: requestData.price_currency || currency || 'EGP',
+            guestPhone: contact.phone,
+            guestName: contact.name,
+            guestEmail: contact.email,
+          });
+        }
+      } else if (isKnownClient && client?.id) {
+        // For logged-in clients, use latestClientRequest
+        setSubmittedRequest(latestClientRequest);
+      }
+
+      // 4. Show success message
+      toast.success(isEditing
+        ? (isAr ? 'تم تحديث طلبك بنجاح' : 'Your request has been updated successfully')
+        : (isAr ? 'تم إرسال طلبك بنجاح' : 'Your request has been submitted successfully'));
+
+      // 5. Move to success step
+      setStep('success');
+      
+    } catch (e) {
+      console.error('Confirm failed:', e);
+      toast.error(isAr ? 'فشل حفظ الطلب' : 'Failed to save request');
+    }
+    
+    setSending(false);
+  }, [isKnownClient, client?.id, editingRequestId, mode, selectedPkg, selectedPackageName, totals, currency, contact, isAr, isEditing, buildMessage, latestClientRequest]);
+
+  /* ── Edit Request (from success screen) ── */
+  const handleEditRequest = useCallback(() => {
+    if (submittedRequest) {
+      hydrateRequest(submittedRequest);
+    } else if (latestClientRequest) {
+      hydrateRequest(latestClientRequest);
+    }
+  }, [submittedRequest, latestClientRequest, hydrateRequest]);
+
+  /* ── Cancel Request ── */
+  const handleCancelRequest = useCallback(async () => {
+    if (!submittedRequest && !latestClientRequest) return;
+    
+    const requestToCancel = submittedRequest || latestClientRequest;
+    if (!requestToCancel?.id) return;
+
+    const { error } = await supabase
+      .from('pricing_requests')
+      .update({ status: 'rejected' })
+      .eq('id', requestToCancel.id);
+
+    if (error) {
+      toast.error(isAr ? 'فشل إلغاء الطلب' : 'Failed to cancel request');
+      return;
+    }
+
+    // Update local state
+    setSubmittedRequest(prev => prev ? { ...prev, status: 'rejected' } : null);
+    
+    toast.success(isAr ? 'تم إلغاء الطلب بنجاح' : 'Request cancelled successfully');
+  }, [submittedRequest, latestClientRequest, isAr]);
+
 
   /* ── Step config ── */
   const stepsList: { key: Step; en: string; ar: string }[] = useMemo(() => [
@@ -555,21 +1014,20 @@ const PricingModal = ({ open, onOpenChange, initialRequest = null }: PricingModa
     { key: 'details', en: isKnownClient ? 'Notes' : 'Contact', ar: isKnownClient ? 'ملاحظات' : 'بياناتك' },
     { key: 'summary', en: 'Receipt', ar: 'الفاتورة' },
     { key: 'review', en: 'Confirm', ar: 'تأكيد' },
+    { key: 'success', en: 'Done', ar: 'تم' },
   ], [isKnownClient]);
 
   const currentIdx = stepsList.findIndex(s => s.key === step);
 
-  const isEmailValid = !contact.email || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contact.email);
-
   const canProceed = step === 'build'
     ? (mode === 'packages' ? !!selectedPkg : selectedServices.size > 0)
     : step === 'details'
-      ? (isKnownClient ? true : !!(contact.name.trim() && isValidPhoneNumber(contact.phone) && isEmailValid))
+      ? (isKnownClient ? true : !!(contact.name.trim() && isPhoneValid && isEmailValid))
       : true;
 
   const nextButtonTitle = !canProceed && step === 'details'
     ? (!contact.name.trim() ? (isAr ? 'الاسم مطلوب' : 'Name is required')
-      : !isValidPhoneNumber(contact.phone) ? (isAr ? 'رقم الهاتف غير صحيح' : 'Invalid phone number')
+      : !isPhoneValid ? (isAr ? 'رقم الهاتف غير صحيح' : 'Invalid phone number')
         : !isEmailValid ? (isAr ? 'البريد الإلكتروني غير صحيح' : 'Invalid email address')
           : '')
     : '';
@@ -1331,6 +1789,47 @@ const PricingModal = ({ open, onOpenChange, initialRequest = null }: PricingModa
                       </div>
                     </div>
 
+                    {/* Loading indicator */}
+                    {duplicateCheck.isLoading && !duplicateCheck.found && !isKnownClient && (
+                      <div className="flex items-center gap-2 text-xs text-slate-400 mb-4">
+                        <div className="w-3 h-3 border-2 border-slate-300 border-t-emerald-500 rounded-full animate-spin" />
+                        {isAr ? 'جاري التحقق من البيانات...' : 'Checking contact information...'}
+                      </div>
+                    )}
+
+                    {/* Duplicate Warning Banner */}
+                    {duplicateCheck.found && duplicateCheck.existingData && !isKnownClient && (
+                      <div className="mb-6 p-4 rounded-xl bg-amber-50 border-2 border-amber-200">
+                        <div className="flex items-start gap-3">
+                          <AlertTriangle className="w-5 h-5 text-amber-600 mt-0.5 shrink-0" />
+                          <div className="flex-1">
+                            <p className="text-sm font-bold text-amber-800">
+                              {isAr ? 'هذا البيانات مسجلة بالفعل' : 'This contact information is already registered'}
+                            </p>
+                            <p className="text-xs text-amber-700 mt-1">
+                              {isAr 
+                                ? 'نأسف، لكن لا يمكنك المتابعة بنفس البيانات. تواصل معنا للمساعدة:' 
+                                : 'Sorry, you cannot proceed with the same data. Contact us for assistance:'}
+                            </p>
+                            
+                            {/* WhatsApp Button */}
+                            <button
+                              onClick={() => {
+                                const message = isAr 
+                                  ? `مرحباً، أريد المساعدة بشأن بيانات مسجلة بالفعل في النظام. اسمي: ${contact.name} ورقم الهاتف: ${contact.phone}`
+                                  : `Hello, I need help regarding contact info that's already registered in the system. My name: ${contact.name}, Phone: ${contact.phone}`;
+                                window.open(`https://wa.me/201277636616?text=${encodeURIComponent(message)}`, '_blank');
+                              }}
+                              className="mt-3 h-10 px-5 rounded-full bg-[#25D366] text-white text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 shadow-[0_4px_20px_rgba(37,211,102,0.35)] hover:bg-[#20b558] hover:shadow-[0_6px_24px_rgba(37,211,102,0.45)]"
+                            >
+                              <MessageSquare className="w-3.5 h-3.5" />
+                              {isAr ? 'تواصل معنا على واتساب' : 'Contact Us on WhatsApp'}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
                     {isKnownClient ? (
                       <div className="grid grid-cols-1 gap-5">
                         <div className="rounded-2xl border border-emerald-100 bg-emerald-50/70 p-5">
@@ -1369,24 +1868,68 @@ const PricingModal = ({ open, onOpenChange, initialRequest = null }: PricingModa
                             </label>
                             <input
                               value={contact.name}
-                              onChange={e => setContact(c => ({ ...c, name: e.target.value }))}
-                              placeholder={isAr ? 'الاسم هنا...' : 'John Doe'}
-                              className="w-full bg-white border border-slate-200 p-3.5 rounded-xl text-slate-800 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-all font-medium placeholder:text-slate-300 text-sm"
-                            />
-                          </div>
-                          {/* Phone */}
-                          <div>
-                            <VerifiedPhoneInput
-                              label={isAr ? 'رقم الهاتف' : 'Phone Number'}
-                              value={contact.phone}
-                              onChange={(phone) => setContact(c => ({ ...c, phone }))}
-                              onVerify={(phone) => {
-                                setContact(c => ({ ...c, phone }));
-                                setIsPhoneVerified(true);
+                              onChange={e => {
+                                setContact(c => ({ ...c, name: e.target.value }));
+                                setValidationErrors(prev => ({ ...prev, name: undefined }));
+                                // Real-time duplicate check when 2+ words entered
+                                const words = e.target.value.trim().split(/\s+/).filter(w => w.length > 0);
+                                if (words.length >= 2) {
+                                  checkDuplicateContact(contact.phone, contact.email, e.target.value);
+                                }
                               }}
-                              isArabic={isAr}
+                              onBlur={() => setValidationErrors(prev => ({ ...prev, name: validateName(contact.name, isAr) }))}
+                              placeholder={isAr ? 'الاسم هنا...' : 'John Doe'}
+                              className={`w-full bg-white border p-3.5 rounded-xl text-slate-800 outline-none focus:ring-2 transition-all font-medium placeholder:text-slate-300 text-sm ${
+                                duplicateCheck.found 
+                                  ? 'border-red-300 focus:border-red-400 focus:ring-red-100' 
+                                  : contact.name && !isNameValid 
+                                    ? 'border-red-300 focus:border-red-400 focus:ring-red-100' 
+                                    : contact.name && isNameValid
+                                      ? 'border-emerald-300 focus:border-emerald-400 focus:ring-emerald-100'
+                                      : 'border-slate-200 focus:border-emerald-400 focus:ring-emerald-100'
+                              }`}
+                            />
+                            {validationErrors.name && (
+                              <p className="text-red-500 text-xs mt-1.5 font-medium flex items-center gap-1">
+                                <span>⚠</span> {validationErrors.name}
+                              </p>
+                            )}
+                          </div>
+{/* Phone */}
+                          <div>
+                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+                              {isAr ? 'رقم الهاتف' : 'Phone Number'} *
+                            </label>
+                            <input
+                              type="tel"
+                              value={contact.phone}
+                              onChange={e => {
+                                const val = e.target.value.replace(/[^\d]/g, '').slice(0, 11);
+                                setContact(c => ({ ...c, phone: val }));
+                                setValidationErrors(prev => ({ ...prev, phone: undefined }));
+                                // Real-time duplicate check when 11 digits reached
+                                if (val.length === 11) {
+                                  checkDuplicateContact(val, contact.email, contact.name);
+                                }
+                              }}
+                              onBlur={() => setValidationErrors(prev => ({ ...prev, phone: validatePhone(contact.phone, isAr) }))}
+                              placeholder={isAr ? '01XXXXXXXXX' : '01XXXXXXXXX'}
+                              className={`w-full bg-white border p-3.5 rounded-xl text-slate-800 outline-none focus:ring-2 transition-all font-medium placeholder:text-slate-300 text-sm ${
+                                duplicateCheck.found 
+                                  ? 'border-red-300 focus:border-red-400 focus:ring-red-100' 
+                                  : contact.phone && !isPhoneValid 
+                                    ? 'border-red-300 focus:border-red-400 focus:ring-red-100' 
+                                    : contact.phone && isPhoneValid
+                                      ? 'border-emerald-300 focus:border-emerald-400 focus:ring-emerald-100'
+                                      : 'border-slate-200 focus:border-emerald-400 focus:ring-emerald-100'
+                              }`}
                               required
                             />
+                            {validationErrors.phone && (
+                              <p className="text-red-500 text-xs mt-1.5 font-medium flex items-center gap-1">
+                                <span>⚠</span> {validationErrors.phone}
+                              </p>
+                            )}
                           </div>
                         </div>
                         <div className="space-y-5">
@@ -1398,13 +1941,29 @@ const PricingModal = ({ open, onOpenChange, initialRequest = null }: PricingModa
                             <input
                               type="email"
                               value={contact.email}
-                              onChange={e => setContact(c => ({ ...c, email: e.target.value }))}
+                              onChange={e => {
+                                setContact(c => ({ ...c, email: e.target.value }));
+                                setValidationErrors(prev => ({ ...prev, email: undefined }));
+                                // Real-time duplicate check when email contains @
+                                if (e.target.value.includes('@')) {
+                                  checkDuplicateContact(contact.phone, e.target.value, contact.name);
+                                }
+                              }}
+                              onBlur={() => contact.email && setValidationErrors(prev => ({ ...prev, email: validateEmail(contact.email, isAr) }))}
                               placeholder="you@company.com"
-                              className={`w-full bg-white border ${contact.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contact.email) ? 'border-red-300 focus:border-red-400 focus:ring-red-100' : 'border-slate-200 focus:border-emerald-400 focus:ring-emerald-100'} p-3.5 rounded-xl text-slate-800 outline-none focus:ring-2 transition-all font-medium placeholder:text-slate-300 text-sm`}
+                              className={`w-full bg-white border p-3.5 rounded-xl text-slate-800 outline-none focus:ring-2 transition-all font-medium placeholder:text-slate-300 text-sm ${
+                                duplicateCheck.found 
+                                  ? 'border-red-300 focus:border-red-400 focus:ring-red-100' 
+                                  : contact.email && !isEmailValid 
+                                    ? 'border-red-300 focus:border-red-400 focus:ring-red-100' 
+                                    : contact.email && isEmailValid
+                                      ? 'border-emerald-300 focus:border-emerald-400 focus:ring-emerald-100'
+                                      : 'border-slate-200 focus:border-emerald-400 focus:ring-emerald-100'
+                              }`}
                             />
-                            {contact.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contact.email) && (
+                            {validationErrors.email && (
                               <p className="text-red-500 text-xs mt-1.5 font-medium flex items-center gap-1">
-                                <span>⚠</span> {isAr ? 'بريد إلكتروني غير صحيح' : 'Invalid email address'}
+                                <span>⚠</span> {validationErrors.email}
                               </p>
                             )}
                           </div>
@@ -1414,20 +1973,34 @@ const PricingModal = ({ open, onOpenChange, initialRequest = null }: PricingModa
                               <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">
                                 {isAr ? 'ملاحظات إضافية' : 'Notes'}
                               </label>
-                              <span className={`text-[10px] font-bold tabular-nums ${contact.notes.length > 450 ? 'text-red-400' : 'text-slate-300'}`}>
+                              <span className={`text-[10px] font-bold tabular-nums ${contact.notes.length > 450 ? 'text-red-400' : validationErrors.notes ? 'text-red-400' : 'text-slate-300'}`}>
                                 {contact.notes.length}/500
                               </span>
                             </div>
                             <textarea
                               value={contact.notes}
                               onChange={e => {
-                                if (e.target.value.length <= 500)
+                                if (e.target.value.length <= 500) {
                                   setContact(c => ({ ...c, notes: e.target.value }));
+                                  setValidationErrors(prev => ({ ...prev, notes: undefined }));
+                                }
                               }}
+                              onBlur={() => contact.notes && setValidationErrors(prev => ({ ...prev, notes: validateNotes(contact.notes, isAr) }))}
                               placeholder={isAr ? 'أي شيء تود إخبارنا به...' : 'Specific requirements...'}
                               rows={3}
-                              className="w-full bg-white border border-slate-200 p-3.5 rounded-xl text-slate-800 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-all font-medium placeholder:text-slate-300 text-sm resize-none"
+                              className={`w-full bg-white border p-3.5 rounded-xl text-slate-800 outline-none focus:ring-2 transition-all font-medium placeholder:text-slate-300 text-sm resize-none ${
+                                contact.notes && !isNotesValid 
+                                  ? 'border-red-300 focus:border-red-400 focus:ring-red-100' 
+                                  : contact.notes && isNotesValid
+                                    ? 'border-emerald-300 focus:border-emerald-400 focus:ring-emerald-100'
+                                    : 'border-slate-200 focus:border-emerald-400 focus:ring-emerald-100'
+                              }`}
                             />
+                            {validationErrors.notes && (
+                              <p className="text-red-500 text-xs mt-1.5 font-medium flex items-center gap-1">
+                                <span>⚠</span> {validationErrors.notes}
+                              </p>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -1725,6 +2298,208 @@ const PricingModal = ({ open, onOpenChange, initialRequest = null }: PricingModa
                   </motion.div>
                 )}
 
+                {/* ──────── STEP 6: SUCCESS / TRACKING ──────── */}
+                {step === 'success' && (() => {
+                  const activeReq = submittedRequest || latestClientRequest;
+                  const isTrackingMode = savedPendingRequest && !submittedRequest && !latestClientRequest;
+                  
+                  const statusMeta = activeReq ? (() => {
+                    switch (activeReq.status) {
+                      case 'reviewing':
+                        return {
+                          label: isAr ? 'قيد المراجعة' : 'Under Review',
+                          pill: 'bg-amber-50 text-amber-700 border-amber-200',
+                          note: isAr ? 'الفريق يراجع الآن التفاصيل والتسعير قبل الاعتماد.' : 'The team is reviewing the scope and pricing before approval.',
+                          progress: 50,
+                        };
+                      case 'approved':
+                        return {
+                          label: isAr ? 'تمت الموافقة' : 'Approved',
+                          pill: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+                          note: isAr ? 'تمت الموافقة على الطلب وأصبح جاهزاً للخطوة التجارية التالية.' : 'Your request is approved and ready for the next commercial step.',
+                          progress: 75,
+                        };
+                      case 'converted':
+                        return {
+                          label: isAr ? 'تم تحويله لأوردر' : 'Converted To Order',
+                          pill: 'bg-violet-50 text-violet-700 border-violet-200',
+                          note: isAr ? 'طلبك أصبح أوردر نشط ويتم متابعته داخل الحساب ولوحة الأدمن.' : 'Your request has been converted into a live order and is now tracked across your account and admin dashboard.',
+                          progress: 100,
+                        };
+                      case 'rejected':
+                        return {
+                          label: isAr ? 'تم الإلغاء' : 'Cancelled',
+                          pill: 'bg-rose-50 text-rose-700 border-rose-200',
+                          note: isAr ? 'تم إلغاء الطلب.' : 'The request has been cancelled.',
+                          progress: 100,
+                        };
+                      default:
+                        return {
+                          label: isAr ? 'تم الاستلام' : 'Received',
+                          pill: 'bg-cyan-50 text-cyan-700 border-cyan-200',
+                          note: isAr ? 'وصل طلبك إلى الفريق وينتظر بدء المراجعة.' : 'Your request has reached the team and is waiting for review.',
+                          progress: 25,
+                        };
+                    }
+                  })() : (isTrackingMode ? {
+                    label: isAr ? 'جاري المراجعة' : 'Under Review',
+                    pill: 'bg-amber-50 text-amber-700 border-amber-200',
+                    note: isAr ? 'طلبك قيد المراجعة. سنتواصل معك قريباً.' : 'Your request is under review. We will contact you soon.',
+                    progress: 50,
+                  } : null);
+
+                  const canEdit = activeReq && ['new', 'reviewing', 'rejected'].includes(activeReq.status);
+                  const canCancel = activeReq && ['new', 'reviewing', 'approved'].includes(activeReq.status);
+
+                  return (
+                    <motion.div key="success" {...slide} className="p-8 sm:p-12 max-w-2xl mx-auto h-full flex flex-col justify-center">
+                      <div className="text-center mb-8">
+                        <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-emerald-100 mb-6 mx-auto border-4 border-emerald-200">
+                          <Check className="w-10 h-10 text-emerald-600" />
+                        </div>
+                        <h2 className="text-3xl font-black text-slate-900 mb-2">
+                          {isTrackingMode 
+                            ? (isAr ? 'تابع طلبك السابق' : 'Track Your Previous Request')
+                            : (isAr ? 'تم إرسال طلبك بنجاح!' : 'Your Request Submitted Successfully!')}
+                        </h2>
+                        <p className="text-slate-400 text-sm font-medium">
+                          {isTrackingMode 
+                            ? (isAr ? 'رقم الطلب: ' + savedPendingRequest?.id?.slice(0, 8) : 'Request ID: ' + savedPendingRequest?.id?.slice(0, 8))
+                            : (isAr ? 'رقم الطلب: ' + (activeReq?.id?.slice(0, 8) || 'N/A') : 'Request ID: ' + (activeReq?.id?.slice(0, 8) || 'N/A'))}
+                        </p>
+                      </div>
+
+                      {statusMeta && (
+                        <div className="bg-white border-2 border-slate-100 rounded-2xl p-7 shadow-[0_4px_24px_rgba(0,0,0,0.07)] mb-6">
+                          <div className="flex items-center justify-between mb-4">
+                            <span className={`rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-widest ${statusMeta.pill}`}>
+                              {statusMeta.label}
+                            </span>
+                            <span className="text-xs font-bold text-slate-400">{statusMeta.progress}%</span>
+                          </div>
+                          
+                          <div className="h-2 overflow-hidden rounded-full bg-slate-100 mb-4">
+                            <motion.div
+                              initial={{ width: 0 }}
+                              animate={{ width: `${statusMeta.progress}%` }}
+                              className="h-full rounded-full bg-gradient-to-r from-emerald-500 via-teal-500 to-amber-400"
+                            />
+                          </div>
+                          
+                          <p className="text-sm text-slate-600">{statusMeta.note}</p>
+                        </div>
+)}
+
+                      {/* Saved Request Details (Tracking Mode) */}
+                      {isTrackingMode && savedPendingRequest && (
+                        <div className="bg-white border-2 border-slate-100 rounded-2xl p-6 shadow-[0_4px_24px_rgba(0,0,0,0.07)] mb-6">
+                          <div className="grid grid-cols-2 gap-4 text-sm">
+                            <div>
+                              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">
+                                {isAr ? 'الباقة' : 'Package'}
+                              </p>
+                              <p className="font-bold text-slate-800">{savedPendingRequest.packageName}</p>
+                            </div>
+                            <div>
+                              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">
+                                {isAr ? 'المبلغ' : 'Amount'}
+                              </p>
+                              <p className="font-bold text-slate-800">
+                                {savedPendingRequest.estimatedTotal.toLocaleString()} {savedPendingRequest.currency}
+                              </p>
+                            </div>
+                            {savedPendingRequest.guestPhone && (
+                              <div className="col-span-2">
+                                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">
+                                  {isAr ? 'رقم الهاتف' : 'Phone'}
+                                </p>
+                                <p className="font-bold text-slate-800">{savedPendingRequest.guestPhone}</p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Flow Steps */}
+                      {activeReq && (
+                        <div className="grid grid-cols-4 gap-2 mb-6">
+                          {['new', 'reviewing', 'approved', 'converted'].map((status, idx) => {
+                            const isDone = activeReq.status === 'rejected' 
+                              ? idx < 2 
+                              : ['new', 'reviewing', 'approved', 'converted'].indexOf(activeReq.status) >= idx;
+                            const isCurrent = activeReq.status === status;
+                            return (
+                              <div key={status} className={`rounded-xl border px-2 py-3 text-center ${isDone ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : isCurrent ? 'border-cyan-200 bg-cyan-50 text-cyan-700' : 'border-slate-200 bg-slate-50 text-slate-400'}`}>
+                                <div className="text-[8px] font-black uppercase tracking-widest">
+                                  {status === 'new' ? (isAr ? 'استلام' : 'Received') :
+                                   status === 'reviewing' ? (isAr ? 'مراجعة' : 'Review') :
+                                   status === 'approved' ? (isAr ? 'اعتماد' : 'Approved') :
+                                   (isAr ? 'أوردر' : 'Order')}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+
+                      {/* Action Buttons */}
+                      <div className="flex flex-wrap gap-3 justify-center">
+                        {isTrackingMode && (
+                          <>
+                            <button
+                              onClick={() => {
+                                clearPendingRequest();
+                                setSavedPendingRequest(null);
+                                setStep('mode');
+                                setMode(null);
+                                setSelectedPkg(null);
+                                setSelectedServices(new Set());
+                                setContact({ name: '', phone: '', email: '', notes: '' });
+                              }}
+                              className="h-10 px-5 rounded-full bg-gradient-to-r from-slate-500 to-slate-600 text-white text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 shadow-md hover:from-slate-600 hover:to-slate-700"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                              {isAr ? 'مسح ومتابعة' : 'Clear & Continue'}
+                            </button>
+                            <button
+                              onClick={() => {
+                                const message = isAr 
+                                  ? `مرحباً، أريد الاستفسار عن طلبي رقم: ${savedPendingRequest?.id?.slice(0, 8)}`
+                                  : `Hello, I want to inquire about my request ID: ${savedPendingRequest?.id?.slice(0, 8)}`;
+                                window.open(`https://wa.me/201277636616?text=${encodeURIComponent(message)}`, '_blank');
+                              }}
+                              className="h-10 px-5 rounded-full bg-[#25D366] text-white text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 shadow-[0_4px_20px_rgba(37,211,102,0.35)] hover:bg-[#20b558] hover:shadow-[0_6px_24px_rgba(37,211,102,0.45)]"
+                            >
+                              <MessageSquare className="w-3.5 h-3.5" />
+                              {isAr ? 'تواصل معنا' : 'Contact Us'}
+                            </button>
+                          </>
+                        )}
+                        
+                        {canEdit && (
+                          <button
+                            onClick={handleEditRequest}
+                            className="h-10 px-5 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 text-white text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 shadow-md hover:from-amber-600 hover:to-orange-600"
+                          >
+                            <RefreshCw className="w-3.5 h-3.5" />
+                            {isAr ? 'تعديل الطلب' : 'Edit Request'}
+                          </button>
+                        )}
+                        
+                        {canCancel && (
+                          <button
+                            onClick={handleCancelRequest}
+                            className="h-10 px-5 rounded-full bg-gradient-to-r from-rose-500 to-red-500 text-white text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 shadow-md hover:from-rose-600 hover:to-red-600"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                            {isAr ? 'إلغاء الطلب' : 'Cancel Request'}
+                          </button>
+                        )}
+                      </div>
+                    </motion.div>
+                  );
+                })()}
+
                 {/* ── Easter Egg Popup Overlay ── */}
                 {showEasterEggModal && (
                   <motion.div
@@ -1860,19 +2635,40 @@ const PricingModal = ({ open, onOpenChange, initialRequest = null }: PricingModa
 
                 {step === 'review' && (
                   <button
-                    onClick={handleSend}
+                    onClick={handleConfirm}
                     disabled={sending}
-                    className={`h-10 px-7 rounded-full text-white text-[10px] font-black uppercase tracking-widest disabled:opacity-50 transition-all flex items-center gap-2 ${isKnownClient ? 'bg-gradient-to-r from-emerald-600 to-teal-600 shadow-[0_4px_20px_rgba(16,185,129,0.25)] hover:from-emerald-700 hover:to-teal-700' : 'bg-[#25D366] shadow-[0_4px_20px_rgba(37,211,102,0.35)] hover:bg-[#20b558] hover:shadow-[0_6px_24px_rgba(37,211,102,0.45)]'}`}
+                    className="h-10 px-8 rounded-full bg-gradient-to-r from-emerald-600 to-teal-600 text-white text-[10px] font-black uppercase tracking-widest disabled:opacity-50 transition-all flex items-center gap-2 shadow-md shadow-emerald-200 hover:from-emerald-700 hover:to-teal-700"
                   >
                     {sending ? (
-                      <span className="animate-pulse">{isAr ? 'جاري الإرسال...' : 'Sending...'}</span>
+                      <span className="animate-pulse">{isAr ? 'جاري...' : 'Sending...'}</span>
                     ) : (
                       <>
-                        {isKnownClient ? <Check className="w-3.5 h-3.5" /> : <MessageSquare className="w-3.5 h-3.5" />}
-                        {isKnownClient ? (isEditing ? (isAr ? 'تحديث الطلب' : 'Update Request') : (isAr ? 'إرسال للمراجعة' : 'Send For Review')) : (isAr ? 'تأكيد عبر واتساب' : 'Send via WhatsApp')}
+                        <Check className="w-3.5 h-3.5" />
+                        {isAr ? 'تأكيد وإرسال' : 'Confirm & Send'}
                       </>
                     )}
                   </button>
+                )}
+
+                {step === 'success' && (
+                  <div className="flex gap-3">
+                    {/* WhatsApp Contact Button */}
+                    <button
+                      onClick={() => window.open(`https://wa.me/201277636616?text=${encodeURIComponent(buildMessage())}`, '_blank')}
+                      className="h-10 px-5 rounded-full bg-[#25D366] text-white text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 shadow-[0_4px_20px_rgba(37,211,102,0.35)] hover:bg-[#20b558] hover:shadow-[0_6px_24px_rgba(37,211,102,0.45)]"
+                    >
+                      <MessageSquare className="w-3.5 h-3.5" />
+                      {isAr ? 'تواصل معنا' : 'Contact Us'}
+                    </button>
+                    
+                    {/* Close Button */}
+                    <button
+                      onClick={() => onOpenChange(false)}
+                      className="h-10 px-5 rounded-full bg-gradient-to-r from-slate-600 to-slate-700 text-white text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 shadow-md hover:from-slate-700 hover:to-slate-800"
+                    >
+                      {isAr ? 'إغلاق' : 'Close'}
+                    </button>
+                  </div>
                 )}
               </div>
             </footer>
