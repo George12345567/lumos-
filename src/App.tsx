@@ -16,6 +16,7 @@ const Index = lazy(() => import("./pages/Index"));
 const MobileDemoPage = lazy(() => import("./pages/MobileDemoPage"));
 const ServicePage = lazy(() => import("./pages/ServicePage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
+const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
 
 // Create QueryClient outside component to avoid recreating on every render
 const queryClient = new QueryClient({
@@ -42,6 +43,7 @@ const App = () => {
                     <Route path="/" element={<Index />} />
                     <Route path="/demo" element={<MobileDemoPage />} />
                     <Route path="/services/:slug" element={<ServicePage />} />
+                    <Route path="/lumos-admin" element={<AdminDashboard />} />
 
                     {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                     <Route path="*" element={<NotFound />} />

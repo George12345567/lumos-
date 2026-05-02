@@ -1,7 +1,7 @@
 import { useState, FormEvent, useEffect } from "react";
 import emailjs from "@emailjs/browser";
 import { toast } from "sonner";
-import { CheckCircle, AlertCircle, LogIn, User, Building2, Briefcase, Wrench, MessageSquare, Send, Phone } from "lucide-react";
+import { CheckCircle, AlertCircle, LogIn, User, Building2, Briefcase, Wrench, MessageSquare, Send, Phone, X } from "lucide-react";
 import { useGeolocation } from "@/hooks";
 import { collectBrowserData } from "@/lib/collectBrowserData";
 import { saveContact } from "@/services/db";
@@ -62,12 +62,35 @@ const EnhancedContact = () => {
     return () => clearTimeout(timer);
   }, [formData.phone, isAuthenticated]);
 
+  // Validation functions
+  const isValidPhoneNumber = (phone: string): boolean => {
+    const cleaned = phone.replace(/\D/g, '');
+    return cleaned.length === 11 && cleaned.startsWith('01');
+  };
+
+  const isValidEmail = (email: string): boolean => {
+    if (!email) return true; // Email is optional
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
 
-    // Validate phone number
+    // Validate phone number - must be 11 digits and start with 01
     if (!formData.phone) {
       toast.error(t("من فضلك أدخل رقم الهاتف", "Please enter your phone number"));
+      return;
+    }
+
+    if (!isValidPhoneNumber(formData.phone)) {
+      toast.error(t("رقم الهاتف يجب أن يكون 11 رقم ويبدأ بـ 01", "Phone number must be 11 digits and start with 01"));
+      return;
+    }
+
+    // Validate email format if provided
+    if (formData.businessName && formData.businessName.includes('@') && !isValidEmail(formData.businessName)) {
+      toast.error(t("البريد الإلكتروني غير صحيح", "Invalid email address"));
       return;
     }
 
@@ -220,11 +243,31 @@ const EnhancedContact = () => {
                   onChange={(e) =>
                     setFormData({ ...formData, phone: e.target.value.replace(/[^\d\s()+-]/g, '') })
                   }
-                  className="w-full px-4 py-3 bg-background/50 backdrop-blur-sm border border-border/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all text-foreground text-sm sm:text-base hover:border-primary/50 text-left placeholder:text-left"
-                  placeholder="+20 1XX XXXX XXX"
+                  className={`w-full px-4 py-3 bg-background/50 backdrop-blur-sm border rounded-xl focus:outline-none focus:ring-2 transition-all text-foreground text-sm sm:text-base hover:border-primary/50 text-left placeholder:text-left ${
+                    formData.phone && isValidPhoneNumber(formData.phone)
+                      ? 'border-emerald-500 focus:ring-emerald-300 focus:border-emerald-500'
+                      : formData.phone && !isValidPhoneNumber(formData.phone)
+                        ? 'border-red-400 focus:ring-red-300 focus:border-red-400'
+                        : 'border-border/50 focus:ring-primary/30 focus:border-primary'
+                  }`}
+                  placeholder={isArabic ? "مثال: 01234567890" : "Example: 01234567890"}
                   required
                 />
               </div>
+              
+              {/* Phone validation hints */}
+              {formData.phone && !isValidPhoneNumber(formData.phone) && (
+                <div className="flex items-center gap-2 text-xs text-red-500">
+                  <X className="w-3 h-3" />
+                  <span>{isArabic ? 'يجب أن يكون 11 رقم ويبدأ بـ 01' : 'Must be 11 digits starting with 01'}</span>
+                </div>
+              )}
+              {formData.phone && isValidPhoneNumber(formData.phone) && (
+                <div className="flex items-center gap-2 text-xs text-emerald-600">
+                  <CheckCircle className="w-3 h-3" />
+                  <span>{isArabic ? 'رقم الهاتف صحيح' : 'Valid phone number'}</span>
+                </div>
+              )}
 
               <div className="mt-1">
                 {isCheckingPhone && (

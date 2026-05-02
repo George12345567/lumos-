@@ -41,6 +41,28 @@ export interface PricingRequestItem {
     nameAr: string;
     price: number;
     category: string;
+    is_free?: boolean;
+    reward_id?: string;
+}
+
+export interface DiscountBreakdown {
+    base_discount: number;
+    promo_discount: number;
+    reward_discount: number;
+    total_discount_percent: number;
+}
+
+export interface StatusHistoryEntry {
+    status: string;
+    changed_at: string;
+    changed_by: string | null;
+    note?: string;
+}
+
+export interface FollowUpAction {
+    action: string;
+    date: string;
+    done: boolean;
 }
 
 export interface PricingRequest {
@@ -48,6 +70,8 @@ export interface PricingRequest {
     client_id?: string | null;
     request_type: 'package' | 'custom';
     status: 'new' | 'reviewing' | 'approved' | 'converted' | 'rejected';
+    priority?: 'low' | 'medium' | 'high' | 'urgent';
+    assigned_to?: string | null;
     request_source?: string;
     package_id?: string | null;
     package_name?: string | null;
@@ -55,6 +79,8 @@ export interface PricingRequest {
     estimated_subtotal: number;
     estimated_total: number;
     price_currency: string;
+    discount_breakdown?: DiscountBreakdown;
+    applied_promo_code?: string | null;
     guest_name?: string | null;
     guest_phone?: string | null;
     guest_email?: string | null;
@@ -62,12 +88,16 @@ export interface PricingRequest {
     client_snapshot?: Record<string, unknown> | null;
     request_notes?: string | null;
     admin_notes?: string | null;
+    status_history?: StatusHistoryEntry[];
+    follow_up_actions?: FollowUpAction[];
     converted_order_id?: string | null;
     location_url?: string | null;
     auto_collected_data?: Record<string, unknown> | null;
     created_at: string;
     updated_at?: string;
     reviewed_at?: string | null;
+    assigned_to_name?: string;
+    assigned_to_role?: string;
 }
 
 export interface Client {
@@ -156,4 +186,100 @@ export interface SavedDesign {
     view_count: number;
     created_at: string;
     updated_at: string;
+}
+
+export interface TeamMember {
+    id: string;
+    name: string;
+    role: 'admin' | 'sales' | 'designer' | 'manager';
+    phone?: string;
+    email?: string;
+    avatar_url?: string;
+    is_active: boolean;
+    notification_preferences?: {
+        email: boolean;
+        whatsapp: boolean;
+        in_app: boolean;
+    };
+    created_at?: string;
+    updated_at?: string;
+}
+
+export interface Notification {
+    id: string;
+    user_id: string;
+    user_type: 'client' | 'team_member';
+    type: 'pricing_request_new' | 'pricing_request_status_changed' | 'pricing_request_assigned' | 'pricing_request_approved' | 'pricing_request_rejected' | 'pricing_request_converted' | 'pricing_request_follow_up' | 'general';
+    title: string;
+    title_ar: string;
+    message: string;
+    message_ar: string;
+    action_type?: string;
+    action_id?: string;
+    action_url?: string;
+    is_read: boolean;
+    read_at?: string;
+    priority?: 'low' | 'normal' | 'high' | 'urgent';
+    created_at: string;
+}
+
+export interface AuditLog {
+    id: string;
+    entity_type: 'pricing_request' | 'client' | 'discount_code' | 'team_member' | 'order';
+    entity_id: string;
+    changed_by?: string;
+    changed_by_type?: 'team_member' | 'client' | 'system';
+    action: 'created' | 'updated' | 'deleted' | 'status_changed' | 'assigned' | 'notes_added' | 'converted' | 'reviewed';
+    old_values?: Record<string, unknown>;
+    new_values?: Record<string, unknown>;
+    change_summary?: string;
+    change_summary_ar?: string;
+    ip_address?: string;
+    user_agent?: string;
+    location_url?: string;
+    created_at: string;
+}
+
+export interface DiscountCode {
+    id: string;
+    code: string;
+    description?: string;
+    discount_type: 'percentage' | 'fixed';
+    discount_value: number;
+    min_order_value?: number;
+    max_discount?: number;
+    is_active: boolean;
+    valid_from?: string;
+    valid_until?: string;
+    usage_limit?: number;
+    usage_count?: number;
+    applicable_categories?: string[];
+    created_at?: string;
+    updated_at?: string;
+}
+
+export interface Order {
+    id: string;
+    pricing_request_id?: string;
+    client_id?: string;
+    guest_name?: string;
+    guest_phone?: string;
+    guest_email?: string;
+    company_name?: string;
+    order_type?: string;
+    package_id?: string;
+    package_name?: string;
+    selected_services?: PricingRequestItem[];
+    total_price: number;
+    price_currency: string;
+    discount_amount?: number;
+    status: 'pending' | 'processing' | 'completed' | 'cancelled' | 'refunded';
+    payment_status?: 'unpaid' | 'partial' | 'paid';
+    payment_method?: string;
+    paid_amount?: number;
+    notes?: string;
+    admin_notes?: string;
+    created_at: string;
+    updated_at?: string;
+    completed_at?: string;
 }
