@@ -5,7 +5,8 @@ import * as z from "zod";
 import { Loader2, MapPin, CheckCircle, MessageCircle, X } from "lucide-react";
 import { motion } from "framer-motion";
 import emailjs from '@emailjs/browser';
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -149,6 +150,9 @@ const LeadCapturePopup = () => {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent className="w-[95vw] max-w-md p-6 sm:p-8" dir={isArabic ? 'rtl' : 'ltr'}>
+        <DialogTitle>
+          <VisuallyHidden>{isArabic ? 'نموذج التواصل' : 'Contact Form'}</VisuallyHidden>
+        </DialogTitle>
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}

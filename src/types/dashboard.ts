@@ -70,8 +70,8 @@ export interface PricingRequest {
     client_id?: string | null;
     request_type: 'package' | 'custom';
     status: 'new' | 'reviewing' | 'approved' | 'converted' | 'rejected';
-    priority?: 'low' | 'medium' | 'high' | 'urgent';
-    assigned_to?: string | null;
+    priority: 'low' | 'medium' | 'high' | 'urgent';
+    assigned_to: string | null;
     request_source?: string;
     package_id?: string | null;
     package_name?: string | null;

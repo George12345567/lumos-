@@ -6,7 +6,8 @@ import {
   RefreshCw, Trash2, Plus, Mail, Phone, Building2,
   LayoutGrid, Table2, Edit2, Save, User, Briefcase,
   Clock, AlertCircle, CheckCircle2, XCircle,
-  Package as PackageIcon, Zap, Receipt, MessageSquare, Copy
+  Package as PackageIcon, Zap, Receipt, MessageSquare, Copy,
+  Flag, Calendar
 } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
 import type { PricingRequest, DiscountCode, AuditLog, TeamMember, DashboardStats, Contact, Client } from '@/types/dashboard';
@@ -215,6 +216,7 @@ const AdminDashboard = () => {
     const { data, error } = await supabase
       .from('contacts')
       .select('*')
+      .eq('source', 'contact_form')
       .order('created_at', { ascending: false });
     if (!error && data) setContacts(data);
   };
@@ -255,7 +257,7 @@ const AdminDashboard = () => {
 
   const loadStats = async () => {
     const [requestsRes, contactsRes, ordersRes] = await Promise.all([
-      supabase.from('pricing_requests').select('status, price'),
+      supabase.from('pricing_requests').select('status, estimated_total'),
       supabase.from('contacts').select('status'),
       supabase.from('orders').select('total_price, status, payment_status')
     ]);
@@ -822,102 +824,168 @@ const AdminDashboard = () => {
               </select>
             </div>
 
-            {viewMode === 'card' ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {filteredRequests.map(request => (
-                  <div key={request.id} className="bg-[#1a1a1a] rounded-xl border border-[#333] p-6 hover:border-emerald-500/50 hover:shadow-lg hover:shadow-emerald-500/5 transition-all duration-300 hover:-translate-y-1 group">
-                    <div className="flex items-start justify-between gap-4 mb-4">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2 flex-wrap">
-                          <h3 className="font-bold text-white group-hover:text-emerald-400 transition-colors">{request.guest_name || request.company_name || 'Unknown'}</h3>
-                          <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
-                            request.status === 'new' ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30' :
-                            request.status === 'reviewing' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' :
-                            request.status === 'approved' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' :
-                            request.status === 'rejected' ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30' :
-                            'bg-purple-500/20 text-purple-400 border border-purple-500/30'
-                          }`}>
-                            {request.status === 'new' ? (isArabic ? 'جديد' : 'New') :
-                             request.status === 'reviewing' ? (isArabic ? 'قيد المراجعة' : 'Reviewing') :
-                             request.status === 'approved' ? (isArabic ? 'معتمد' : 'Approved') :
-                             request.status === 'rejected' ? (isArabic ? 'مرفوض' : 'Rejected') :
-                             (isArabic ? 'محول' : 'Converted')}
-                          </span>
-                          {request.priority && (
-                            <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
-                              request.priority === 'urgent' ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30' :
-                              request.priority === 'high' ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30' :
-                              request.priority === 'medium' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' :
-                              'bg-gray-500/20 text-gray-400 border border-gray-500/30'
-                            }`}>
-                              {request.priority === 'urgent' ? (isArabic ? 'عاجل' : 'Urgent') :
-                               request.priority === 'high' ? (isArabic ? 'عالية' : 'High') :
-                               request.priority === 'medium' ? (isArabic ? 'متوسطة' : 'Medium') :
-                               (isArabic ? 'منخفضة' : 'Low')}
-                            </span>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2 text-sm text-gray-500 flex-wrap">
-                          {request.guest_email && <span className="flex items-center gap-1"><Mail className="w-3 h-3" />{request.guest_email}</span>}
-                          {request.guest_phone && <span className="flex items-center gap-1"><Phone className="w-3 h-3" />{request.guest_phone}</span>}
-                        </div>
-                      </div>
-                      <span className="text-xs text-gray-500">{new Date(request.created_at).toLocaleDateString()}</span>
-                    </div>
+            <div className="flex flex-wrap gap-2">
+              {[
+                { status: 'all', label: isArabic ? 'الكل' : 'All', count: filteredRequests.length, color: 'bg-gray-500' },
+                { status: 'new', label: isArabic ? 'جديد' : 'New', count: pricingRequests.filter(r => r.status === 'new').length, color: 'bg-cyan-500' },
+                { status: 'reviewing', label: isArabic ? 'مراجعة' : 'Reviewing', count: pricingRequests.filter(r => r.status === 'reviewing').length, color: 'bg-amber-500' },
+                { status: 'approved', label: isArabic ? 'معتمد' : 'Approved', count: pricingRequests.filter(r => r.status === 'approved').length, color: 'bg-emerald-500' },
+                { status: 'converted', label: isArabic ? 'محول' : 'Converted', count: pricingRequests.filter(r => r.status === 'converted').length, color: 'bg-violet-500' },
+                { status: 'rejected', label: isArabic ? 'مرفوض' : 'Rejected', count: pricingRequests.filter(r => r.status === 'rejected').length, color: 'bg-rose-500' },
+              ].map(f => (
+                <button
+                  key={f.status}
+                  onClick={() => setStatusFilter(f.status)}
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                    statusFilter === f.status 
+                      ? `${f.color} text-white` 
+                      : 'bg-[#1a1a1a] border border-[#333] text-gray-400 hover:border-gray-500'
+                  }`}
+                >
+                  <span>{f.label}</span>
+                  <span className={`px-1.5 py-0.5 rounded text-[10px] ${
+                    statusFilter === f.status ? 'bg-white/20' : 'bg-[#333]'
+                  }`}>{f.count}</span>
+                </button>
+              ))}
+            </div>
+
+            <div className="flex gap-4">
+              <div className="flex-1">
+                {viewMode === 'card' ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {filteredRequests.map(request => {
+                  const statusColor = request.status === 'new' ? 'from-cyan-500 to-cyan-600' :
+                                      request.status === 'reviewing' ? 'from-amber-500 to-amber-600' :
+                                      request.status === 'approved' ? 'from-emerald-500 to-emerald-600' :
+                                      request.status === 'rejected' ? 'from-rose-500 to-rose-600' :
+                                      'from-violet-500 to-violet-600';
+                  const statusBg = request.status === 'new' ? 'bg-cyan-500/10' :
+                                   request.status === 'reviewing' ? 'bg-amber-500/10' :
+                                   request.status === 'approved' ? 'bg-emerald-500/10' :
+                                   request.status === 'rejected' ? 'bg-rose-500/10' :
+                                   'bg-violet-500/10';
+                  const isClient = !!request.client_id;
+                  
+                  return (
+                  <div 
+                    key={request.id} 
+                    onClick={() => openRequestDetail(request)}
+                    className={`cursor-pointer bg-[#1a1a1a] rounded-2xl border border-[#333] overflow-hidden transition-all duration-300 hover:-translate-y-1 group`}
+                  >
+                    {/* Gradient Status Bar */}
+                    <div className={`h-1.5 bg-gradient-to-r ${statusColor}`} />
                     
-                    {request.package_name && (
-                      <div className="bg-[#0f0f0f] rounded-lg p-3 text-sm mb-4 border border-[#333]">
-                        <span className="font-medium text-gray-400">{isArabic ? 'الباقة' : 'Package'}:</span> <span className="text-white">{request.package_name}</span>
+                    <div className="p-4">
+                      {/* Header Row */}
+                      <div className="flex items-start justify-between gap-3 mb-3">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className={`w-2 h-2 rounded-full bg-gradient-to-r ${statusColor}`} />
+                            <span className={`text-[10px] font-black uppercase tracking-wider ${
+                              request.status === 'new' ? 'text-cyan-400' :
+                              request.status === 'reviewing' ? 'text-amber-400' :
+                              request.status === 'approved' ? 'text-emerald-400' :
+                              request.status === 'rejected' ? 'text-rose-400' :
+                              'text-violet-400'
+                            }`}>
+                              {request.status === 'new' ? (isArabic ? 'جديد' : 'New') :
+                               request.status === 'reviewing' ? (isArabic ? 'مراجعة' : 'Reviewing') :
+                               request.status === 'approved' ? (isArabic ? 'معتمد' : 'Approved') :
+                               request.status === 'rejected' ? (isArabic ? 'مرفوض' : 'Rejected') :
+                               (isArabic ? 'محول' : 'Converted')}
+                            </span>
+                            <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${
+                              isClient 
+                                ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' 
+                                : 'bg-slate-500/20 text-slate-400 border border-slate-500/30'
+                            }`}>
+                              {isClient ? (isArabic ? 'عميل' : 'Client') : (isArabic ? 'ضيف' : 'Guest')}
+                            </span>
+                          </div>
+                          <h3 className="font-bold text-white text-base truncate group-hover:text-emerald-400 transition-colors">
+                            {request.guest_name || request.company_name || (isArabic ? 'ضيف' : 'Guest')}
+                          </h3>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <p className="text-lg font-black text-emerald-400">{request.estimated_total?.toLocaleString() || 0}</p>
+                          <p className="text-[10px] font-bold text-gray-500">{request.price_currency || 'EGP'}</p>
+                        </div>
                       </div>
-                    )}
-
-                    <div className="text-sm text-gray-400 mb-3">
-                      <span className="font-medium">{isArabic ? 'الإجمالي' : 'Total'}:</span> <span className="text-emerald-400 font-bold">{request.estimated_total || 0}</span> <span className="text-gray-500">{request.price_currency || 'EGP'}</span>
-                    </div>
-
-                    {request.assigned_to_name && (
-                      <div className="text-xs text-gray-500 mb-3">
-                        <span className="font-medium">{isArabic ? 'مُسند إلى' : 'Assigned'}:</span> <span className="text-emerald-400">{request.assigned_to_name}</span> <span className="text-gray-500">({request.assigned_to_role})</span>
+                      
+                      {/* Contact Row */}
+                      <div className="flex items-center gap-3 text-xs text-gray-400 mb-3">
+                        {request.guest_email && (
+                          <span className="flex items-center gap-1.5 truncate">
+                            <Mail className="w-3.5 h-3.5 shrink-0 text-gray-500" />
+                            <span className="truncate">{request.guest_email}</span>
+                          </span>
+                        )}
+                        {request.guest_phone && (
+                          <>
+                            <span className="flex items-center gap-1.5">
+                              <Phone className="w-3.5 h-3.5 shrink-0 text-gray-500" />
+                              <span>{request.guest_phone.slice(-4)}</span>
+                            </span>
+                            <a 
+                              href={`https://wa.me/2${request.guest_phone.replace(/\D/g, '')}`}
+                              onClick={(e) => e.stopPropagation()}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex items-center gap-1 px-2 py-1 rounded-lg bg-[#25D366]/20 text-[#25D366] hover:bg-[#25D366]/30 transition-colors"
+                            >
+                              <MessageSquare className="w-3 h-3" />
+                              <span className="text-[10px] font-bold">WA</span>
+                            </a>
+                          </>
+                        )}
                       </div>
-                    )}
-
-                    <div className="flex flex-wrap gap-2 pt-4 border-t border-[#333]">
-                      <button
-                        onClick={() => openRequestDetail(request)}
-                        className="px-3 py-1.5 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-lg text-xs font-bold hover:bg-emerald-500 hover:text-white transition-all duration-200"
-                      >
-                        {isArabic ? 'عرض التفاصيل' : 'View Details'}
-                      </button>
-                      <select
-                        value={request.status}
-                        onChange={(e) => updateRequestStatus(request.id, e.target.value)}
-                        className="px-3 py-1.5 bg-[#0f0f0f] border border-[#444] rounded-lg text-xs text-white hover:border-emerald-500/50"
-                      >
-                        <option value="new">{isArabic ? 'جديد' : 'New'}</option>
-                        <option value="reviewing">{isArabic ? 'قيد المراجعة' : 'Reviewing'}</option>
-                        <option value="approved">{isArabic ? 'معتمد' : 'Approved'}</option>
-                        <option value="converted">{isArabic ? 'محويل' : 'Converted'}</option>
-                        <option value="rejected">{isArabic ? 'مرفوض' : 'Rejected'}</option>
-                      </select>
-                      <select
-                        value={request.assigned_to || ''}
-                        onChange={(e) => assignRequestToTeam(request.id, e.target.value)}
-                        className="px-3 py-1.5 bg-[#0f0f0f] border border-[#444] rounded-lg text-xs text-white hover:border-emerald-500/50"
-                      >
-                        <option value="">{isArabic ? 'تعيين لفريق' : 'Assign Team'}</option>
-                        {teamMembers.map(m => (
-                          <option key={m.id} value={m.id}>{m.name}</option>
-                        ))}
-                      </select>
-                      <button
-                        onClick={() => deleteRequest(request.id)}
-                        className="px-3 py-1.5 bg-rose-500/10 text-rose-400 border border-rose-500/30 rounded-lg text-xs font-medium hover:bg-rose-500 hover:text-white transition-all duration-200"
-                      >
-                        {isArabic ? 'حذف' : 'Delete'}
-                      </button>
+                      
+                      {/* Package Info */}
+                      {request.package_name && (
+                        <div className="bg-[#0f0f0f] rounded-lg px-3 py-2 mb-3 border border-[#333]">
+                          <span className="text-xs font-medium text-gray-400">{isArabic ? '📦' : '📦'}</span>
+                          <span className="text-xs font-bold text-white ml-1">{request.package_name}</span>
+                        </div>
+                      )}
+                      
+                      {/* Info Chips */}
+                      <div className="flex flex-wrap gap-2">
+                        {request.priority && (
+                          <span className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold ${
+                            request.priority === 'urgent' ? 'bg-rose-500/20 text-rose-400' :
+                            request.priority === 'high' ? 'bg-orange-500/20 text-orange-400' :
+                            request.priority === 'medium' ? 'bg-amber-500/20 text-amber-400' :
+                            'bg-slate-500/20 text-slate-400'
+                          }`}>
+                            <Flag className="w-2.5 h-2.5" />
+                            {request.priority === 'urgent' ? (isArabic ? 'عاجل' : 'Urgent') :
+                             request.priority === 'high' ? (isArabic ? 'عالية' : 'High') :
+                             request.priority === 'medium' ? (isArabic ? 'متوسطة' : 'Medium') :
+                             (isArabic ? 'منخفضة' : 'Low')}
+                          </span>
+                        )}
+                        <span className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold bg-[#333] text-gray-400">
+                          <Calendar className="w-2.5 h-2.5" />
+                          {new Date(request.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}
+                        </span>
+                        {request.assigned_to_name && (
+                          <span className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold bg-violet-500/20 text-violet-400">
+                            <User className="w-2.5 h-2.5" />
+                            {request.assigned_to_name}
+                          </span>
+                        )}
+                        <span className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold ${
+                          request.request_type === 'package' 
+                            ? 'bg-blue-500/20 text-blue-400' 
+                            : 'bg-purple-500/20 text-purple-400'
+                        }`}>
+                          {request.request_type === 'package' ? (isArabic ? 'باقة' : 'Package') : (isArabic ? 'مخصص' : 'Custom')}
+                        </span>
+                      </div>
                     </div>
                   </div>
-                ))}
+)})}
               </div>
 ) : (
               <div className="bg-[#1a1a1a] rounded-xl border border-[#333] overflow-hidden">
@@ -984,6 +1052,67 @@ const AdminDashboard = () => {
                 <p>{isArabic ? 'لا توجد طلبات' : 'No requests found'}</p>
               </div>
             )}
+              </div>
+
+              <div className="w-64 shrink-0 space-y-3">
+                <div className="rounded-xl border border-[#333] bg-[#1a1a1a] p-4">
+                  <h3 className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-3">{isArabic ? 'إجمالي المحفظة' : 'Pipeline'}</h3>
+                  <p className="text-2xl font-black text-emerald-400">{pricingRequests.reduce((sum, r) => sum + (r.estimated_total || 0), 0).toLocaleString()}</p>
+                  <p className="text-xs text-gray-500 mb-4">EGP</p>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-cyan-500" />
+                        <span className="text-xs font-medium text-gray-400">{isArabic ? 'جديد' : 'New'}</span>
+                      </div>
+                      <span className="text-xs font-bold text-white">{pricingRequests.filter(r => r.status === 'new').length}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-amber-500" />
+                        <span className="text-xs font-medium text-gray-400">{isArabic ? 'مراجعة' : 'Reviewing'}</span>
+                      </div>
+                      <span className="text-xs font-bold text-white">{pricingRequests.filter(r => r.status === 'reviewing').length}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                        <span className="text-xs font-medium text-gray-400">{isArabic ? 'معتمد' : 'Approved'}</span>
+                      </div>
+                      <span className="text-xs font-bold text-white">{pricingRequests.filter(r => r.status === 'approved').length}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-violet-500" />
+                        <span className="text-xs font-medium text-gray-400">{isArabic ? 'محول' : 'Converted'}</span>
+                      </div>
+                      <span className="text-xs font-bold text-white">{pricingRequests.filter(r => r.status === 'converted').length}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-rose-500" />
+                        <span className="text-xs font-medium text-gray-400">{isArabic ? 'مرفوض' : 'Rejected'}</span>
+                      </div>
+                      <span className="text-xs font-bold text-white">{pricingRequests.filter(r => r.status === 'rejected').length}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-[#333] bg-[#1a1a1a] p-4">
+                  <h3 className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-3">{isArabic ? 'أنواع الطلبات' : 'Request Types'}</h3>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-medium text-gray-400">{isArabic ? 'باقات' : 'Package'}</span>
+                      <span className="text-xs font-bold text-white">{pricingRequests.filter(r => r.request_type === 'package').length}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-medium text-gray-400">{isArabic ? 'مخصص' : 'Custom'}</span>
+                      <span className="text-xs font-bold text-white">{pricingRequests.filter(r => r.request_type === 'custom').length}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         )}
 
@@ -1212,119 +1341,114 @@ const AdminDashboard = () => {
 
         {activeTab === 'contacts' && (
           <div className="space-y-6 mt-6">
-            <div className="flex flex-wrap gap-4">
-              <select
-                value={contactStatusFilter}
-                onChange={(e) => setContactStatusFilter(e.target.value)}
-                className="px-4 py-2.5 bg-[#1a1a1a] border border-[#333] rounded-xl text-sm text-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none transition-all duration-200"
-              >
-                <option value="all">{isArabic ? 'كل الحالات' : 'All Status'}</option>
-                <option value="new">{isArabic ? 'جديد' : 'New'}</option>
-                <option value="read">{isArabic ? 'مقروء' : 'Read'}</option>
-                <option value="contacted">{isArabic ? 'تم التواصل' : 'Contacted'}</option>
-                <option value="resolved">{isArabic ? 'تم الحل' : 'Resolved'}</option>
-              </select>
-            </div>
-
-            <div className="grid grid-cols-4 gap-4">
-              <div className="bg-[#1a1a1a] p-4 rounded-xl border border-[#333]">
-                <p className="text-xs font-bold text-gray-500 uppercase">{isArabic ? 'إجمالي' : 'Total'}</p>
-                <p className="text-2xl font-black text-white">{contacts.length}</p>
-              </div>
-              <div className="bg-cyan-500/10 p-4 rounded-xl border border-cyan-500/30">
-                <p className="text-xs font-bold text-cyan-400 uppercase">{isArabic ? 'جديد' : 'New'}</p>
-                <p className="text-2xl font-black text-cyan-400">{contacts.filter(c => c.status === 'new').length}</p>
-              </div>
-              <div className="bg-amber-500/10 p-4 rounded-xl border border-amber-500/30">
-                <p className="text-xs font-bold text-amber-400 uppercase">{isArabic ? 'تم التواصل' : 'Contacted'}</p>
-                <p className="text-2xl font-black text-amber-400">{contacts.filter(c => c.status === 'contacted').length}</p>
-              </div>
-              <div className="bg-emerald-500/10 p-4 rounded-xl border border-emerald-500/30">
-                <p className="text-xs font-bold text-emerald-400 uppercase">{isArabic ? 'تم الحل' : 'Resolved'}</p>
-                <p className="text-2xl font-black text-emerald-400">{contacts.filter(c => c.status === 'resolved').length}</p>
-              </div>
+            <div className="flex flex-wrap gap-2">
+              {[
+                { status: 'all', label: isArabic ? 'الكل' : 'All', count: contacts.length, color: 'bg-gray-500' },
+                { status: 'new', label: isArabic ? 'جديد' : 'New', count: contacts.filter(c => c.status === 'new').length, color: 'bg-cyan-500' },
+                { status: 'read', label: isArabic ? 'مقروء' : 'Read', count: contacts.filter(c => c.status === 'read').length, color: 'bg-blue-500' },
+                { status: 'contacted', label: isArabic ? 'تواصل' : 'Contacted', count: contacts.filter(c => c.status === 'contacted').length, color: 'bg-amber-500' },
+                { status: 'resolved', label: isArabic ? 'محلول' : 'Resolved', count: contacts.filter(c => c.status === 'resolved').length, color: 'bg-emerald-500' },
+              ].map(f => (
+                <button
+                  key={f.status}
+                  onClick={() => setContactStatusFilter(f.status)}
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                    contactStatusFilter === f.status 
+                      ? `${f.color} text-white` 
+                      : 'bg-[#1a1a1a] border border-[#333] text-gray-400 hover:border-gray-500'
+                  }`}
+                >
+                  <span>{f.label}</span>
+                  <span className={`px-1.5 py-0.5 rounded text-[10px] ${
+                    contactStatusFilter === f.status ? 'bg-white/20' : 'bg-[#333]'
+                  }`}>{f.count}</span>
+                </button>
+              ))}
             </div>
 
             {viewMode === 'card' ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {filteredContacts.map(contact => (
-                  <div key={contact.id} className="bg-[#1a1a1a] rounded-xl border border-[#333] p-6 hover:border-emerald-500/50 hover:shadow-lg hover:shadow-emerald-500/5 transition-all duration-300 hover:-translate-y-1 group">
-                    <div className="flex items-start justify-between gap-4 mb-4">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
-                          <h3 className="font-bold text-white group-hover:text-emerald-400 transition-colors">{contact.name}</h3>
-                          <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
-                            contact.status === 'new' ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30' :
-                            contact.status === 'read' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' :
-                            contact.status === 'contacted' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' :
-                            'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                          }`}>
-                            {contact.status === 'new' ? (isArabic ? 'جديد' : 'New') :
-                             contact.status === 'read' ? (isArabic ? 'مقروء' : 'Read') :
-                             contact.status === 'contacted' ? (isArabic ? 'تم التواصل' : 'Contacted') :
-                             (isArabic ? 'تم الحل' : 'Resolved')}
+                {filteredContacts.map(contact => {
+                  const statusColor = contact.status === 'new' ? 'from-cyan-500 to-cyan-600' :
+                                      contact.status === 'read' ? 'from-blue-500 to-blue-600' :
+                                      contact.status === 'contacted' ? 'from-amber-500 to-amber-600' :
+                                      'from-emerald-500 to-emerald-600';
+                  
+                  return (
+                  <div 
+                    key={contact.id} 
+                    className="bg-[#1a1a1a] rounded-2xl border border-[#333] overflow-hidden transition-all duration-300 hover:-translate-y-1 group"
+                  >
+                    <div className={`h-1.5 bg-gradient-to-r ${statusColor}`} />
+                    <div className="p-4">
+                      <div className="flex items-start justify-between gap-3 mb-3">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className={`w-2 h-2 rounded-full bg-gradient-to-r ${statusColor}`} />
+                            <span className={`text-[10px] font-black uppercase tracking-wider ${
+                              contact.status === 'new' ? 'text-cyan-400' :
+                              contact.status === 'read' ? 'text-blue-400' :
+                              contact.status === 'contacted' ? 'text-amber-400' :
+                              'text-emerald-400'
+                            }`}>
+                              {contact.status === 'new' ? (isArabic ? 'جديد' : 'New') :
+                               contact.status === 'read' ? (isArabic ? 'مقروء' : 'Read') :
+                               contact.status === 'contacted' ? (isArabic ? 'تم التواصل' : 'Contacted') :
+                               (isArabic ? 'محلول' : 'Resolved')}
+                            </span>
+                          </div>
+                          <h3 className="font-bold text-white text-base truncate group-hover:text-emerald-400 transition-colors">
+                            {contact.name}
+                          </h3>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center gap-3 text-xs text-gray-400 mb-3">
+                        {contact.phone && (
+                          <span className="flex items-center gap-1.5">
+                            <Phone className="w-3.5 h-3.5 shrink-0 text-gray-500" />
+                            <span>{contact.phone.slice(-4)}</span>
                           </span>
-                        </div>
-                        <div className="flex items-center gap-2 text-sm text-gray-500 flex-wrap">
-                          {contact.phone && (
-                            <span className="flex items-center gap-1">
-                              <Phone className="w-3 h-3" />
-                              {contact.phone}
-                            </span>
-                          )}
-                          {contact.email && (
-                            <span className="flex items-center gap-1">
-                              <Mail className="w-3 h-3" />
-                              {contact.email}
-                            </span>
-                          )}
-                          {contact.business_name && (
-                            <span className="flex items-center gap-1">
-                              <Building2 className="w-3 h-3" />
-                              {contact.business_name}
-                            </span>
-                          )}
-                        </div>
+                        )}
+                        {contact.phone && (
+                          <a 
+                            href={`https://wa.me/2${contact.phone.replace(/\D/g, '')}`}
+                            onClick={(e) => e.stopPropagation()}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-1 px-2 py-1 rounded-lg bg-[#25D366]/20 text-[#25D366] hover:bg-[#25D366]/30 transition-colors"
+                          >
+                            <MessageSquare className="w-3 h-3" />
+                            <span className="text-[10px] font-bold">WA</span>
+                          </a>
+                        )}
                       </div>
-                      <span className="text-xs text-gray-500">{new Date(contact.created_at).toLocaleDateString()}</span>
-                    </div>
-                    
-                    {contact.message && (
-                      <div className="bg-[#0f0f0f] rounded-lg p-3 text-sm text-gray-400 mb-4 border border-[#333]">
-                        {contact.message}
+                      
+                      {contact.message && (
+                        <div className="bg-[#0f0f0f] rounded-lg px-3 py-2 mb-3 border border-[#333]">
+                          <p className="text-xs text-gray-400 line-clamp-2">{contact.message}</p>
+                        </div>
+                      )}
+                      
+                      <div className="flex items-center gap-2">
+                        <span className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold bg-[#333] text-gray-400">
+                          <Calendar className="w-2.5 h-2.5" />
+                          {new Date(contact.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}
+                        </span>
+                        {contact.industry && (
+                          <span className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold bg-purple-500/20 text-purple-400">
+                            {contact.industry}
+                          </span>
+                        )}
+                        {contact.service_needed && (
+                          <span className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold bg-blue-500/20 text-blue-400">
+                            {contact.service_needed}
+                          </span>
+                        )}
                       </div>
-                    )}
-
-                    <div className="flex flex-wrap gap-2 pt-4 border-t border-[#333]">
-                      <select
-                        value={contact.status || 'new'}
-                        onChange={(e) => updateContactStatus(contact.id, e.target.value)}
-                        className="px-3 py-1.5 bg-[#0f0f0f] border border-[#333] rounded-lg text-xs text-white"
-                      >
-                        <option value="new">{isArabic ? 'جديد' : 'New'}</option>
-                        <option value="read">{isArabic ? 'مقروء' : 'Read'}</option>
-                        <option value="contacted">{isArabic ? 'تم التواصل' : 'Contacted'}</option>
-                        <option value="resolved">{isArabic ? 'تم الحل' : 'Resolved'}</option>
-                      </select>
-                      <select
-                        value={contact.assigned_to || ''}
-                        onChange={(e) => assignContactToTeam(contact.id, e.target.value)}
-                        className="px-3 py-1.5 bg-[#0f0f0f] border border-[#333] rounded-lg text-xs text-white"
-                      >
-                        <option value="">{isArabic ? 'تعيين لفريق' : 'Assign'}</option>
-                        {teamMembers.map(m => (
-                          <option key={m.id} value={m.id}>{m.name}</option>
-                        ))}
-                      </select>
-                      <button
-                        onClick={() => deleteContact(contact.id)}
-                        className="px-3 py-1.5 bg-rose-500/20 text-rose-400 border border-rose-500/30 rounded-lg text-xs font-medium hover:bg-rose-500 hover:text-white transition-all duration-200"
-                      >
-                        {isArabic ? 'حذف' : 'Delete'}
-                      </button>
                     </div>
                   </div>
-                ))}
+                )})}
               </div>
             ) : (
               <div className="bg-[#1a1a1a] rounded-xl border border-[#333] overflow-hidden">
@@ -2086,6 +2210,67 @@ const AdminDashboard = () => {
               <div className="flex-1 overflow-y-auto p-6 space-y-4">
                 {/* ════ OVERVIEW SECTION ════ */}
                 <div className={`${activeNavSection === 'overview' ? 'block' : 'hidden'}`}>
+                  {/* Quick Actions */}
+                  <div className="bg-[#1a1a1a] rounded-xl p-4 border border-[#333] mb-4">
+                    <h3 className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-3 flex items-center gap-2">
+                      <Zap className="w-4 h-4" />
+                      {requestDetailLang === 'ar' ? 'إجراءات سريعة' : 'Quick Actions'}
+                    </h3>
+                    <div className="flex flex-wrap gap-2">
+                      {selectedRequest.status !== 'new' && (
+                        <button
+                          onClick={() => { updateRequestStatus(selectedRequest.id, 'new'); setSelectedRequest({...selectedRequest, status: 'new'}); }}
+                          className="px-4 py-2 rounded-lg text-xs font-bold border border-cyan-500/30 bg-cyan-500/10 text-cyan-400 hover:bg-cyan-500/20 transition-all"
+                        >
+                          {requestDetailLang === 'ar' ? 'جديد' : 'New'}
+                        </button>
+                      )}
+                      {selectedRequest.status !== 'reviewing' && (
+                        <button
+                          onClick={() => { updateRequestStatus(selectedRequest.id, 'reviewing'); setSelectedRequest({...selectedRequest, status: 'reviewing'}); }}
+                          className="px-4 py-2 rounded-lg text-xs font-bold border border-amber-500/30 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition-all"
+                        >
+                          {requestDetailLang === 'ar' ? 'مراجعة' : 'Review'}
+                        </button>
+                      )}
+                      {selectedRequest.status !== 'approved' && (
+                        <button
+                          onClick={() => { updateRequestStatus(selectedRequest.id, 'approved'); setSelectedRequest({...selectedRequest, status: 'approved'}); }}
+                          className="px-4 py-2 rounded-lg text-xs font-bold border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 transition-all"
+                        >
+                          {requestDetailLang === 'ar' ? 'اعتماد' : 'Approve'}
+                        </button>
+                      )}
+                      {selectedRequest.status !== 'converted' && selectedRequest.client_id && (
+                        <button
+                          onClick={() => { updateRequestStatus(selectedRequest.id, 'converted'); setSelectedRequest({...selectedRequest, status: 'converted'}); }}
+                          className="px-4 py-2 rounded-lg text-xs font-bold border border-violet-500/30 bg-violet-500/10 text-violet-400 hover:bg-violet-500/20 transition-all"
+                        >
+                          {requestDetailLang === 'ar' ? 'تحويل' : 'Convert'}
+                        </button>
+                      )}
+                      {selectedRequest.status !== 'rejected' && (
+                        <button
+                          onClick={() => { updateRequestStatus(selectedRequest.id, 'rejected'); setSelectedRequest({...selectedRequest, status: 'rejected'}); }}
+                          className="px-4 py-2 rounded-lg text-xs font-bold border border-rose-500/30 bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 transition-all"
+                        >
+                          {requestDetailLang === 'ar' ? 'رفض' : 'Reject'}
+                        </button>
+                      )}
+                      {selectedRequest.guest_phone && (
+                        <a
+                          href={`https://wa.me/2${selectedRequest.guest_phone.replace(/\D/g, '')}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-4 py-2 rounded-lg text-xs font-bold border border-[#25D366]/30 bg-[#25D366]/10 text-[#25D366] hover:bg-[#25D366]/20 transition-all flex items-center gap-2"
+                        >
+                          <MessageSquare className="w-3 h-3" />
+                          {requestDetailLang === 'ar' ? 'WhatsApp' : 'WhatsApp'}
+                        </a>
+                      )}
+                    </div>
+                  </div>
+
                   <div className="bg-[#1a1a1a] rounded-xl p-5 border border-[#333]">
                     <h3 className="text-sm font-bold text-emerald-400 uppercase tracking-wider mb-4 flex items-center gap-2">
                       <LayoutGrid className="w-4 h-4" />
@@ -2163,6 +2348,38 @@ const AdminDashboard = () => {
                         <p className="text-sm font-bold text-emerald-400">{selectedRequest.assigned_to_name} ({selectedRequest.assigned_to_role})</p>
                       </div>
                     )}
+
+                    {/* Client Info - Merged from Client Tab */}
+                    <div className="mt-4 p-4 rounded-lg bg-[#0f0f0f] border border-[#333]">
+                      <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-3">{requestDetailLang === 'ar' ? 'معلومات العميل' : 'Client Info'}</p>
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                        <div>
+                          <p className="text-[10px] text-gray-500">{requestDetailLang === 'ar' ? 'الاسم' : 'Name'}</p>
+                          <p className="text-sm font-bold text-white">{selectedRequest.guest_name || selectedRequest.company_name || '-'}</p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] text-gray-500">{requestDetailLang === 'ar' ? 'الهاتف' : 'Phone'}</p>
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm font-bold text-white">{selectedRequest.guest_phone || '-'}</p>
+                            {selectedRequest.guest_phone && (
+                              <a href={`https://wa.me/2${selectedRequest.guest_phone.replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer" className="text-emerald-400 hover:text-emerald-300">
+                                <MessageSquare className="w-3.5 h-3.5" />
+                              </a>
+                            )}
+                          </div>
+                        </div>
+                        <div>
+                          <p className="text-[10px] text-gray-500">{requestDetailLang === 'ar' ? 'البريد' : 'Email'}</p>
+                          <p className="text-sm font-bold text-white truncate">{selectedRequest.guest_email || '-'}</p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] text-gray-500">{requestDetailLang === 'ar' ? 'النوع' : 'Type'}</p>
+                          <p className={`text-sm font-bold ${selectedRequest.client_id ? 'text-emerald-400' : 'text-gray-400'}`}>
+                            {selectedRequest.client_id ? (requestDetailLang === 'ar' ? 'عميل مسجل' : 'Registered Client') : (requestDetailLang === 'ar' ? 'ضيف' : 'Guest')}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
 

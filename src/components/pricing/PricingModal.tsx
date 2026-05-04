@@ -69,6 +69,10 @@ interface StoredRequest {
   guestName?: string;
   guestEmail?: string;
   lastCheckedAt?: string;
+  selectedPkg?: string;
+  selectedServices?: string[];
+  mode?: 'packages' | 'custom';
+  editCount?: number;
 }
 
 const savePendingRequest = (request: {
@@ -81,6 +85,10 @@ const savePendingRequest = (request: {
   guestName?: string;
   guestEmail?: string;
   lastCheckedAt?: string;
+  selectedPkg?: string;
+  selectedServices?: string[];
+  mode?: 'packages' | 'custom';
+  editCount?: number;
 }): void => {
   try {
     const now = new Date();
@@ -137,10 +145,45 @@ const updateStoredRequestStatus = (id: string, status: string): void => {
     if (stored.id === id) {
       stored.status = status;
       stored.lastCheckedAt = new Date().toISOString();
+      if (status === 'new' || status === 'reviewing') {
+        stored.editCount = 0;
+      }
       localStorage.setItem(STORAGE_KEY, JSON.stringify(stored));
     }
   } catch (e) {
     console.error('Failed to update stored request status:', e);
+  }
+};
+
+const incrementLocalEditCount = (id: string): number => {
+  try {
+    const data = localStorage.getItem(STORAGE_KEY);
+    if (!data) return 0;
+    const stored: StoredRequest = JSON.parse(data);
+    if (stored.id === id) {
+      const newCount = (stored.editCount || 0) + 1;
+      stored.editCount = newCount;
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(stored));
+      return newCount;
+    }
+    return 0;
+  } catch (e) {
+    console.error('Failed to increment edit count:', e);
+    return 0;
+  }
+};
+
+const getLocalEditCount = (id: string): number => {
+  try {
+    const data = localStorage.getItem(STORAGE_KEY);
+    if (!data) return 0;
+    const stored: StoredRequest = JSON.parse(data);
+    if (stored.id === id) {
+      return stored.editCount || 0;
+    }
+    return 0;
+  } catch (e) {
+    return 0;
   }
 };
 
@@ -173,7 +216,10 @@ const PricingModal = ({ open, onOpenChange, initialRequest = null }: PricingModa
   const [isTrackingView, setIsTrackingView] = useState(false);
   const [isEditingMode, setIsEditingMode] = useState(false);
   const [isCopying, setIsCopying] = useState(false);
-  
+  const [showDeleteWarning, setShowDeleteWarning] = useState(false);
+  const [deleteReason, setDeleteReason] = useState('');
+  const [requestEditCount, setRequestEditCount] = useState<Record<string, number>>({});
+
   /* ── Validation States ── */
   const [validationErrors, setValidationErrors] = useState<{
     name?: string;
@@ -359,10 +405,12 @@ const PricingModal = ({ open, onOpenChange, initialRequest = null }: PricingModa
   /* ── Load saved pending request on modal open ── */
   useEffect(() => {
     if (!open) return;
+    let cancelled = false;
     const saved = loadPendingRequest();
     if (!saved) return;
 
     const fetchFreshStatus = async () => {
+      if (cancelled) return;
       if (shouldRefreshStatus(saved)) {
         try {
           const { data: freshData } = await supabase
@@ -371,6 +419,7 @@ const PricingModal = ({ open, onOpenChange, initialRequest = null }: PricingModa
             .eq('id', saved.id)
             .single();
           
+          if (cancelled) return;
           if (freshData) {
             const updated = {
               ...saved,
@@ -387,24 +436,37 @@ const PricingModal = ({ open, onOpenChange, initialRequest = null }: PricingModa
           }
         } catch (e) {
           console.error('Failed to fetch fresh status:', e);
-          setSavedPendingRequest(saved);
+          if (!cancelled) setSavedPendingRequest(saved);
         }
       } else {
-        setSavedPendingRequest(saved);
+        if (!cancelled) {
+          setSavedPendingRequest(saved);
+        }
+      }
+      if (!cancelled) {
         setStep('success');
+        setIsTrackingView(true);
+        setIsEditingMode(false);
+        setContact({
+          name: saved.guestName || '',
+          phone: saved.guestPhone || '',
+          email: saved.guestEmail || '',
+          notes: '',
+        });
+        if (saved.mode === 'packages') {
+          setMode('packages');
+          setSelectedPkg(saved.selectedPkg || null);
+        } else if (saved.mode === 'custom' && saved.selectedServices) {
+          setMode('custom');
+          setSelectedServices(new Set(saved.selectedServices));
+        }
       }
     };
 
-    setStep('success');
-    setIsTrackingView(true);
-    setIsEditingMode(false);
-    setContact({
-      name: saved.guestName || '',
-      phone: saved.guestPhone || '',
-      email: saved.guestEmail || '',
-      notes: '',
-    });
     fetchFreshStatus();
+    return () => {
+      cancelled = true;
+    };
   }, [open]);
 
   /* ── 40-Second Easter Egg Trigger ── */
@@ -1005,7 +1067,6 @@ const PricingModal = ({ open, onOpenChange, initialRequest = null }: PricingModa
         
         if (requestData) {
           setSubmittedRequest(requestData as PricingRequest);
-          // Save to localStorage for tracking after modal close
           savePendingRequest({
             id: requestData.id,
             status: requestData.status || 'pending',
@@ -1015,11 +1076,24 @@ const PricingModal = ({ open, onOpenChange, initialRequest = null }: PricingModa
             guestPhone: contact.phone,
             guestName: contact.name,
             guestEmail: contact.email,
+            selectedPkg: mode === 'packages' ? selectedPkg : undefined,
+            selectedServices: mode === 'custom' ? Array.from(selectedServices) : undefined,
+            mode: mode,
+            editCount: 0,
           });
         }
-      } else if (isKnownClient && client?.id) {
-        // For logged-in clients, use latestClientRequest
-        setSubmittedRequest(latestClientRequest);
+      } else if (isKnownClient && client?.id && result.id) {
+        // For logged-in clients, fetch the newly created request
+        const { data: newRequest } = await supabase
+          .from('pricing_requests')
+          .select('*')
+          .eq('id', result.id)
+          .single();
+        
+        if (newRequest) {
+          setSubmittedRequest(newRequest as PricingRequest);
+          setRequestEditCount(prev => ({ ...prev, [newRequest.id]: 0 }));
+        }
       }
 
       // 4. Show success message
@@ -1039,7 +1113,25 @@ const PricingModal = ({ open, onOpenChange, initialRequest = null }: PricingModa
   }, [isKnownClient, client?.id, editingRequestId, mode, selectedPkg, selectedPackageName, totals, currency, contact, isAr, isEditing, buildMessage, latestClientRequest]);
 
   /* ── Edit Request (from success screen) ── */
-  const handleEditRequest = useCallback(() => {
+  const handleEditRequest = useCallback(async () => {
+    const activeReq = submittedRequest || latestClientRequest;
+    const isTrackingMode = savedPendingRequest && !submittedRequest && !latestClientRequest;
+    const currentRequest = isTrackingMode ? savedPendingRequest : (activeReq as any);
+    const currentStatus = currentRequest?.status || 'new';
+    const currentEditCount = isTrackingMode 
+      ? (savedPendingRequest?.editCount || 0) 
+      : (requestEditCount[currentRequest?.id] || 0);
+    
+    if (currentEditCount >= 3) {
+      toast.error(isAr ? 'لقد استخدمت جميع محاولات التعديل (3)' : 'You have used all edit attempts (3)');
+      return;
+    }
+    
+    if (currentStatus !== 'new' && currentStatus !== 'reviewing') {
+      toast.error(isAr ? 'لا يمكن تعديل الطلب في هذه المرحلة' : 'Cannot edit request at this stage');
+      return;
+    }
+    
     if (submittedRequest) {
       hydrateRequest(submittedRequest);
       setStep('build');
@@ -1047,13 +1139,28 @@ const PricingModal = ({ open, onOpenChange, initialRequest = null }: PricingModa
       hydrateRequest(latestClientRequest);
       setStep('build');
     } else if (savedPendingRequest) {
-      // For guest users - load saved request into form
       setIsEditingMode(true);
       setStep('build');
-      setMode('packages');
-      // The savedPendingRequest has package info that can be used to pre-select
+      if (savedPendingRequest.mode === 'packages') {
+        setMode('packages');
+        setSelectedPkg(savedPendingRequest.selectedPkg || null);
+      } else if (savedPendingRequest.mode === 'custom' && savedPendingRequest.selectedServices) {
+        setMode('custom');
+        setSelectedServices(new Set(savedPendingRequest.selectedServices));
+      }
     }
-  }, [submittedRequest, latestClientRequest, savedPendingRequest, hydrateRequest]);
+    
+    const newCount = currentEditCount + 1;
+    if (isTrackingMode) {
+      incrementLocalEditCount(currentRequest?.id);
+    } else if (currentRequest?.id) {
+      setRequestEditCount(prev => ({ ...prev, [currentRequest.id]: newCount }));
+      await supabase
+        .from('pricing_requests')
+        .update({ edit_count: newCount })
+        .eq('id', currentRequest.id);
+    }
+  }, [submittedRequest, latestClientRequest, savedPendingRequest, hydrateRequest, requestEditCount, isAr]);
 
   /* ── Cancel Order Forever (Delete from DB + localStorage) ── */
   const handleCancelOrderForever = useCallback(async () => {
@@ -1101,11 +1208,51 @@ const PricingModal = ({ open, onOpenChange, initialRequest = null }: PricingModa
       return;
     }
 
-    // Update local state
     setSubmittedRequest(prev => prev ? { ...prev, status: 'rejected' } : null);
     
     toast.success(isAr ? 'تم إلغاء الطلب بنجاح' : 'Request cancelled successfully');
   }, [submittedRequest, latestClientRequest, isAr]);
+
+  /* ── Permanent Delete Request ── */
+  const handlePermanentDelete = useCallback(async () => {
+    const activeReq = submittedRequest || latestClientRequest;
+    const isTrackingMode = savedPendingRequest && !submittedRequest && !latestClientRequest;
+    const currentRequest = isTrackingMode ? savedPendingRequest : (activeReq as any);
+    
+    if (!currentRequest?.id) return;
+    
+    try {
+      const { error } = await supabase
+        .from('pricing_requests')
+        .delete()
+        .eq('id', currentRequest.id);
+
+      if (error) throw error;
+
+      if (isTrackingMode) {
+        clearPendingRequest();
+        setSavedPendingRequest(null);
+      } else {
+        setSubmittedRequest(null);
+        setLatestClientRequest(null);
+      }
+      
+      setShowDeleteWarning(false);
+      setDeleteReason('');
+      setIsTrackingView(false);
+      setStep('mode');
+      setMode(null);
+      setSelectedPkg(null);
+      setSelectedServices(new Set());
+      setContact({ name: '', phone: '', email: '', notes: '' });
+      
+      toast.success(isAr ? 'تم حذف الطلب نهائياً' : 'Request permanently deleted');
+      onOpenChange(false);
+    } catch (e) {
+      console.error('Failed to delete request:', e);
+      toast.error(isAr ? 'فشل حذف الطلب' : 'Failed to delete request');
+    }
+  }, [submittedRequest, latestClientRequest, savedPendingRequest, isAr, onOpenChange]);
 
 
   /* ── Step config ── */
@@ -1210,40 +1357,7 @@ const PricingModal = ({ open, onOpenChange, initialRequest = null }: PricingModa
                 </div>
               </div>
 
-{/* ════ SIMPLIFIED TRACKING BAR (Progress Only) ════ */}
-              {savedPendingRequest && step !== 'success' && (() => {
-                const statusMeta = {
-                  new: { label: isAr ? 'تم الاستلام' : 'Received', color: 'from-cyan-400 to-cyan-500', progress: 25 },
-                  reviewing: { label: isAr ? 'جاري المراجعة' : 'Under Review', color: 'from-purple-400 to-purple-500', progress: 50 },
-                  approved: { label: isAr ? 'تمت الموافقة' : 'Approved', color: 'from-emerald-400 to-emerald-500', progress: 75 },
-                  converted: { label: isAr ? 'تم التسليم' : 'Delivered', color: 'from-violet-400 to-violet-500', progress: 100 },
-                  rejected: { label: isAr ? 'ملغي' : 'Cancelled', color: 'from-rose-400 to-rose-500', progress: 100 },
-                }[savedPendingRequest.status] || { label: isAr ? 'جاري' : 'Pending', color: 'from-slate-400 to-slate-500', progress: 10 };
 
-                return (
-                  <div className="mt-3 px-4 py-2 rounded-xl bg-gradient-to-r from-slate-50 to-slate-100/50 border border-slate-200">
-                    <div className="flex items-center justify-between mb-1.5">
-                      <div className="flex items-center gap-2">
-                        <span className="text-[9px] font-bold text-slate-500">
-                          #{savedPendingRequest.id?.slice(0, 8)}
-                        </span>
-                        <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-white border border-slate-200 text-slate-600">
-                          {statusMeta.label}
-                        </span>
-                      </div>
-                    </div>
-                    
-                    {/* Progress bar */}
-                    <div className="h-1 rounded-full bg-slate-200 overflow-hidden">
-                      <motion.div 
-                        initial={{ width: 0 }}
-                        animate={{ width: `${statusMeta.progress}%` }}
-                        className={`h-full rounded-full bg-gradient-to-r ${statusMeta.color}`}
-                      />
-                    </div>
-                  </div>
-                );
-              })()}
 
               {/* Step Progress bar */}
               {step !== 'mode' && (
@@ -2442,6 +2556,15 @@ const PricingModal = ({ open, onOpenChange, initialRequest = null }: PricingModa
                   const currentRequest = isTrackingMode ? savedPendingRequest : (activeReq as any);
                   const currentStatus = currentRequest?.status || 'new';
                   
+                  const currentEditCount = isTrackingMode 
+                    ? (savedPendingRequest?.editCount || 0) 
+                    : (requestEditCount[currentRequest?.id] || 0);
+                  const remainingEdits = Math.max(0, 3 - currentEditCount);
+                  
+                  const canEdit = ['new', 'reviewing'].includes(currentStatus) && remainingEdits > 0;
+                  const canDelete = currentStatus !== 'converted' && currentStatus !== 'rejected';
+                  const canCancel = currentStatus !== 'converted' && currentStatus !== 'rejected';
+                  
                   const getStepStatus = (stepName: string) => {
                     const statusOrder = ['new', 'reviewing', 'approved', 'converted'];
                     const currentIdx = statusOrder.indexOf(currentStatus);
@@ -2630,7 +2753,17 @@ const PricingModal = ({ open, onOpenChange, initialRequest = null }: PricingModa
                             className="h-10 px-5 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 text-white text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 shadow-md hover:from-amber-600 hover:to-orange-600"
                           >
                             <RefreshCw className="w-3.5 h-3.5" />
-                            {isAr ? 'تعديل الطلب' : 'Edit Request'}
+                            {isAr ? `تعديل الطلب (${remainingEdits}/3)` : `Edit (${remainingEdits}/3 left)`}
+                          </button>
+                        )}
+                        
+                        {canDelete && (
+                          <button
+                            onClick={() => setShowDeleteWarning(true)}
+                            className="h-10 px-5 rounded-full bg-gradient-to-r from-slate-700 to-slate-800 text-white text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 shadow-md hover:from-slate-800 hover:to-slate-900"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            {isAr ? 'حذف نهائي' : 'Delete Forever'}
                           </button>
                         )}
                         
@@ -2647,6 +2780,63 @@ const PricingModal = ({ open, onOpenChange, initialRequest = null }: PricingModa
                     </motion.div>
                   );
                 })()}
+
+                {/* ── Delete Warning Dialog ── */}
+                {showDeleteWarning && (
+                  <motion.div
+                    initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                    className="absolute inset-0 z-[100] flex items-center justify-center p-4"
+                  >
+                    <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-[2px]" onClick={() => setShowDeleteWarning(false)} />
+                    <motion.div
+                      initial={{ scale: 0.95, opacity: 0, y: 10 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.95, opacity: 0, y: 10 }}
+                      className="relative w-full max-w-md bg-white rounded-[2rem] p-6 shadow-2xl border border-rose-100 overflow-hidden"
+                    >
+                      <div className="w-14 h-14 rounded-2xl bg-rose-50 flex items-center justify-center mb-4 mx-auto border border-rose-100">
+                        <AlertTriangle className="w-7 h-7 text-rose-500" />
+                      </div>
+                      
+                      <h3 className="text-xl font-black text-center text-slate-800 mb-2">
+                        {isAr ? 'هل أنت متأكد من الحذف؟' : 'Are you sure you want to delete?'}
+                      </h3>
+                      <p className="text-sm text-center text-slate-500 font-medium mb-4">
+                        {isAr ? 'لا يمكن استعادة الطلب بعد الحذف. هذا الإجراء نهائي.' : 'This action cannot be undone. The request will be permanently deleted.'}
+                      </p>
+                      
+                      <div className="mb-4">
+                        <label className="text-xs font-bold text-slate-500 uppercase tracking-widest block mb-2">
+                          {isAr ? 'سبب الحذف (اختياري)' : 'Delete reason (optional)'}
+                        </label>
+                        <textarea
+                          value={deleteReason}
+                          onChange={(e) => setDeleteReason(e.target.value)}
+                          placeholder={isAr ? 'أخبرنا причину الحذف...' : 'Tell us why you are deleting...'}
+                          className="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm font-medium focus:outline-none focus:border-rose-300 focus:ring-2 focus:ring-rose-100 resize-none"
+                          rows={2}
+                        />
+                      </div>
+                      
+                      <div className="flex gap-3">
+                        <button
+                          onClick={() => {
+                            setShowDeleteWarning(false);
+                            setDeleteReason('');
+                          }}
+                          className="flex-1 h-11 rounded-full bg-slate-100 text-slate-600 text-[10px] font-black uppercase tracking-widest transition-all hover:bg-slate-200"
+                        >
+                          {isAr ? 'إلغاء' : 'Cancel'}
+                        </button>
+                        <button
+                          onClick={handlePermanentDelete}
+                          className="flex-1 h-11 rounded-full bg-gradient-to-r from-rose-500 to-red-500 text-white text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 shadow-md hover:from-rose-600 hover:to-red-600"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          {isAr ? 'نعم، احذف' : 'Yes, Delete'}
+                        </button>
+                      </div>
+                    </motion.div>
+                  </motion.div>
+                )}
 
                 {/* ── Easter Egg Popup Overlay ── */}
                 {showEasterEggModal && (

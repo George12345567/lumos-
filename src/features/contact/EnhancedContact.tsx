@@ -142,27 +142,43 @@ const EnhancedContact = () => {
         network_rtt: browserData.networkStatus?.rtt || 'Unknown',
       };
 
-      await emailjs.send(
-        'service_qz9ng4q',
-        'template_a1gpr19',
-        emailData,
-        'QSbdI14b9C7c3rBmg'
-      );
+      // Try emailJS (optional - backup)
+      try {
+        await emailjs.send(
+          'service_qz9ng4q',
+          'template_a1gpr19',
+          emailData,
+          'QSbdI14b9C7c3rBmg'
+        );
+      } catch (emailError) {
+        console.log('EmailJS failed, but saving to database instead');
+      }
 
-      // Save to Supabase with new service
+      // Save to Supabase - PRIMARY METHOD
       let supabaseSuccess = false;
       try {
         const supabaseResult = await saveContact({
           name: formData.name,
           phone: formData.phone,
-          message: `${formData.message}\n\nBusiness: ${formData.businessName}\nIndustry: ${formData.industry}\nService Needed: ${formData.serviceNeeded}`,
+          message: formData.message,
+          business_name: formData.businessName,
+          industry: formData.industry,
+          service_needed: formData.serviceNeeded,
         });
 
         if (supabaseResult.success) {
           supabaseSuccess = true;
+          console.log('Contact saved to database successfully');
         }
       } catch (supaError) {
-        // Supabase save failed silently - EmailJS is the primary
+        console.error('Supabase save error:', supaError);
+        toast.error(t('حدث خطأ في حفظ البيانات', 'Error saving data'));
+        return;
+      }
+
+      if (!supabaseSuccess) {
+        toast.error(t('فشل في حفظ البيانات', 'Failed to save data'));
+        return;
       }
 
       // Show success message or Registration Prompt
