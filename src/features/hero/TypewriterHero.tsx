@@ -3,10 +3,12 @@ import { Sparkles, ArrowRight, LogIn } from "lucide-react";
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { useLanguage } from '@/context/LanguageContext';
+import { TeamModal } from '@/features/team';
 
 const TypewriterHero = () => {
     const { isAuthenticated, isAdmin } = useAuth();
     const { isArabic, t } = useLanguage();
+    const [teamOpen, setTeamOpen] = useState(false);
     const words = useMemo(() => (isArabic ? ["براندات", "مواقع", "متاجر", "منصات"] : ["Brands", "Websites", "Stores", "Platforms"]), [isArabic]);
     const [currentWordIndex, setCurrentWordIndex] = useState(0);
     const [currentText, setCurrentText] = useState("");
@@ -324,13 +326,53 @@ const TypewriterHero = () => {
                     <span className="text-center">{t('تسليم احترافي · دعم مستمر · نتائج حقيقية', 'Professional Delivery · Ongoing Support · Real Results')}</span>
                 </div>
 
-                {/* Easter Egg — Lumos Maxima (Harry Potter spell) — subtle, dimmed */}
+                {/* Easter Egg */}
                 <p
                     className="text-[10px] tracking-[0.5em] uppercase text-primary/15 select-none"
                     title="🪄 Lumos Maxima"
                 >
                     ✦ Lumos Maxima ✦
                 </p>
+
+                {/* Team signature — subtle portfolio-style trigger */}
+                <button
+                    onClick={() => setTeamOpen(true)}
+                    className="group mx-auto flex items-center gap-3 opacity-25 hover:opacity-80 transition-all duration-500 cursor-pointer select-none"
+                    title={t('تعرف على الفريق', 'Meet the team')}
+                >
+                    {/* Overlapping avatars */}
+                    <div className="flex items-center">
+                        {[
+                            { src: '/team/JAKE.jpeg',   z: 30 },
+                            { src: '/team/JOHN.jpeg',   z: 20 },
+                            { src: '/team/MARIAM.jpeg', z: 10 },
+                        ].map(({ src, z }, i) => (
+                            <img
+                                key={src}
+                                src={src}
+                                alt=""
+                                className="w-6 h-6 rounded-full border border-background/60 object-cover object-top group-hover:scale-110 transition-transform duration-300"
+                                style={{
+                                    marginLeft: i === 0 ? 0 : '-8px',
+                                    zIndex: z,
+                                    transitionDelay: `${i * 40}ms`,
+                                }}
+                            />
+                        ))}
+                    </div>
+
+                    {/* Label */}
+                    <span className="text-[10px] tracking-[0.3em] uppercase text-primary/50 group-hover:text-primary transition-colors duration-300 font-medium">
+                        {t('صُنع بواسطة فريقنا', 'crafted by our team')}
+                    </span>
+
+                    {/* Arrow that slides in on hover */}
+                    <span className="text-primary/40 group-hover:text-primary text-xs translate-x-0 group-hover:translate-x-1 transition-all duration-300">
+                        →
+                    </span>
+                </button>
+
+                <TeamModal open={teamOpen} onClose={() => setTeamOpen(false)} />
             </div>
 
 

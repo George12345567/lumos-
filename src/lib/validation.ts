@@ -348,6 +348,44 @@ export const resendConfirmationSchema = z.object({
 
 export type ResendConfirmationInput = z.infer<typeof resendConfirmationSchema>;
 
+// ─── Forgot Password — Step 2: Security Verification ────────────────
+
+export const forgotPasswordSecuritySchema = z.object({
+  securityQuestion: z
+    .string({ required_error: "security_question.required" })
+    .min(1, { message: "security_question.required" })
+    .refine((v) => ALLOWED_SECURITY_QUESTIONS.has(v), {
+      message: "security_question.invalid",
+    }),
+
+  securityAnswer: z
+    .string({ required_error: "security_answer.required" })
+    .trim()
+    .min(2, { message: "security_answer.too_short" }),
+});
+
+export type ForgotPasswordSecurityInput = z.infer<typeof forgotPasswordSecuritySchema>;
+
+// ─── Forgot Password — Step 3: Reset Password ──────────────────────
+
+export const resetPasswordSchema = z
+  .object({
+    newPassword: z
+      .string({ required_error: "password.required" })
+      .min(8, { message: "password.min_length" })
+      .refine(isStrongPassword, { message: "password.too_weak" }),
+
+    confirmNewPassword: z
+      .string({ required_error: "password.confirm_required" })
+      .min(1, { message: "password.confirm_required" }),
+  })
+  .refine((data) => data.newPassword === data.confirmNewPassword, {
+    message: "password.mismatch",
+    path: ["confirmNewPassword"],
+  });
+
+export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
+
 // ─── Password rules for UI checklist ─────────────────────────────
 
 export interface PwdRule {

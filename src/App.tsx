@@ -18,6 +18,8 @@ const ServicePage = lazy(() => import("./pages/ServicePage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
 const SignUpPage = lazy(() => import("./pages/SignUpPage"));
+const LogInPage = lazy(() => import("./pages/LogInPage"));
+const ForgotPasswordPage = lazy(() => import("./pages/ForgotPasswordPage"));
 const AiChatSidebar = lazy(() => import("./features/ai-chat"));
 
 // Create QueryClient outside component to avoid recreating on every render
@@ -47,6 +49,8 @@ const App = () => {
                     <Route path="/demo" element={<MobileDemoPage />} />
                     <Route path="/services/:slug" element={<ServicePage />} />
                     <Route path="/client-signup" element={<SignUpPage />} />
+                    <Route path="/client-login" element={<LogInPage />} />
+                    <Route path="/forgot-password" element={<ForgotPasswordPage />} />
                     <Route path="/lumos-admin" element={<AdminDashboard />} />
 
                     {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

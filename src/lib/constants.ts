@@ -3,6 +3,7 @@ export const ROUTES = {
   DEMO: '/demo',
   CLIENT_SIGNUP: '/client-signup',
   CLIENT_LOGIN: '/client-login',
+  FORGOT_PASSWORD: '/forgot-password',
   CLIENT_DASHBOARD: '/clients/dashboard',
   ADMIN_DASHBOARD: '/dashboard',
 } as const;
