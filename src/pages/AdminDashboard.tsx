@@ -15,6 +15,7 @@ import {
   Briefcase,
   Building2,
   Calendar,
+  Check,
   CheckCircle2,
   ChevronRight,
   Clock,
@@ -83,6 +84,7 @@ import { useAppearance } from '@/context/AppearanceContext';
 import { useLanguage } from '@/context/LanguageContext';
 import { PACKAGES, getAllServices } from '@/data/pricing';
 import { supabase } from '@/lib/supabaseClient';
+import { INDUSTRY_OPTIONS, BUDGET_RANGE_OPTIONS, TIMELINE_OPTIONS, REFERRAL_SOURCE_OPTIONS, SERVICE_CATEGORY_OPTIONS, SIGNUP_SOURCES } from '@/lib/constants';
 import type {
   AuditLog,
   Client,
@@ -153,6 +155,14 @@ interface ClientForm {
   website: string;
   brand_colors: string;
   brand_feel: string;
+  industry: string;
+  services_needed: string;
+  budget_range: string;
+  timeline: string;
+  referral_source: string;
+  project_summary: string;
+  signup_source: string;
+  signup_completed_at: string;
   security_question: string;
   security_answer: string;
   status: string;
@@ -245,6 +255,14 @@ const DEFAULT_CLIENT_FORM: ClientForm = {
   website: '',
   brand_colors: '',
   brand_feel: '',
+  industry: '',
+  services_needed: '',
+  budget_range: '',
+  timeline: '',
+  referral_source: '',
+  project_summary: '',
+  signup_source: 'web_signup',
+  signup_completed_at: '',
   security_question: '',
   security_answer: '',
   status: 'active',
@@ -1274,6 +1292,11 @@ const AdminDashboard = () => {
           client.phone_number,
           client.company_name,
           client.package_name,
+          client.industry,
+          client.budget_range,
+          client.full_contact_name,
+          client.business_tagline,
+          client.referral_source,
         ])
       ),
     [clients, searchTerm]
@@ -1780,6 +1803,18 @@ const AdminDashboard = () => {
       admin_notes: clientForm.admin_notes.trim() || null,
       avatar_url: clientForm.profile_picture.trim() || null,
       brand_colors: parseBrandColors(clientForm.brand_colors),
+      industry: clientForm.industry.trim() || null,
+      services_needed: clientForm.services_needed.trim() ? JSON.parse(clientForm.services_needed) : [],
+      budget_range: clientForm.budget_range.trim() || null,
+      timeline: clientForm.timeline.trim() || null,
+      referral_source: clientForm.referral_source.trim() || null,
+      project_summary: clientForm.project_summary.trim() || null,
+      signup_source: clientForm.signup_source || 'web_signup',
+      signup_completed_at: clientForm.signup_completed_at || null,
+      business_tagline: clientForm.business_tagline.trim() || null,
+      full_contact_name: clientForm.full_contact_name.trim() || null,
+      website: clientForm.website.trim() || null,
+      brand_feel: clientForm.brand_feel.trim() || null,
       package_details: {
         ...existingDetails,
         signup_profile: signupProfile,
@@ -1971,11 +2006,19 @@ const AdminDashboard = () => {
             password: '',
             phone: client.phone || client.phone_number || '',
             company_name: client.company_name || '',
-            business_tagline: signupProfile.business_tagline || '',
-            full_contact_name: signupProfile.full_contact_name || '',
-            website: signupProfile.website || client.active_offer_link || '',
+            business_tagline: client.business_tagline || signupProfile.business_tagline || '',
+            full_contact_name: client.full_contact_name || signupProfile.full_contact_name || '',
+            website: client.website || signupProfile.website || '',
             brand_colors: (client.brand_colors || []).join(', '),
-            brand_feel: signupProfile.brand_feel || '',
+            brand_feel: client.brand_feel || signupProfile.brand_feel || '',
+            industry: client.industry || '',
+            services_needed: client.services_needed ? JSON.stringify(client.services_needed) : '',
+            budget_range: client.budget_range || '',
+            timeline: client.timeline || '',
+            referral_source: client.referral_source || '',
+            project_summary: client.project_summary || '',
+            signup_source: client.signup_source || 'web_signup',
+            signup_completed_at: client.signup_completed_at || '',
             security_question: client.security_question || '',
             security_answer: client.security_answer || '',
             status: client.status || 'active',
@@ -3046,24 +3089,52 @@ const AdminDashboard = () => {
                   </p>
                 </div>
               </div>
-              <div className="grid grid-cols-3 gap-2 text-center">
-                <div className="rounded-xl bg-[var(--adm-surface)] p-3">
-                  <p className="text-xl font-black text-[var(--adm-text)]">{clients.length}</p>
-                  <p className="text-[10px] font-bold text-[var(--adm-text-faint)]">{t('عملاء', 'Clients')}</p>
-                </div>
-                <div className="rounded-xl bg-[var(--adm-surface)] p-3">
-                  <p className="text-xl font-black text-emerald-300">
-                    {clients.filter((client) => client.email).length}
-                  </p>
-                  <p className="text-[10px] font-bold text-[var(--adm-text-faint)]">{t('بريد', 'Emails')}</p>
-                </div>
-                <div className="rounded-xl bg-[var(--adm-surface)] p-3">
-                  <p className="text-xl font-black text-cyan-300">
-                    {clients.filter((client) => (client.brand_colors || []).length > 0).length}
-                  </p>
-                  <p className="text-[10px] font-bold text-[var(--adm-text-faint)]">{t('براند', 'Brand')}</p>
-                </div>
-              </div>
+<div className="grid grid-cols-3 gap-2 text-center">
+                 <div className="rounded-xl bg-[var(--adm-surface)] p-3">
+                   <p className="text-xl font-black text-[var(--adm-text)]">{clients.length}</p>
+                   <p className="text-[10px] font-bold text-[var(--adm-text-faint)]">{t('عملاء', 'Clients')}</p>
+                 </div>
+                 <div className="rounded-xl bg-[var(--adm-surface)] p-3">
+                   <p className="text-xl font-black text-emerald-300">
+                     {clients.filter((client) => client.email).length}
+                   </p>
+                   <p className="text-[10px] font-bold text-[var(--adm-text-faint)]">{t('بريد', 'Emails')}</p>
+                 </div>
+                 <div className="rounded-xl bg-[var(--adm-surface)] p-3">
+                   <p className="text-xl font-black text-cyan-300">
+                     {clients.filter((client) => (client.brand_colors || []).length > 0).length}
+                   </p>
+                   <p className="text-[10px] font-bold text-[var(--adm-text-faint)]">{t('براند', 'Brand')}</p>
+                 </div>
+               </div>
+               <div className="grid grid-cols-3 gap-2 text-center">
+                 <div className="rounded-xl bg-[var(--adm-surface)] p-3">
+                   <p className="text-xl font-black text-amber-300">
+                     {clients.filter((c) => c.industry).length}
+                   </p>
+                   <p className="text-[10px] font-bold text-[var(--adm-text-faint)]">{t('مجال', 'Industry')}</p>
+                 </div>
+                 <div className="rounded-xl bg-[var(--adm-surface)] p-3">
+                   <p className="text-xl font-black text-violet-300">
+                     {clients.filter((c) => c.budget_range).length}
+                   </p>
+                   <p className="text-[10px] font-bold text-[var(--adm-text-faint)]">{t('ميزانية', 'Budget')}</p>
+                 </div>
+                 <div className="rounded-xl bg-[var(--adm-surface)] p-3">
+                   <p className="text-sm font-black text-rose-300 leading-7">
+                     {(() => {
+                       const sources = clients.filter((c) => c.signup_source).map((c) => c.signup_source);
+                       if (!sources.length) return '-';
+                       const freq: Record<string, number> = {};
+                       sources.forEach((s) => { freq[s] = (freq[s] || 0) + 1; });
+                       const top = Object.entries(freq).sort((a, b) => b[1] - a[1])[0][0];
+                       const match = SIGNUP_SOURCES.find((s) => s.value === top);
+                       return match ? match.label : top;
+                     })()}
+                   </p>
+                   <p className="text-[10px] font-bold text-[var(--adm-text-faint)]">{t('مصدر', 'Source')}</p>
+                 </div>
+               </div>
             </div>
           </div>
         </SectionCard>
@@ -3075,92 +3146,138 @@ const AdminDashboard = () => {
             const signupProfile = getClientSignupProfile(client);
             const avatar = client.avatar_url || client.logo_url;
             const brandColors = client.brand_colors || [];
+            const services = client.services_needed || [];
+            const statusColors: Record<string, string> = {
+              active: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
+              inactive: 'bg-gray-500/20 text-gray-400 border-gray-500/30',
+              suspended: 'bg-red-500/20 text-red-400 border-red-500/30',
+            };
+            const statusBadge = statusColors[client.status || 'active'] ?? statusColors.active;
+            const industryLabel = INDUSTRY_OPTIONS.find((o) => o.value === client.industry);
+            const budgetLabel = BUDGET_RANGE_OPTIONS.find((o) => o.value === client.budget_range);
+            const timelineLabel = TIMELINE_OPTIONS.find((o) => o.value === client.timeline);
 
             return (
               <article
                 key={client.id}
-                className="overflow-hidden rounded-2xl border border-[var(--adm-border)] bg-[var(--adm-surface)]"
+                className="flex flex-col overflow-hidden rounded-2xl border border-[var(--adm-border)] bg-[var(--adm-surface)]"
               >
-                <div className="flex items-start justify-between gap-3 border-b border-[var(--adm-border)] bg-[var(--adm-surface-deep)] p-5">
-                  <div className="flex min-w-0 items-center gap-3">
-                    <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-[var(--adm-border)] bg-[var(--adm-bg)]">
-                      {avatar ? (
-                        <img src={avatar} alt="" className="h-full w-full object-cover" />
-                      ) : (
-                        <User className="h-5 w-5 text-[var(--adm-text-faint)]" />
-                      )}
-                    </div>
-                    <div className="min-w-0">
-                      <h3 className="truncate font-black text-[var(--adm-text)]">{client.username}</h3>
-                      <p className="truncate text-sm text-[var(--adm-text-muted)]">
-                        {client.company_name || signupProfile.full_contact_name || client.email || '-'}
-                      </p>
-                    </div>
+                <div className="flex items-center gap-3 border-b border-[var(--adm-border)] bg-[var(--adm-surface-deep)] px-5 py-4">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[var(--adm-border)] bg-[var(--adm-bg)]">
+                    {avatar ? (
+                      <img src={avatar} alt="" className="h-full w-full object-cover" />
+                    ) : (
+                      <User className="h-5 w-5 text-[var(--adm-text-faint)]" />
+                    )}
                   </div>
-                  <span className="shrink-0 rounded-full border border-emerald-500/30 bg-emerald-500/15 px-2 py-0.5 text-xs font-bold text-emerald-300">
+                  <div className="min-w-0 flex-1">
+                    <h3 className="truncate font-black text-[var(--adm-text)]">{client.username}</h3>
+                    <p className="truncate text-sm text-[var(--adm-text-muted)]">
+                      {client.company_name || '-'}
+                    </p>
+                  </div>
+                  <span className={cn('shrink-0 rounded-full border px-2 py-0.5 text-[11px] font-bold', statusBadge)}>
                     {client.status || 'active'}
                   </span>
                 </div>
 
-                <div className="space-y-4 p-5">
-                  {signupProfile.business_tagline && (
-                    <p className="rounded-xl border border-[var(--adm-border)] bg-[var(--adm-surface-deep)] px-3 py-2 text-sm font-semibold text-[var(--adm-text)]">
-                      {signupProfile.business_tagline}
+                <div className="flex flex-1 flex-col gap-3 p-5">
+                  {(signupProfile.business_tagline || client.business_tagline) && (
+                    <p className="truncate text-sm font-medium text-[var(--adm-text-sub)]">
+                      "{(signupProfile.business_tagline || client.business_tagline || '').slice(0, 60)}"
                     </p>
                   )}
-                  <div className="grid grid-cols-1 gap-2 text-sm text-[var(--adm-text-muted)]">
-                    <p className="flex min-w-0 items-center gap-2">
-                      <Mail className="h-4 w-4 shrink-0" />
-                      <span className="truncate">{client.email || '-'}</span>
+
+                  {signupProfile.full_contact_name && client.company_name && (
+                    <p className="text-sm text-[var(--adm-text-muted)]">
+                      {signupProfile.full_contact_name}
                     </p>
-                    <p className="flex min-w-0 items-center gap-2">
-                      <Phone className="h-4 w-4 shrink-0" />
-                      <span className="truncate">{client.phone || client.phone_number || '-'}</span>
-                    </p>
-                    <p className="flex min-w-0 items-center gap-2">
-                      <Globe2 className="h-4 w-4 shrink-0" />
-                      <span className="truncate">{signupProfile.website || '-'}</span>
-                    </p>
+                  )}
+
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-[var(--adm-text-muted)]">
+                    {client.email && (
+                      <span className="flex items-center gap-1 truncate">
+                        <Mail className="h-3.5 w-3.5 shrink-0" />
+                        <span className="truncate">{client.email}</span>
+                      </span>
+                    )}
+                    {(client.phone || client.phone_number) && (
+                      <span className="flex items-center gap-1 truncate">
+                        <Phone className="h-3.5 w-3.5 shrink-0" />
+                        <span className="truncate">{client.phone || client.phone_number}</span>
+                      </span>
+                    )}
                   </div>
 
+                  <div className="flex flex-wrap gap-1.5">
+                    {client.industry && (
+                      <span className="inline-flex items-center rounded-md border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[11px] font-bold text-amber-300">
+                        {isArabic ? (industryLabel?.labelAr ?? client.industry) : (industryLabel?.labelEn ?? client.industry)}
+                      </span>
+                    )}
+                    {client.budget_range && (
+                      <span className="inline-flex items-center rounded-md border border-violet-500/30 bg-violet-500/10 px-1.5 py-0.5 text-[11px] font-bold text-violet-300">
+                        {isArabic ? (budgetLabel?.labelAr ?? client.budget_range) : (budgetLabel?.labelEn ?? client.budget_range)}
+                      </span>
+                    )}
+                    {client.timeline && (
+                      <span className="inline-flex items-center rounded-md border border-cyan-500/30 bg-cyan-500/10 px-1.5 py-0.5 text-[11px] font-bold text-cyan-300">
+                        {isArabic ? (timelineLabel?.labelAr ?? client.timeline) : (timelineLabel?.labelEn ?? client.timeline)}
+                      </span>
+                    )}
+                  </div>
+
+                  {services.length > 0 && (
+                    <div className="flex flex-wrap gap-1">
+                      {services.slice(0, 6).map((svc) => {
+                        const opt = SERVICE_CATEGORY_OPTIONS.find((o) => o.value === svc);
+                        return (
+                          <span
+                            key={svc}
+                            className="inline-flex rounded border border-[var(--adm-border)] bg-[var(--adm-surface-deep)] px-1.5 py-0.5 text-[10px] font-semibold text-[var(--adm-text-muted)]"
+                          >
+                            {opt ? (isArabic ? opt.labelAr : opt.labelEn) : svc}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  )}
+
                   {brandColors.length > 0 && (
-                    <div className="flex flex-wrap items-center gap-2">
+                    <div className="flex items-center gap-1.5">
                       {brandColors.slice(0, 6).map((color) => (
                         <span
                           key={color}
-                          className="h-6 w-6 rounded-full border border-white/20"
+                          className="h-5 w-5 rounded-full border border-white/20"
                           style={{ backgroundColor: color }}
                           title={color}
                         />
                       ))}
                     </div>
                   )}
-
-                  <div>
-                    <div className="mb-1 flex justify-between text-xs text-[var(--adm-text-faint)]">
-                      <span>{client.package_name || t('بدون باقة', 'No package')}</span>
-                      <span>{client.progress || 0}%</span>
-                    </div>
-                    <div className="h-2 rounded-full bg-[var(--adm-surface-deep)]">
-                      <div
-                        className="h-full rounded-full bg-emerald-500"
-                        style={{ width: `${Math.min(client.progress || 0, 100)}%` }}
-                      />
-                    </div>
-                  </div>
                 </div>
 
-                <div className="flex gap-2 border-t border-[var(--adm-border)] bg-[var(--adm-surface-deep)]/70 p-4">
-                  <IconButton label={t('عرض', 'View')} onClick={() => setEntityView({ type: 'client', record: client })}>
-                    <Eye className="h-4 w-4" />
-                  </IconButton>
-                  <Button variant="surface" className="flex-1 text-xs" onClick={() => openClientEditor(client)}>
-                    <Edit2 className="h-3.5 w-3.5" />
-                    {t('تعديل', 'Edit')}
-                  </Button>
-                  <Button variant="danger" className="text-xs" onClick={() => deleteClient(client.id)}>
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
+                <div className="flex items-center gap-2 border-t border-[var(--adm-border)] bg-[var(--adm-surface-deep)]/70 px-4 py-3">
+                  <div className="flex gap-1">
+                    <IconButton label={t('عرض', 'View')} onClick={() => setEntityView({ type: 'client', record: client })}>
+                      <Eye className="h-4 w-4" />
+                    </IconButton>
+                    <Button variant="surface" className="text-xs" onClick={() => openClientEditor(client)}>
+                      <Edit2 className="h-3.5 w-3.5" />
+                      {t('تعديل', 'Edit')}
+                    </Button>
+                    <Button variant="danger" className="text-xs" onClick={() => deleteClient(client.id)}>
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                  {client.progress != null && client.progress > 0 && (
+                    <div className="ml-auto flex items-center gap-2">
+                      <span className="text-[10px] font-bold text-[var(--adm-text-faint)]">{client.progress}%</span>
+                      <div className="h-1.5 w-20 rounded-full bg-[var(--adm-surface-deep)]">
+                        <div className="h-full rounded-full bg-emerald-500" style={{ width: `${Math.min(client.progress, 100)}%` }} />
+                      </div>
+                    </div>
+                  )}
                 </div>
               </article>
             );
@@ -3400,6 +3517,65 @@ const AdminDashboard = () => {
               <label className="space-y-1.5 md:col-span-2">
                 <span className="text-xs font-black text-[var(--adm-text-muted)]">{t('وصف إحساس البراند', 'Describe Your Brand Feel')}</span>
                 <Textarea className={fieldClass} value={clientForm.brand_feel} onChange={(event) => setClientForm({ ...clientForm, brand_feel: event.target.value })} placeholder={t('راقي، سريع، تقني، ودود...', 'Premium, fast, technical, friendly...')} />
+              </label>
+              {/* ─── Project Details ─── */}
+              <div className="col-span-2 mt-2">
+                <div className="h-px bg-[var(--adm-border)]" />
+              </div>
+              <div className="col-span-2">
+                <span className="text-xs font-black text-[var(--adm-text-muted)]">{t('تفاصيل المشروع', 'Project Details')}</span>
+              </div>
+              <label className="space-y-1.5">
+                <span className="text-xs font-black text-[var(--adm-text-muted)]">{t('المجال / الصناعة', 'Industry')}</span>
+                <select className={fieldClass} value={clientForm.industry} onChange={(e) => setClientForm({ ...clientForm, industry: e.target.value })}>
+                  <option value="">{t('— اختر —', '— Select —')}</option>
+                  {INDUSTRY_OPTIONS.map(opt => <option key={opt.value} value={opt.value}>{t(opt.labelAr, opt.labelEn)}</option>)}
+                </select>
+              </label>
+              <label className="space-y-1.5">
+                <span className="text-xs font-black text-[var(--adm-text-muted)]">{t('نطاق الميزانية', 'Budget Range')}</span>
+                <select className={fieldClass} value={clientForm.budget_range} onChange={(e) => setClientForm({ ...clientForm, budget_range: e.target.value })}>
+                  <option value="">{t('— اختر —', '— Select —')}</option>
+                  {BUDGET_RANGE_OPTIONS.map(opt => <option key={opt.value} value={opt.value}>{t(opt.labelAr, opt.labelEn)}</option>)}
+                </select>
+              </label>
+              <label className="space-y-1.5">
+                <span className="text-xs font-black text-[var(--adm-text-muted)]">{t('الجدول الزمني', 'Timeline')}</span>
+                <select className={fieldClass} value={clientForm.timeline} onChange={(e) => setClientForm({ ...clientForm, timeline: e.target.value })}>
+                  <option value="">{t('— اختر —', '— Select —')}</option>
+                  {TIMELINE_OPTIONS.map(opt => <option key={opt.value} value={opt.value}>{t(opt.labelAr, opt.labelEn)}</option>)}
+                </select>
+              </label>
+              <label className="space-y-1.5">
+                <span className="text-xs font-black text-[var(--adm-text-muted)]">{t('كيف عرفت عنا؟', 'Referral Source')}</span>
+                <select className={fieldClass} value={clientForm.referral_source} onChange={(e) => setClientForm({ ...clientForm, referral_source: e.target.value })}>
+                  <option value="">{t('— اختر —', '— Select —')}</option>
+                  {REFERRAL_SOURCE_OPTIONS.map(opt => <option key={opt.value} value={opt.value}>{t(opt.labelAr, opt.labelEn)}</option>)}
+                </select>
+              </label>
+              <div>
+                <label className="text-xs font-black text-[var(--adm-text-muted)]">{t('الخدمات المطلوبة', 'Services Needed')}</label>
+                <div className="grid grid-cols-2 gap-1.5 mt-1">
+                  {SERVICE_CATEGORY_OPTIONS.map((cat) => {
+                    const selected = (clientForm.services_needed ? JSON.parse(clientForm.services_needed) : []).includes(cat.value);
+                    return (
+                      <button key={cat.value} type="button" onClick={() => {
+                        const current = clientForm.services_needed ? JSON.parse(clientForm.services_needed) : [];
+                        const next = selected ? current.filter((v: string) => v !== cat.value) : [...current, cat.value];
+                        setClientForm({ ...clientForm, services_needed: JSON.stringify(next) });
+                      }} className={`flex items-center gap-1.5 px-2 py-1.5 rounded-md border text-xs transition-colors ${selected ? 'border-primary/50 bg-primary/10 text-primary' : 'border-[var(--adm-border)] bg-[var(--adm-input)] text-[var(--adm-text-secondary)] hover:border-primary/30'}`}>
+                        <div className={`w-3.5 h-3.5 rounded flex items-center justify-center border ${selected ? 'bg-primary border-primary' : 'border-[var(--adm-border)]'}`}>
+                          {selected && <Check className="w-2.5 h-2.5 text-primary-foreground" />}
+                        </div>
+                        <span>{t(cat.labelAr, cat.labelEn)}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              <label className="space-y-1.5 md:col-span-2">
+                <span className="text-xs font-black text-[var(--adm-text-muted)]">{t('ملخص المشروع', 'Project Summary')}</span>
+                <Textarea className={fieldClass} value={clientForm.project_summary} onChange={(e) => setClientForm({ ...clientForm, project_summary: e.target.value })} placeholder={t('وصف مختصر للمشروع...', 'Brief project description...')} rows={2} />
               </label>
             </div>
           </SectionCard>
@@ -3804,17 +3980,273 @@ const AdminDashboard = () => {
   const renderEntityView = () => {
     if (!entityView) return null;
 
-    const record = entityView.record as Record<string, unknown>;
-    const title =
-      String(
-        record.name ||
-          record.username ||
-          record.code ||
-          record.title ||
-          record.change_summary ||
-          record.entity_type ||
-          t('تفاصيل السجل', 'Record details')
+    const { type, record } = entityView;
+    const title = String(
+      (record as Record<string, unknown>).name ||
+        (record as Record<string, unknown>).username ||
+        (record as Record<string, unknown>).code ||
+        (record as Record<string, unknown>).title ||
+        (record as Record<string, unknown>).change_summary ||
+        (record as Record<string, unknown>).entity_type ||
+        t('تفاصيل السجل', 'Record details')
+    );
+
+    if (type === 'client') {
+      const client = record as Client;
+      const signupProfile = getClientSignupProfile(client);
+      const avatar = client.avatar_url || client.logo_url;
+      const brandColors = (client.brand_colors || []);
+      const services = client.services_needed || [];
+      const statusColors: Record<string, string> = {
+        active: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
+        inactive: 'bg-gray-500/20 text-gray-400 border-gray-500/30',
+        suspended: 'bg-red-500/20 text-red-400 border-red-500/30',
+      };
+      const statusBadge = statusColors[client.status || 'active'] ?? statusColors.active;
+      const industryLabel = INDUSTRY_OPTIONS.find((o) => o.value === client.industry);
+      const referralLabel = REFERRAL_SOURCE_OPTIONS.find((o) => o.value === client.referral_source);
+      const budgetLabel = BUDGET_RANGE_OPTIONS.find((o) => o.value === client.budget_range);
+      const timelineLabel = TIMELINE_OPTIONS.find((o) => o.value === client.timeline);
+
+      const SectionHeader = ({ icon: Icon, ar, en }: { icon: ElementType; ar: string; en: string }) => (
+        <h4 className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-[var(--adm-text-muted)]">
+          <Icon className="h-4 w-4 text-emerald-400" />
+          {t(ar, en)}
+        </h4>
       );
+
+      return (
+        <EntitySheet
+          open={Boolean(entityView)}
+          onOpenChange={(open) => { if (!open) setEntityView(null); }}
+          title={client.username || t('عميل', 'Client')}
+          description={client.company_name || t('ملف العميل', 'Client profile')}
+        >
+          <div className="space-y-6">
+            {/* Profile Section */}
+            <section className="rounded-2xl border border-[var(--adm-border)] bg-[var(--adm-surface)] p-5">
+              <SectionHeader icon={User} ar="الملف الشخصي" en="Profile" />
+              <div className="mt-4 flex flex-col items-center gap-3">
+                <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-[var(--adm-border)] bg-[var(--adm-bg)]">
+                  {avatar ? (
+                    <img src={avatar} alt="" className="h-full w-full object-cover" />
+                  ) : (
+                    <User className="h-8 w-8 text-[var(--adm-text-faint)]" />
+                  )}
+                </div>
+                <div className="text-center">
+                  <h3 className="text-xl font-black text-[var(--adm-text)]">{client.username}</h3>
+                  <span className={cn('mt-1 inline-flex rounded-full border px-2.5 py-0.5 text-xs font-bold', statusBadge)}>
+                    {client.status || 'active'}
+                  </span>
+                </div>
+              </div>
+              <div className="mt-4 flex flex-wrap justify-center gap-3 text-sm text-[var(--adm-text-muted)]">
+                {client.email && (
+                  <a href={`mailto:${client.email}`} className="flex items-center gap-1.5 text-[var(--adm-text-sub)] transition hover:text-emerald-400">
+                    <Mail className="h-4 w-4" />
+                    {client.email}
+                  </a>
+                )}
+                {(client.phone || client.phone_number) && (
+                  <a href={`tel:${client.phone || client.phone_number}`} className="flex items-center gap-1.5 text-[var(--adm-text-sub)] transition hover:text-emerald-400">
+                    <Phone className="h-4 w-4" />
+                    {client.phone || client.phone_number}
+                  </a>
+                )}
+                {(signupProfile.website || client.website) && (
+                  <a href={signupProfile.website || client.website} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-[var(--adm-text-sub)] transition hover:text-emerald-400">
+                    <Globe2 className="h-4 w-4" />
+                    {signupProfile.website || client.website}
+                  </a>
+                )}
+              </div>
+              <div className="mt-4 flex flex-wrap justify-center gap-2 text-xs text-[var(--adm-text-faint)]">
+                {client.signup_source && (
+                  <span className="rounded-md bg-[var(--adm-surface-deep)] px-2 py-1">
+                    {t('مصدر التسجيل', 'Source')}: {SIGNUP_SOURCES.find((s) => s.value === client.signup_source)?.label ?? client.signup_source}
+                  </span>
+                )}
+                {client.signup_completed_at && (
+                  <span className="rounded-md bg-[var(--adm-surface-deep)] px-2 py-1">
+                    {t('تاريخ التسجيل', 'Signed up')}: {formatDate(client.signup_completed_at, isArabic)}
+                  </span>
+                )}
+              </div>
+            </section>
+
+            {/* Business Section */}
+            <section className="rounded-2xl border border-[var(--adm-border)] bg-[var(--adm-surface)] p-5">
+              <SectionHeader icon={Building2} ar="النشاط التجاري" en="Business" />
+              <div className="mt-4 space-y-3">
+                {client.company_name && (
+                  <div>
+                    <p className="text-xs font-black text-[var(--adm-text-faint)]">{t('اسم الشركة', 'Company Name')}</p>
+                    <p className="font-bold text-[var(--adm-text)]">{client.company_name}</p>
+                  </div>
+                )}
+                {(signupProfile.full_contact_name || client.full_contact_name) && (
+                  <div>
+                    <p className="text-xs font-black text-[var(--adm-text-faint)]">{t('اسم مسؤول التواصل', 'Contact Name')}</p>
+                    <p className="text-[var(--adm-text-sub)]">{signupProfile.full_contact_name || client.full_contact_name}</p>
+                  </div>
+                )}
+                {(signupProfile.business_tagline || client.business_tagline) && (
+                  <div>
+                    <p className="text-xs font-black text-[var(--adm-text-faint)]">{t('الشعار', 'Tagline')}</p>
+                    <p className="text-[var(--adm-text-sub)] italic">"{signupProfile.business_tagline || client.business_tagline}"</p>
+                  </div>
+                )}
+                <div className="flex flex-wrap gap-1.5">
+                  {client.industry && (
+                    <span className="inline-flex items-center rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-xs font-bold text-amber-300">
+                      {isArabic ? (industryLabel?.labelAr ?? client.industry) : (industryLabel?.labelEn ?? client.industry)}
+                    </span>
+                  )}
+                  {client.referral_source && (
+                    <span className="inline-flex items-center rounded-md border border-blue-500/30 bg-blue-500/10 px-2 py-0.5 text-xs font-bold text-blue-300">
+                      {isArabic ? (referralLabel?.labelAr ?? client.referral_source) : (referralLabel?.labelEn ?? client.referral_source)}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </section>
+
+            {/* Brand Section */}
+            {brandColors.length > 0 && (
+              <section className="rounded-2xl border border-[var(--adm-border)] bg-[var(--adm-surface)] p-5">
+                <SectionHeader icon={Palette} ar="الهوية البصرية" en="Brand" />
+                <div className="mt-4 space-y-3">
+                  <div className="flex flex-wrap items-center gap-3">
+                    {brandColors.map((color) => (
+                      <div key={color} className="flex items-center gap-2">
+                        <span
+                          className="h-7 w-7 shrink-0 rounded-full border border-white/20"
+                          style={{ backgroundColor: color }}
+                        />
+                        <span className="font-mono text-xs text-[var(--adm-text-muted)]">{color}</span>
+                      </div>
+                    ))}
+                  </div>
+                  {(signupProfile.brand_feel || client.brand_feel) && (
+                    <div>
+                      <p className="text-xs font-black text-[var(--adm-text-faint)]">{t('إحساس البراند', 'Brand Feel')}</p>
+                      <p className="text-[var(--adm-text-sub)]">{signupProfile.brand_feel || client.brand_feel}</p>
+                    </div>
+                  )}
+                </div>
+              </section>
+            )}
+
+            {/* Project Section */}
+            <section className="rounded-2xl border border-[var(--adm-border)] bg-[var(--adm-surface)] p-5">
+              <SectionHeader icon={FileText} ar="المشروع" en="Project" />
+              <div className="mt-4 space-y-3">
+                {services.length > 0 && (
+                  <div>
+                    <p className="mb-1.5 text-xs font-black text-[var(--adm-text-faint)]">{t('الخدمات المطلوبة', 'Services Needed')}</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {services.map((svc) => {
+                        const opt = SERVICE_CATEGORY_OPTIONS.find((o) => o.value === svc);
+                        return (
+                          <span key={svc} className="inline-flex rounded-md border border-[var(--adm-border)] bg-[var(--adm-surface-deep)] px-2 py-0.5 text-xs font-bold text-[var(--adm-text-sub)]">
+                            {opt ? (isArabic ? opt.labelAr : opt.labelEn) : svc}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+                <div className="flex flex-wrap gap-1.5">
+                  {client.budget_range && (
+                    <span className="inline-flex items-center rounded-md border border-violet-500/30 bg-violet-500/10 px-2 py-0.5 text-xs font-bold text-violet-300">
+                      {isArabic ? (budgetLabel?.labelAr ?? client.budget_range) : (budgetLabel?.labelEn ?? client.budget_range)}
+                    </span>
+                  )}
+                  {client.timeline && (
+                    <span className="inline-flex items-center rounded-md border border-cyan-500/30 bg-cyan-500/10 px-2 py-0.5 text-xs font-bold text-cyan-300">
+                      {isArabic ? (timelineLabel?.labelAr ?? client.timeline) : (timelineLabel?.labelEn ?? client.timeline)}
+                    </span>
+                  )}
+                </div>
+                {client.project_summary && (
+                  <blockquote className="border-s-2 border-[var(--adm-text-faint)] bg-[var(--adm-surface-deep)] px-3 py-2 text-sm italic text-[var(--adm-text-sub)]">
+                    {client.project_summary}
+                  </blockquote>
+                )}
+              </div>
+            </section>
+
+            {/* Security Section */}
+            {(client.security_question || signupProfile.auth_password_pending != null) && (
+              <section className="rounded-2xl border border-[var(--adm-border)] bg-[var(--adm-surface)] p-5">
+                <SectionHeader icon={Shield} ar="الأمان" en="Security" />
+                <div className="mt-4 space-y-2 text-sm">
+                  {client.security_question && (
+                    <div>
+                      <p className="text-xs font-black text-[var(--adm-text-faint)]">{t('سؤال الأمان', 'Security Question')}</p>
+                      <p className="text-[var(--adm-text-sub)]">{client.security_question}</p>
+                    </div>
+                  )}
+                  {client.security_answer && (
+                    <div>
+                      <p className="text-xs font-black text-[var(--adm-text-faint)]">{t('إجابة الأمان', 'Security Answer')}</p>
+                      <p className="text-[var(--adm-text-sub)]">{client.security_answer}</p>
+                    </div>
+                  )}
+                  {signupProfile.auth_password_pending != null && (
+                    <div>
+                      <p className="text-xs font-black text-[var(--adm-text-faint)]">{t('كلمة المرور معلقة', 'Auth Password Pending')}</p>
+                      <span className={cn('inline-flex rounded-full border px-2 py-0.5 text-xs font-bold', signupProfile.auth_password_pending ? 'bg-amber-500/15 text-amber-300 border-amber-500/30' : 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30')}>
+                        {signupProfile.auth_password_pending ? t('نعم', 'Yes') : t('لا', 'No')}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </section>
+            )}
+
+            {/* Admin Section */}
+            <section className="rounded-2xl border border-[var(--adm-border)] bg-[var(--adm-surface)] p-5">
+              <SectionHeader icon={PackageIcon} ar="إدارة الأدمن" en="Admin" />
+              <div className="mt-4 space-y-3">
+                {client.package_name && (
+                  <div>
+                    <p className="text-xs font-black text-[var(--adm-text-faint)]">{t('الباقة', 'Package')}</p>
+                    <p className="font-bold text-[var(--adm-text)]">{client.package_name}</p>
+                  </div>
+                )}
+                {client.progress != null && (
+                  <div>
+                    <div className="mb-1 flex justify-between text-xs">
+                      <span className="text-[var(--adm-text-faint)]">{t('التقدم', 'Progress')}</span>
+                      <span className="font-black text-[var(--adm-text)]">{client.progress}%</span>
+                    </div>
+                    <div className="h-2.5 rounded-full bg-[var(--adm-surface-deep)]">
+                      <div className="h-full rounded-full bg-emerald-500" style={{ width: `${Math.min(client.progress, 100)}%` }} />
+                    </div>
+                  </div>
+                )}
+                {client.next_steps && (
+                  <div>
+                    <p className="text-xs font-black text-[var(--adm-text-faint)]">{t('الخطوات التالية', 'Next Steps')}</p>
+                    <p className="text-[var(--adm-text-sub)]">{client.next_steps}</p>
+                  </div>
+                )}
+                {client.admin_notes && (
+                  <div>
+                    <p className="text-xs font-black text-[var(--adm-text-faint)]">{t('ملاحظات الأدمن', 'Admin Notes')}</p>
+                    <p className="whitespace-pre-wrap text-[var(--adm-text-sub)]">{client.admin_notes}</p>
+                  </div>
+                )}
+              </div>
+            </section>
+          </div>
+        </EntitySheet>
+      );
+    }
+
+    const genericRecord = record as Record<string, unknown>;
 
     return (
       <EntitySheet
@@ -3826,7 +4258,7 @@ const AdminDashboard = () => {
         description={t('عرض كامل لكل بيانات السجل', 'Full read-only record view')}
       >
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-          {Object.entries(record).map(([key, value]) => (
+          {Object.entries(genericRecord).map(([key, value]) => (
             <div key={key} className="rounded-xl border border-[var(--adm-border)] bg-[var(--adm-surface-deep)] p-3">
               <p className="text-xs font-black uppercase tracking-wider text-[var(--adm-text-faint)]">{key}</p>
               <pre className="mt-2 max-h-56 overflow-auto whitespace-pre-wrap break-words text-sm text-[var(--adm-text)]">

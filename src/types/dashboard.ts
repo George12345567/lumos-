@@ -125,6 +125,19 @@ export interface Client {
     cover_gradient?: string;
     theme_accent?: string;
     brand_colors?: string[];
+    business_tagline?: string;
+    full_contact_name?: string;
+    website?: string;
+    brand_feel?: string;
+    auth_password_pending?: boolean;
+    signup_completed_at?: string;
+    signup_source?: string;
+    industry?: string;
+    services_needed?: string[];
+    budget_range?: string;
+    timeline?: string;
+    referral_source?: string;
+    project_summary?: string;
     created_at: string;
 }
 
@@ -284,4 +297,44 @@ export interface Order {
     created_at: string;
     updated_at?: string;
     completed_at?: string;
+}
+
+export interface SignupRequest {
+    id: string;
+    username: string;
+    email: string;
+    password_hash?: string;
+    avatar_mode?: 'preset' | 'upload' | 'generate';
+    avatar_url?: string;
+    avatar_style?: string;
+    avatar_seed?: string;
+    avatar_colors?: string[];
+    company_name: string;
+    business_tagline?: string;
+    full_contact_name: string;
+    phone: string;
+    website?: string;
+    brand_identity?: string;
+    brand_primary_color?: string;
+    brand_secondary_color?: string;
+    security_question?: string;
+    security_answer?: string;
+    terms_accepted?: boolean;
+    industry?: string;
+    services_needed?: string[];
+    budget_range?: string;
+    timeline?: string;
+    referral_source?: string;
+    project_summary?: string;
+    status: 'pending' | 'approved' | 'rejected' | 'converted';
+    admin_notes?: string;
+    reviewed_at?: string;
+    converted_client_id?: string;
+    signup_source?: string;
+    ip_address?: string;
+    user_agent?: string;
+    location_url?: string;
+    auto_collected_data?: Record<string, unknown>;
+    created_at: string;
+    updated_at?: string;
 }

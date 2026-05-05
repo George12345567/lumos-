@@ -26,6 +26,12 @@ import {
   Wand2,
   MessageSquareQuote,
   Image as ImageIcon,
+  Briefcase,
+  Target,
+  DollarSign,
+  Clock,
+  Megaphone,
+  FileText,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Link } from "react-router-dom";
@@ -41,6 +47,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
+import { INDUSTRY_OPTIONS, BUDGET_RANGE_OPTIONS, TIMELINE_OPTIONS, REFERRAL_SOURCE_OPTIONS, SERVICE_CATEGORY_OPTIONS } from "@/lib/constants";
 import {
   Form,
   FormControl,
@@ -101,12 +108,14 @@ const STEPS = [
   { key: "account", ar: "إنشاء حسابك", en: "Create Your Account", icon: User, descAr: "صورتك وبيانات الدخول", descEn: "Your avatar & credentials" },
   { key: "business", ar: "معلومات العمل", en: "Business Information", icon: Building2, descAr: "بيانات شركتك وطريقة التواصل", descEn: "Your company & contact details" },
   { key: "brand", ar: "الهوية والأمان", en: "Brand & Security", icon: ShieldCheck, descAr: "ألوان علامتك التجارية والأمان والموافقة", descEn: "Brand colors, security & agreement" },
+  { key: "project", ar: "تفاصيل المشروع", en: "Project Details", icon: Target, descAr: "مجالك والخدمات والميزانية والجدول الزمني", descEn: "Your industry, services, budget & timeline" },
 ] as const;
 
 const STEP_FIELDS: (keyof SignupInput)[][] = [
   ["username", "email", "password", "confirmPassword"],
   ["companyName", "tagline", "contactName", "phone", "website"],
   ["brandIdentity", "securityQuestion", "securityAnswer", "termsAccepted"],
+  ["industry", "servicesNeeded", "budgetRange", "timeline", "referralSource", "projectSummary"],
 ];
 
 // ─── Label / Placeholder / Error resolvers ──────────────────────────────
@@ -120,6 +129,12 @@ function F(field: keyof SignupInput, t: (a: string, e: string) => string): strin
     website: ["الموقع الإلكتروني", "Website"], brandIdentity: ["وصف هوية العلامة", "Describe Your Brand Feel"],
     securityQuestion: ["سؤال الأمان", "Security Question"], securityAnswer: ["إجابة سؤال الأمان", "Security Answer"],
     termsAccepted: ["الموافقة على الشروط", "Accept Terms"],
+    industry: ["المجال / الصناعة", "Industry"],
+    servicesNeeded: ["الخدمات المطلوبة", "Services Needed"],
+    budgetRange: ["نطاق الميزانية", "Budget Range"],
+    timeline: ["الجدول الزمني", "Timeline"],
+    referralSource: ["كيف عرفت عن لوموس؟", "How did you hear about us?"],
+    projectSummary: ["ملخص المشروع", "Project Summary"],
   };
   return t(...m[field]);
 }
@@ -134,6 +149,8 @@ function P(field: keyof SignupInput, t: (a: string, e: string) => string): strin
     phone: ["+201001234567", "+201001234567"], website: ["https://yoursite.com", "https://yoursite.com"],
     brandIdentity: ["ألوان العلامة التجارية، نمط التصميم...", "Brand colors, design style, vibes..."],
     securityAnswer: ["إجابتك السرية", "Your secret answer"],
+    industry: ["اختر مجالك", "Select your industry"],
+    projectSummary: ["أخبرنا باختصار عن مشروعك واحتياجاتك...", "Tell us briefly about your project and needs..."],
   };
   const p = m[field]; return p ? t(...p) : "";
 }
@@ -161,6 +178,11 @@ function E(code: string, t: (a: string, e: string) => string): string {
     "security_question.invalid": ["اختر من القائمة", "Select from the list"],
     "security_answer.invalid": ["حرفان على الأقل", "At least 2 characters"],
     "terms.required": ["يجب الموافقة على الشروط", "You must accept the terms"],
+    "industry.invalid": ["يرجى اختيار مجال صحيح", "Please select a valid industry"],
+    "budget_range.invalid": ["يرجى اختيار نطاق ميزانية صحيح", "Please select a valid budget range"],
+    "timeline.invalid": ["يرجى اختيار جدول زمني صحيح", "Please select a valid timeline"],
+    "referral_source.invalid": ["يرجى اختيار مصدر صحيح", "Please select a valid source"],
+    "project_summary.too_long": ["ملخص المشروع يجب ألا يتجاوز 500 حرف", "Project summary must be 500 characters or less"],
   };
   const p = m[code]; return p ? t(...p) : code;
 }
@@ -301,6 +323,8 @@ export default function SignUpPage() {
       companyName: "", tagline: "", contactName: "", phone: "", website: "",
       brandIdentity: "", securityQuestion: "", securityAnswer: "",
       termsAccepted: false,
+      industry: "", servicesNeeded: [], budgetRange: "", timeline: "",
+      referralSource: "", projectSummary: "",
     },
   });
 
@@ -703,6 +727,156 @@ export default function SignUpPage() {
                               )} />
                             </div>
                           </div>
+                        </div>
+                      </GlassCard>
+                    </div>
+                  )}
+
+                  {/* ═══ STEP 4: Project Details ═══ */}
+                  {currentStep === 3 && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                      {/* Left Card: Industry, Budget, Referral */}
+                      <GlassCard>
+                        <GlassCardHeader icon={Briefcase} t={t} ar="العمل والميزانية" en="Business & Budget" />
+                        <div className="space-y-4">
+                          <FormField control={form.control} name="industry" render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="flex items-center gap-1.5 text-foreground font-semibold text-sm">
+                                <Briefcase className="w-3.5 h-3.5 text-primary" />
+                                {t("المجال / الصناعة", "Industry")}
+                                <span className="text-muted-foreground/60 text-[10px] font-normal px-1.5 py-0.5 rounded bg-muted/30 border border-muted/20">{t("اختياري", "Optional")}</span>
+                              </FormLabel>
+                              <Select onValueChange={field.onChange} value={field.value || undefined}>
+                                <FormControl>
+                                  <SelectTrigger className="bg-background/50 backdrop-blur-sm border-border/40 rounded-xl focus:ring-primary/30 focus:border-primary hover:border-primary/40 transition-all text-sm h-11">
+                                    <SelectValue placeholder={t("اختر مجالك", "Select your industry")} />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent className="bg-popover/95 backdrop-blur-md border-border/50 rounded-xl">
+                                  {INDUSTRY_OPTIONS.map(opt => <SelectItem key={opt.value} value={opt.value} className="text-sm">{t(opt.labelAr, opt.labelEn)}</SelectItem>)}
+                                </SelectContent>
+                              </Select>
+                              <FormMessage />
+                            </FormItem>
+                          )} />
+
+                          <FormField control={form.control} name="budgetRange" render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="flex items-center gap-1.5 text-foreground font-semibold text-sm">
+                                <DollarSign className="w-3.5 h-3.5 text-primary" />
+                                {t("نطاق الميزانية", "Budget Range")}
+                                <span className="text-muted-foreground/60 text-[10px] font-normal px-1.5 py-0.5 rounded bg-muted/30 border border-muted/20">{t("اختياري", "Optional")}</span>
+                              </FormLabel>
+                              <Select onValueChange={field.onChange} value={field.value || undefined}>
+                                <FormControl>
+                                  <SelectTrigger className="bg-background/50 backdrop-blur-sm border-border/40 rounded-xl focus:ring-primary/30 focus:border-primary hover:border-primary/40 transition-all text-sm h-11">
+                                    <SelectValue placeholder={t("اختر نطاق الميزانية", "Select budget range")} />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent className="bg-popover/95 backdrop-blur-md border-border/50 rounded-xl">
+                                  {BUDGET_RANGE_OPTIONS.map(opt => <SelectItem key={opt.value} value={opt.value} className="text-sm">{t(opt.labelAr, opt.labelEn)}</SelectItem>)}
+                                </SelectContent>
+                              </Select>
+                              <FormMessage />
+                            </FormItem>
+                          )} />
+
+                          <FormField control={form.control} name="referralSource" render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="flex items-center gap-1.5 text-foreground font-semibold text-sm">
+                                <Megaphone className="w-3.5 h-3.5 text-primary" />
+                                {t("كيف عرفت عن لوموس؟", "How did you hear about us?")}
+                                <span className="text-muted-foreground/60 text-[10px] font-normal px-1.5 py-0.5 rounded bg-muted/30 border border-muted/20">{t("اختياري", "Optional")}</span>
+                              </FormLabel>
+                              <Select onValueChange={field.onChange} value={field.value || undefined}>
+                                <FormControl>
+                                  <SelectTrigger className="bg-background/50 backdrop-blur-sm border-border/40 rounded-xl focus:ring-primary/30 focus:border-primary hover:border-primary/40 transition-all text-sm h-11">
+                                    <SelectValue placeholder={t("اختر المصدر", "Select source")} />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent className="bg-popover/95 backdrop-blur-md border-border/50 rounded-xl">
+                                  {REFERRAL_SOURCE_OPTIONS.map(opt => <SelectItem key={opt.value} value={opt.value} className="text-sm">{t(opt.labelAr, opt.labelEn)}</SelectItem>)}
+                                </SelectContent>
+                              </Select>
+                              <FormMessage />
+                            </FormItem>
+                          )} />
+                        </div>
+                      </GlassCard>
+
+                      {/* Right Card: Services, Timeline, Summary */}
+                      <GlassCard>
+                        <GlassCardHeader icon={Target} t={t} ar="الخدمات والتفاصيل" en="Services & Details" />
+                        <div className="space-y-4">
+                          <FormField control={form.control} name="servicesNeeded" render={({ field }) => {
+                            const selected = (field.value || []) as string[];
+                            const toggle = (value: string) => {
+                              const next = selected.includes(value)
+                                ? selected.filter((v: string) => v !== value)
+                                : [...selected, value];
+                              field.onChange(next);
+                            };
+                            return (
+                              <FormItem>
+                                <FormLabel className="flex items-center gap-1.5 text-foreground font-semibold text-sm">
+                                  <Globe className="w-3.5 h-3.5 text-primary" />
+                                  {t("الخدمات المطلوبة", "Services You Need")}
+                                  <span className="text-muted-foreground/60 text-[10px] font-normal px-1.5 py-0.5 rounded bg-muted/30 border border-muted/20">{t("اختياري", "Optional")}</span>
+                                </FormLabel>
+                                <div className="grid grid-cols-1 gap-1.5 mt-1.5">
+                                  {SERVICE_CATEGORY_OPTIONS.map((cat) => {
+                                    const isSelected = selected.includes(cat.value);
+                                    return (
+                                      <button key={cat.value} type="button" onClick={() => toggle(cat.value)}
+                                        className={`flex items-center gap-2 p-2 rounded-lg border text-left transition-all text-xs ${isSelected ? "border-primary/50 bg-primary/10 text-primary shadow-[0_0_8px_hsla(150,100%,40%,0.12)]" : "border-border/30 bg-background/30 text-muted-foreground hover:border-primary/30 hover:bg-primary/5"}`}>
+                                        <div className={`w-5 h-5 rounded flex items-center justify-center shrink-0 border ${isSelected ? "border-primary bg-primary text-primary-foreground" : "border-border/50 bg-muted/30"}`}>
+                                          {isSelected && <Check className="w-3 h-3" />}
+                                        </div>
+                                        <span className="font-medium">{t(cat.labelAr, cat.labelEn)}</span>
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                                <FormMessage />
+                              </FormItem>
+                            );
+                          }} />
+
+                          <FormField control={form.control} name="timeline" render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="flex items-center gap-1.5 text-foreground font-semibold text-sm">
+                                <Clock className="w-3.5 h-3.5 text-primary" />
+                                {t("الجدول الزمني", "Timeline")}
+                                <span className="text-muted-foreground/60 text-[10px] font-normal px-1.5 py-0.5 rounded bg-muted/30 border border-muted/20">{t("اختياري", "Optional")}</span>
+                              </FormLabel>
+                              <Select onValueChange={field.onChange} value={field.value || undefined}>
+                                <FormControl>
+                                  <SelectTrigger className="bg-background/50 backdrop-blur-sm border-border/40 rounded-xl focus:ring-primary/30 focus:border-primary hover:border-primary/40 transition-all text-sm h-11">
+                                    <SelectValue placeholder={t("اختر الجدول الزمني", "Select timeline")} />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent className="bg-popover/95 backdrop-blur-md border-border/50 rounded-xl">
+                                  {TIMELINE_OPTIONS.map(opt => <SelectItem key={opt.value} value={opt.value} className="text-sm">{t(opt.labelAr, opt.labelEn)}</SelectItem>)}
+                                </SelectContent>
+                              </Select>
+                              <FormMessage />
+                            </FormItem>
+                          )} />
+
+                          <FormField control={form.control} name="projectSummary" render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="flex items-center gap-1.5 text-foreground font-semibold text-sm">
+                                <FileText className="w-3.5 h-3.5 text-primary" />
+                                {t("ملخص المشروع", "Project Summary")}
+                                <span className="text-muted-foreground/60 text-[10px] font-normal px-1.5 py-0.5 rounded bg-muted/30 border border-muted/20">{t("اختياري", "Optional")}</span>
+                              </FormLabel>
+                              <FormControl>
+                                <Textarea placeholder={t("أخبرنا باختصار عن مشروعك واحتياجاتك...", "Tell us briefly about your project and needs...")} className="bg-background/50 backdrop-blur-sm border-border/40 rounded-xl focus-visible:ring-primary/30 focus-visible:border-primary hover:border-primary/40 focus-visible:ring-2 transition-all text-sm min-h-[80px]" {...field} />
+                              </FormControl>
+                              <p className="text-[10px] text-muted-foreground/50">{t("بحد أقصى 500 حرف", "Max 500 characters")}</p>
+                              <FormMessage />
+                            </FormItem>
+                          )} />
                         </div>
                       </GlassCard>
                     </div>

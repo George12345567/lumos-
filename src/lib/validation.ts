@@ -266,6 +266,46 @@ export const signupSchema = z.object({
     .boolean()
     .optional()
     .refine((v) => v === true, { message: "terms.required" }),
+
+  industry: z
+    .string()
+    .optional()
+    .refine((v) => !v || v === '' || ['restaurant', 'retail', 'factory', 'realestate', 'healthcare', 'education', 'salon', 'pharmacy', 'other'].includes(v), {
+      message: 'industry.invalid',
+    }),
+
+  servicesNeeded: z
+    .array(z.string())
+    .optional()
+    .default([]),
+
+  budgetRange: z
+    .string()
+    .optional()
+    .refine((v) => !v || v === '' || ['under_5000', '5000_15000', '15000_30000', '30000_50000', 'over_50000'].includes(v), {
+      message: 'budget_range.invalid',
+    }),
+
+  timeline: z
+    .string()
+    .optional()
+    .refine((v) => !v || v === '' || ['asap', 'within_1_month', 'within_3_months', 'within_6_months', 'no_deadline'].includes(v), {
+      message: 'timeline.invalid',
+    }),
+
+  referralSource: z
+    .string()
+    .optional()
+    .refine((v) => !v || v === '' || ['google', 'social_media', 'personal_referral', 'paid_ad', 'content_blog', 'other'].includes(v), {
+      message: 'referral_source.invalid',
+    }),
+
+  projectSummary: z
+    .string()
+    .optional()
+    .refine((v) => !v || v.trim().length <= 500, {
+      message: 'project_summary.too_long',
+    }),
 });
 
 export type SignupInput = z.infer<typeof signupSchema>;
