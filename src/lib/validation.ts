@@ -239,6 +239,13 @@ export const signupSchema = z.object({
       { message: "website.invalid" },
     ),
 
+  tagline: z
+    .string()
+    .optional()
+    .refine((v) => !v || v.trim().length <= 120, {
+      message: "tagline.too_long",
+    }),
+
   brandIdentity: z.string().optional(),
 
   securityQuestion: z

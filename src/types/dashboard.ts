@@ -96,6 +96,8 @@ export interface PricingRequest {
     created_at: string;
     updated_at?: string;
     reviewed_at?: string | null;
+    edit_count: number;
+    delete_reason?: string | null;
     assigned_to_name?: string;
     assigned_to_role?: string;
 }

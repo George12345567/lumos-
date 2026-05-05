@@ -8,15 +8,17 @@ import { ErrorBoundary, LoadingFallback } from "@/components/shared";
 import FloatingBrandButton from "@/components/shared/FloatingBrandButton";
 import LeadCapturePopup from "@/features/lead-capture";
 import { AuthProvider } from "@/context/AuthContext";
+import { AppearanceProvider } from "@/context/AppearanceContext";
 import { LanguageProvider } from "@/context/LanguageContext";
 import GlobalLanguageToggle from "@/components/shared/GlobalLanguageToggle";
 
-// Lazy load pages for better code splitting
 const Index = lazy(() => import("./pages/Index"));
 const MobileDemoPage = lazy(() => import("./pages/MobileDemoPage"));
 const ServicePage = lazy(() => import("./pages/ServicePage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
+const SignUpPage = lazy(() => import("./pages/SignUpPage"));
+const AiChatSidebar = lazy(() => import("./features/ai-chat"));
 
 // Create QueryClient outside component to avoid recreating on every render
 const queryClient = new QueryClient({
@@ -35,7 +37,8 @@ const App = () => {
       <QueryClientProvider client={queryClient}>
         <TooltipProvider>
           <LanguageProvider>
-            <AuthProvider>
+            <AppearanceProvider>
+              <AuthProvider>
               <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
                 <Suspense fallback={<LoadingFallback />}>
                   <Routes>
@@ -43,6 +46,7 @@ const App = () => {
                     <Route path="/" element={<Index />} />
                     <Route path="/demo" element={<MobileDemoPage />} />
                     <Route path="/services/:slug" element={<ServicePage />} />
+                    <Route path="/client-signup" element={<SignUpPage />} />
                     <Route path="/lumos-admin" element={<AdminDashboard />} />
 
                     {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
@@ -52,8 +56,12 @@ const App = () => {
                 <FloatingBrandButton />
                 <GlobalLanguageToggle />
                 <LeadCapturePopup />
+                <Suspense fallback={null}>
+                  <AiChatSidebar />
+                </Suspense>
               </BrowserRouter>
-            </AuthProvider>
+              </AuthProvider>
+            </AppearanceProvider>
           </LanguageProvider>
           <Toaster />
           <Sonner />

@@ -11,14 +11,20 @@ type LanguageContextValue = {
   t: (ar: string, en: string) => string;
 };
 
-const LANGUAGE_STORAGE_KEY = 'lumos_app_language';
+export const LANGUAGE_STORAGE_KEY = 'lumos_app_language';
 
 const LanguageContext = createContext<LanguageContextValue | null>(null);
 
 function getInitialLanguage(): AppLanguage {
   if (typeof window === 'undefined') return 'en';
 
-  const stored = window.localStorage.getItem(LANGUAGE_STORAGE_KEY);
+  let stored: string | null = null;
+  try {
+    stored = window.localStorage.getItem(LANGUAGE_STORAGE_KEY);
+  } catch {
+    stored = null;
+  }
+
   if (stored === 'ar' || stored === 'en') {
     return stored;
   }
@@ -35,7 +41,11 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    window.localStorage.setItem(LANGUAGE_STORAGE_KEY, language);
+    try {
+      window.localStorage.setItem(LANGUAGE_STORAGE_KEY, language);
+    } catch {
+      // Storage can be blocked in private or restricted browser contexts.
+    }
   }, [language]);
 
   useEffect(() => {

@@ -55,6 +55,7 @@ const catIcons: Record<string, React.ReactNode> = {
 // LOCALSTORAGE HELPERS - Request Tracking (30-day expiry)
 // ════════════════════════════════════════════════════════════════════
 const STORAGE_KEY = 'lumos_pending_request';
+const LANGUAGE_STORAGE_KEY = 'lumos_app_language';
 const EXPIRY_DAYS = 30;
 
 interface StoredRequest {
@@ -75,6 +76,10 @@ interface StoredRequest {
   editCount?: number;
 }
 
+type ActiveRequestSnapshot = (PricingRequest | StoredRequest) & {
+  admin_notes?: string | null;
+};
+
 const savePendingRequest = (request: {
   id: string;
   status: string;
@@ -92,11 +97,16 @@ const savePendingRequest = (request: {
 }): void => {
   try {
     const now = new Date();
-    const expiresAt = new Date(now.getTime() + EXPIRY_DAYS * 24 * 60 * 60 * 1000);
+    const existing = loadPendingRequest();
+    const isSameRequest = existing?.id === request.id;
+    const createdAt = isSameRequest ? existing!.createdAt : now.toISOString();
+    const expiresAt = isSameRequest
+      ? existing!.expiresAt
+      : new Date(now.getTime() + EXPIRY_DAYS * 24 * 60 * 60 * 1000).toISOString();
     const stored: StoredRequest = {
       ...request,
-      createdAt: now.toISOString(),
-      expiresAt: expiresAt.toISOString(),
+      createdAt,
+      expiresAt,
       lastCheckedAt: now.toISOString(),
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(stored));
@@ -110,7 +120,8 @@ const loadPendingRequest = (): StoredRequest | null => {
     const data = localStorage.getItem(STORAGE_KEY);
     if (!data) return null;
     const stored: StoredRequest = JSON.parse(data);
-    if (new Date(stored.expiresAt) < new Date()) {
+    const expiry = new Date(stored.expiresAt);
+    if (isNaN(expiry.getTime()) || expiry < new Date()) {
       localStorage.removeItem(STORAGE_KEY);
       return null;
     }
@@ -184,6 +195,15 @@ const getLocalEditCount = (id: string): number => {
     return 0;
   } catch (e) {
     return 0;
+  }
+};
+
+const hasStoredLanguagePreference = () => {
+  try {
+    const stored = localStorage.getItem(LANGUAGE_STORAGE_KEY);
+    return stored === 'ar' || stored === 'en';
+  } catch {
+    return false;
   }
 };
 
@@ -388,19 +408,18 @@ const PricingModal = ({ open, onOpenChange, initialRequest = null }: PricingModa
   const contentRef = useRef<HTMLDivElement>(null);
   const isKnownClient = isAuthenticated && !isAdmin && !!client?.id;
 
-  /* ── Sync geo language ── */
+/* ── Sync geo language (only when no stored preference exists) ── */
+  useEffect(() => {
+    if (!geoLoading && geoLang && !open && !hasStoredLanguagePreference()) {
+      setLang(geoLang as 'ar' | 'en');
+    }
+  }, [geoLoading, geoLang, open]);
+
+  /* ── Sync local lang state from global language on modal open ── */
   useEffect(() => {
     if (!open) return;
     setLang(language);
   }, [language, open]);
-
-  useEffect(() => {
-    if (!geoLoading && geoLang && !open) setLang(geoLang as 'ar' | 'en');
-  }, [geoLoading, geoLang, open]);
-
-  useEffect(() => {
-    setLanguage(lang);
-  }, [lang, setLanguage]);
 
   /* ── Load saved pending request on modal open ── */
   useEffect(() => {
@@ -420,6 +439,7 @@ const PricingModal = ({ open, onOpenChange, initialRequest = null }: PricingModa
             .single();
           
           if (cancelled) return;
+          const checkedNow = new Date().toISOString();
           if (freshData) {
             const updated = {
               ...saved,
@@ -427,16 +447,22 @@ const PricingModal = ({ open, onOpenChange, initialRequest = null }: PricingModa
               packageName: freshData.package_name || saved.packageName,
               estimatedTotal: freshData.estimated_total || saved.estimatedTotal,
               currency: freshData.price_currency || saved.currency,
-              lastCheckedAt: new Date().toISOString(),
+              lastCheckedAt: checkedNow,
             };
             setSavedPendingRequest(updated);
             localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
           } else {
-            setSavedPendingRequest(saved);
+            const updated = { ...saved, lastCheckedAt: checkedNow };
+            setSavedPendingRequest(updated);
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
           }
         } catch (e) {
           console.error('Failed to fetch fresh status:', e);
-          if (!cancelled) setSavedPendingRequest(saved);
+          if (!cancelled) {
+            const updated = { ...saved, lastCheckedAt: new Date().toISOString() };
+            setSavedPendingRequest(updated);
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+          }
         }
       } else {
         if (!cancelled) {
@@ -503,6 +529,9 @@ const PricingModal = ({ open, onOpenChange, initialRequest = null }: PricingModa
       if (initialRequest) {
         hydrateRequest(initialRequest);
       } else {
+        // If there's a saved pending request, the tracking effect handles the UI —
+        // don't reset or it will wipe step='success' set by that effect.
+        if (loadPendingRequest()) return;
         setEditingRequestId(null);
         setStep('mode');
         setMode(null);
@@ -1110,13 +1139,13 @@ const PricingModal = ({ open, onOpenChange, initialRequest = null }: PricingModa
     }
     
     setSending(false);
-  }, [isKnownClient, client?.id, editingRequestId, mode, selectedPkg, selectedPackageName, totals, currency, contact, isAr, isEditing, buildMessage, latestClientRequest]);
+  }, [isKnownClient, client?.id, editingRequestId, mode, selectedPkg, selectedServices, selectedPackageName, totals, currency, contact, isAr, isEditing, buildMessage]);
 
   /* ── Edit Request (from success screen) ── */
   const handleEditRequest = useCallback(async () => {
     const activeReq = submittedRequest || latestClientRequest;
     const isTrackingMode = savedPendingRequest && !submittedRequest && !latestClientRequest;
-    const currentRequest = isTrackingMode ? savedPendingRequest : (activeReq as any);
+    const currentRequest = (isTrackingMode ? savedPendingRequest : activeReq) as ActiveRequestSnapshot | null;
     const currentStatus = currentRequest?.status || 'new';
     const currentEditCount = isTrackingMode 
       ? (savedPendingRequest?.editCount || 0) 
@@ -1217,7 +1246,7 @@ const PricingModal = ({ open, onOpenChange, initialRequest = null }: PricingModa
   const handlePermanentDelete = useCallback(async () => {
     const activeReq = submittedRequest || latestClientRequest;
     const isTrackingMode = savedPendingRequest && !submittedRequest && !latestClientRequest;
-    const currentRequest = isTrackingMode ? savedPendingRequest : (activeReq as any);
+    const currentRequest = (isTrackingMode ? savedPendingRequest : activeReq) as ActiveRequestSnapshot | null;
     
     if (!currentRequest?.id) return;
     
@@ -1342,7 +1371,11 @@ const PricingModal = ({ open, onOpenChange, initialRequest = null }: PricingModa
                     </div>
                   )}
                   <button
-                    onClick={() => setLang(l => l === 'ar' ? 'en' : 'ar')}
+                    onClick={() => {
+  const next = lang === 'ar' ? 'en' : 'ar';
+  setLang(next);
+  setLanguage(next);
+}}
                     className="w-10 h-7 rounded-full bg-white border border-slate-200 flex items-center justify-center text-[10px] text-slate-600 hover:border-emerald-200 hover:bg-emerald-50 transition-all font-black"
                     title={isAr ? 'Switch to English' : 'التحويل إلى العربية'}
                   >
@@ -2553,7 +2586,7 @@ const PricingModal = ({ open, onOpenChange, initialRequest = null }: PricingModa
                   const activeReq = submittedRequest || latestClientRequest;
                   const isTrackingMode = savedPendingRequest && !submittedRequest && !latestClientRequest;
                   
-                  const currentRequest = isTrackingMode ? savedPendingRequest : (activeReq as any);
+                  const currentRequest = (isTrackingMode ? savedPendingRequest : activeReq) as ActiveRequestSnapshot | null;
                   const currentStatus = currentRequest?.status || 'new';
                   
                   const currentEditCount = isTrackingMode 
@@ -2695,7 +2728,7 @@ const PricingModal = ({ open, onOpenChange, initialRequest = null }: PricingModa
                       </div>
 
                       {/* ════ ADMIN NOTE SECTION (If exists) ════ */}
-                      {(currentRequest as any)?.admin_notes && (
+                      {currentRequest?.admin_notes && (
                         <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 mb-6">
                           <div className="flex items-start gap-3">
                             <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center shrink-0">
@@ -2706,7 +2739,7 @@ const PricingModal = ({ open, onOpenChange, initialRequest = null }: PricingModa
                                 {isAr ? 'ملاحظة من الإدارة' : 'Note from Admin'}
                               </p>
                               <p className="text-sm font-medium text-slate-800">
-                                {(currentRequest as any)?.admin_notes}
+                                {currentRequest.admin_notes}
                               </p>
                             </div>
                           </div>
