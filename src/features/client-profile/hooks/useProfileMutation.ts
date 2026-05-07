@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { profileService, type ProfileData } from '@/services/profileService';
-import { useAuth } from '@/context/AuthContext';
+import { useClient, useAuthActions } from '@/context/AuthContext';
 import type { SaveState } from '../types';
 
 const DEBOUNCE_MS = 600;
@@ -11,7 +11,8 @@ interface Options {
 }
 
 export function useProfileMutation({ onSaved }: Options = {}) {
-  const { client, refreshProfile } = useAuth();
+  const client = useClient();
+  const { refreshProfile } = useAuthActions();
   const [state, setState] = useState<SaveState>('idle');
   const pending = useRef<Partial<ProfileData>>({});
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -27,7 +28,10 @@ export function useProfileMutation({ onSaved }: Options = {}) {
     inFlight.current = true;
     setState('saving');
     try {
-      const ok = await profileService.updateProfile(client.id, updates);
+      const result = await profileService.updateProfile(client.id, updates);
+      // updateProfile returns { success: boolean }. The previous code coerced
+      // the whole object to truthy and never failed — verify success explicitly.
+      const ok = !!(result && typeof result === 'object' && (result as { success?: boolean }).success === true);
       if (!ok) throw new Error('save_failed');
       setState('saved');
       onSaved?.();

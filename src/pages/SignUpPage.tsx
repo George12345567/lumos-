@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useRef } from "react";
+import { useState, useMemo, useCallback, useRef, memo, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { motion, AnimatePresence } from "framer-motion";
@@ -11,6 +11,7 @@ import {
   XCircle,
   User,
   Mail,
+  MailCheck,
   Lock,
   Building2,
   Phone,
@@ -24,6 +25,7 @@ import {
   Upload,
   Camera,
   Wand2,
+  RefreshCw,
   MessageSquareQuote,
   Image as ImageIcon,
   Briefcase,
@@ -34,7 +36,7 @@ import {
   FileText,
 } from "lucide-react";
 import { toast } from "sonner";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -58,7 +60,12 @@ import {
 } from "@/components/ui/form";
 import { EnhancedNavbar, Footer } from "@/components/layout";
 import { useLanguage } from "@/context/LanguageContext";
-import { useAuth } from "@/context/AuthContext";
+import { useAuthActions, useIsAuthenticated, useAuthLoading, useAuthConfigured } from "@/context/AuthContext";
+import { AlertTriangle } from "lucide-react";
+import { ROUTES } from "@/lib/constants";
+import { resendConfirmationEmail } from "@/services/authService";
+import type { AvailabilityStatus } from "@/services/authService";
+import { useAvailabilityCheck } from "@/hooks/useAvailabilityCheck";
 import AvatarGenerator, { type AvatarStyle } from "@/components/shared/AvatarGenerator";
 import {
   signupFormSchema,
@@ -77,11 +84,15 @@ import {
 // ─── Constants ──────────────────────────────────────────────────────────
 
 const AVATAR_PRESETS = [
-  { url: "/AVATARS/10491830.jpg", label: "Style 1" },
-  { url: "/AVATARS/9434619.jpg", label: "Style 2" },
-  { url: "/AVATARS/9439678.jpg", label: "Style 3" },
-  { url: "/AVATARS/androgynous-avatar-non-binary-queer-person.jpg", label: "Style 4" },
-  { url: "/AVATARS/androgynous-avatar-non-binary-queer-person(1).jpg", label: "Style 5" },
+  { url: "/AVATARS/avatar-1.jpg", labelAr: "إيلي", labelEn: "Elliy" },
+  { url: "/AVATARS/avatar-2.jpg", labelAr: "آبي", labelEn: "Abby" },
+  { url: "/AVATARS/avatar-3.jpg", labelAr: "دينا", labelEn: "Dina" },
+  { url: "/AVATARS/avatar-4.jpg", labelAr: "جويل", labelEn: "Joel" },
+  { url: "/AVATARS/avatar-5.jpg", labelAr: "ماكس", labelEn: "Max" },
+  { url: "/AVATARS/avatar-6.jpg", labelAr: "نور", labelEn: "Nour" },
+  { url: "/AVATARS/avatar-7.jpg", labelAr: "سام", labelEn: "Sam" },
+  { url: "/AVATARS/avatar-8.jpg", labelAr: "ليو", labelEn: "Leo" },
+  { url: "/AVATARS/avatar-9.jpg", labelAr: "زارا", labelEn: "Zara" },
 ];
 
 const AVATAR_STYLES: { value: AvatarStyle; label: string; labelAr: string }[] = [
@@ -190,6 +201,39 @@ function E(code: string, t: (a: string, e: string) => string): string {
 // ─── Validation Components ──────────────────────────────────────────────────
 
 type VRule = { ok: boolean; ar: string; en: string };
+
+const AvailabilityIndicator = memo(function AvailabilityIndicator({ status, t }: { status: AvailabilityStatus; t: (a: string, e: string) => string }) {
+  if (status === "idle") return null;
+  if (status === "checking") {
+    return (
+      <div className="flex items-center gap-1.5 mt-1 animate-in fade-in duration-200">
+        <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />
+        <span className="text-[11px] text-muted-foreground">{t("جاري التحقق...", "Checking availability...")}</span>
+      </div>
+    );
+  }
+  if (status === "available") {
+    return (
+      <div className="flex items-center gap-1.5 mt-1 animate-in fade-in duration-200">
+        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+        <span className="text-[11px] text-emerald-400 font-medium">{t("متاح ✓", "Available ✓")}</span>
+      </div>
+    );
+  }
+  if (status === "unknown") {
+    return (
+      <div className="flex items-center gap-1.5 mt-1 animate-in fade-in duration-200">
+        <span className="text-[11px] text-muted-foreground/60">{t("تعذر التحقق", "Could not verify")}</span>
+      </div>
+    );
+  }
+  return (
+    <div className="flex items-center gap-1.5 mt-1 animate-in fade-in duration-200">
+      <XCircle className="w-3.5 h-3.5 text-destructive" />
+      <span className="text-[11px] text-destructive font-medium">{t("مسجل بالفعل ✗", "Already taken ✗")}</span>
+    </div>
+  );
+});
 
 function RulesList({ rules, t }: { rules: VRule[]; t: (a: string, e: string) => string }) {
   const allDone = rules.every(r => r.ok);
@@ -300,14 +344,29 @@ function GlassCardHeader({ icon: Icon, label, t, ar, en }: { icon: React.Element
 
 export default function SignUpPage() {
   const { t, isArabic } = useLanguage();
-  const { signup } = useAuth();
+  const { signup } = useAuthActions();
+  const authLoading = useAuthLoading();
+  const isAuthenticated = useIsAuthenticated();
+  const authConfigured = useAuthConfigured();
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!authLoading && isAuthenticated) {
+      navigate("/", { replace: true });
+    }
+  }, [authLoading, isAuthenticated, navigate]);
 
   const [currentStep, setCurrentStep] = useState(0);
   const [direction, setDirection] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [showConfirmation, setShowConfirmation] = useState(false);
+  const [signupEmail, setSignupEmail] = useState("");
+  const [resendCooldown, setResendCooldown] = useState(0);
+  const [isResending, setIsResending] = useState(false);
 
   const [avatarMode, setAvatarMode] = useState<AvatarMode>("preset");
   const [selectedPreset, setSelectedPreset] = useState(0);
@@ -335,6 +394,8 @@ export default function SignUpPage() {
   const emailVal = watch("email");
   const phoneVal = watch("phone");
 
+  const { status: availability, isBlocking: isAvailabilityBlocking } = useAvailabilityCheck(usernameVal, emailVal, phoneVal);
+
   const avatarSeed = usernameVal || "lumos-default";
 
   const handleFileUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -350,20 +411,148 @@ export default function SignUpPage() {
   }, [currentStep, trigger]);
 
   const onSubmit = async () => {
+    if (!authConfigured) {
+      toast.error(
+        t(
+          "نظام التسجيل غير مهيأ. يرجى التواصل مع دعم Lumos.",
+          "Signup is not configured. Please contact Lumos support.",
+        ),
+      );
+      return;
+    }
+    if (isSubmitting) return;
     setIsSubmitting(true);
     try {
-      const result = await signup(getValues());
-      if (result.success) { toast.success(t("تم إنشاء الحساب بنجاح!", "Account created successfully!")); }
-      else { toast.success(t("سيتم تفعيل التسجيل قريباً — هذه نسخة تجريبية", "Registration will be available soon — this is a preview"), { description: t("شكراً لاهتمامك بـ Lumos!", "Thank you for your interest in Lumos!") }); }
+      const values = getValues();
+      const result = await signup({
+        ...values,
+        brandColors,
+        avatarMode,
+        avatarSeed: usernameVal || "lumos-default",
+      });
+      if (result.success) {
+        if (result.needsConfirmation) {
+          setSignupEmail(getValues().email);
+          setShowConfirmation(true);
+        } else {
+          toast.success(t("تم إنشاء الحساب بنجاح!", "Account created successfully!"));
+        }
+      } else {
+        const errMsg = result.error || "signup.failed";
+        if (errMsg === "auth.not_configured") {
+          toast.error(
+            t(
+              "نظام التسجيل غير مهيأ. يرجى التواصل مع دعم Lumos.",
+              "Signup is not configured. Please contact Lumos support.",
+            ),
+          );
+        } else if (errMsg === "signup.email_exists") {
+          toast.error(t("هذا البريد الإلكتروني مسجل بالفعل", "This email is already registered"));
+        } else if (errMsg === "login.rate_limited") {
+          toast.error(t("طلبات كثيرة. حاول مرة أخرى بعد دقيقة.", "Too many attempts. Please try again in a minute."));
+        } else if (errMsg === "login.forbidden") {
+          toast.error(t("غير مسموح بالوصول. تحقق من صلاحيات حسابك.", "Access denied. Please verify your account permissions."));
+        } else if (errMsg === "login.network_error") {
+          toast.error(t("خطأ في الاتصال. تحقق من الإنترنت وحاول مرة أخرى.", "Connection error. Check your internet and try again."));
+        } else {
+          toast.error(t("فشل إنشاء الحساب", "Failed to create account"));
+        }
+      }
     } catch { toast.error(t("حدث خطأ غير متوقع", "An unexpected error occurred")); }
     finally { setIsSubmitting(false); }
   };
+
+  const handleResendConfirmation = useCallback(async () => {
+    if (resendCooldown > 0 || !signupEmail) return;
+    setIsResending(true);
+    try {
+      const result = await resendConfirmationEmail(signupEmail);
+      if (result.success) {
+        toast.success(t("تم إعادة إرسال الإيميل", "Confirmation email resent"));
+        setResendCooldown(60);
+        let elapsed = 0;
+        const timer = setInterval(() => {
+          elapsed += 1;
+          if (elapsed >= 60) {
+            clearInterval(timer);
+            setResendCooldown(0);
+          } else {
+            setResendCooldown(60 - elapsed);
+          }
+        }, 1000);
+      } else {
+        toast.error(t("فشل إعادة الإرسال", "Failed to resend"));
+      }
+    } catch {
+      toast.error(t("حدث خطأ غير متوقع", "An unexpected error occurred"));
+    } finally {
+      setIsResending(false);
+    }
+  }, [signupEmail, resendCooldown, t]);
 
   const renderAvatar = (size: number = 80) => {
     if (avatarMode === "preset") return <img src={AVATAR_PRESETS[selectedPreset].url} alt="Avatar" className="w-full h-full object-cover rounded-full" />;
     if (avatarMode === "upload" && uploadedPreview) return <img src={uploadedPreview} alt="Avatar" className="w-full h-full object-cover rounded-full" />;
     return <AvatarGenerator seed={avatarSeed} style={generatedStyle} size={size} colors={brandColors} staticRender />;
   };
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-background text-foreground flex items-center justify-center" dir={isArabic ? "rtl" : "ltr"}>
+        <Loader2 className="w-6 h-6 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (showConfirmation) {
+    const maskEmail = (email: string) => {
+      const [local, domain] = email.split("@");
+      if (!domain || !local) return email;
+      if (local.length <= 2) return `${local[0]}***@${domain}`;
+      return `${local[0]}${"*".repeat(Math.min(local.length - 2, 4))}${local[local.length - 1]}@${domain}`;
+    };
+
+    return (
+      <div className="min-h-screen bg-background text-foreground" dir={isArabic ? "rtl" : "ltr"}>
+        <EnhancedNavbar />
+        <section className="relative pt-24 sm:pt-28 pb-12 px-4 sm:px-6 overflow-hidden">
+          <div className="absolute inset-0 pointer-events-none">
+            <div className="absolute -top-20 -left-20 w-[400px] h-[400px] rounded-full bg-[hsl(150,100%,40%)]/8 blur-[100px] animate-orb" />
+            <div className="absolute -bottom-20 -right-20 w-[300px] h-[300px] rounded-full bg-[#00bcd4]/6 blur-[80px] animate-orb-delayed" />
+          </div>
+          <div className="container mx-auto max-w-md relative z-10" dir={isArabic ? "rtl" : "ltr"}>
+            <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.5 }} className="glass-card rounded-2xl glow-border-hover p-6 sm:p-8 text-center">
+              <div className="w-20 h-20 mx-auto rounded-full bg-primary/10 border-2 border-primary/30 flex items-center justify-center mb-6">
+                <MailCheck className="w-10 h-10 text-primary" />
+              </div>
+              <h2 className="text-xl font-bold text-foreground mb-2">{t("تحقق من بريدك الإلكتروني", "Check Your Email")}</h2>
+              <p className="text-muted-foreground text-sm mb-1">{t("لقد أرسلنا رابط التأكيد إلى", "We've sent a confirmation link to")}</p>
+              <p className="text-primary font-semibold text-sm mb-4">{maskEmail(signupEmail)}</p>
+              <p className="text-muted-foreground/60 text-xs mb-6 max-w-xs mx-auto">{t("اضغط على الرابط في الإيميل لتفعيل حسابك. تحقق من مجلد البريد المزعج أيضاً.", "Click the link in the email to activate your account. Check your spam folder too.")}</p>
+              <button
+                type="button"
+                onClick={handleResendConfirmation}
+                disabled={resendCooldown > 0 || isResending}
+                className="text-sm text-primary/70 hover:text-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed mb-6 inline-flex items-center gap-1.5"
+              >
+                {isResending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+                {resendCooldown > 0
+                  ? t(`إعادة الإرسال بعد ${resendCooldown} ثانية`, `Resend in ${resendCooldown}s`)
+                  : t("إعادة إرسال رابط التأكيد", "Resend confirmation link")
+                }
+              </button>
+              <div className="h-px bg-gradient-to-r from-transparent via-primary/15 to-transparent my-4" />
+              <div className="flex items-center justify-center gap-1.5 text-sm">
+                <span className="text-muted-foreground/60">{t("لديك حساب بالفعل؟", "Already have an account?")}</span>
+                <Link to={ROUTES.CLIENT_LOGIN} className="text-primary/80 hover:text-primary transition-colors hover:underline font-medium">{t("تسجيل الدخول", "Sign in")}</Link>
+              </div>
+            </motion.div>
+          </div>
+        </section>
+        <Footer />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background text-foreground" dir={isArabic ? "rtl" : "ltr"}>
@@ -437,6 +626,20 @@ export default function SignUpPage() {
       {/* ─── Form Content ─── */}
       <section className="px-4 sm:px-6 pb-12 sm:pb-16 md:pb-20">
         <div className="container mx-auto max-w-4xl">
+          {!authConfigured && (
+            <div
+              role="alert"
+              className="mb-5 rounded-xl border border-amber-300/50 bg-amber-50 p-3 flex items-start gap-2 max-w-xl mx-auto"
+            >
+              <AlertTriangle className="w-4 h-4 text-amber-700 mt-0.5 shrink-0" />
+              <p className="text-xs text-amber-800 leading-relaxed">
+                {t(
+                  "نظام التسجيل غير مهيأ. يمكنك تصفح النموذج لكن لن يتم إنشاء حساب فعلي.",
+                  "Signup is not configured. You can browse the form, but no account will actually be created.",
+                )}
+              </p>
+            </div>
+          )}
           <Form {...form}>
             <form onSubmit={(e) => { e.preventDefault(); if (currentStep === STEPS.length - 1) { form.handleSubmit(onSubmit)(e); } else { goToStep(currentStep + 1); } }}>
 
@@ -479,7 +682,7 @@ export default function SignUpPage() {
                                 {AVATAR_PRESETS.map((preset, i) => (
                                   <button key={preset.url} type="button" onClick={() => { setSelectedPreset(i); setAvatarMode("preset"); }}
                                     className={`w-12 h-12 rounded-full overflow-hidden border-2 transition-all ${selectedPreset === i && avatarMode === "preset" ? "border-primary shadow-[0_0_12px_hsla(150,100%,40%,0.3)] scale-105" : "border-border/30 hover:border-primary/40"}`}>
-                                    <img src={preset.url} alt={preset.label} className="w-full h-full object-cover" />
+                                    <img src={preset.url} alt={t(preset.labelAr, preset.labelEn)} className="w-full h-full object-cover" />
                                   </button>
                                 ))}
                               </motion.div>
@@ -530,6 +733,7 @@ export default function SignUpPage() {
                               <FormLabel className="flex items-center gap-1.5 text-foreground font-semibold text-sm"><User className="w-3.5 h-3.5 text-primary" />{F("username", t)}<span className="text-primary text-xs">*</span>{touchedFields.username && field.value && <FieldIcon value={field.value} error={errors.username?.message} touched={!!touchedFields.username} />}</FormLabel>
                               <FormControl><Input placeholder={P("username", t)} className={ic(hasErr, isValid, !!touchedFields.username)} {...field} /></FormControl>
                               <UsernameRules v={field.value} t={t} />
+                              <AvailabilityIndicator status={availability.username} t={t} />
                               {hasErr && <motion.p initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} className="text-xs text-destructive font-medium flex items-center gap-1"><XCircle className="w-3 h-3 shrink-0" />{E(errors.username?.message || "", t)}</motion.p>}
                             </FormItem>);
                           }} />
@@ -540,6 +744,7 @@ export default function SignUpPage() {
                               <FormLabel className="flex items-center gap-1.5 text-foreground font-semibold text-sm"><Mail className="w-3.5 h-3.5 text-primary" />{F("email", t)}<span className="text-primary text-xs">*</span>{touchedFields.email && field.value && <FieldIcon value={field.value} error={errors.email?.message} touched={!!touchedFields.email} />}</FormLabel>
                               <FormControl><Input type="email" placeholder={P("email", t)} className={ic(hasErr, isValid, !!touchedFields.email)} {...field} /></FormControl>
                               <EmailRules v={field.value} t={t} />
+                              <AvailabilityIndicator status={availability.email} t={t} />
                               {hasErr && <motion.p initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} className="text-xs text-destructive font-medium flex items-center gap-1"><XCircle className="w-3 h-3 shrink-0" />{E(errors.email?.message || "", t)}</motion.p>}
                             </FormItem>);
                           }} />
@@ -551,7 +756,7 @@ export default function SignUpPage() {
                               <FormControl>
                                 <div className="relative">
                                   <Input type={showPassword ? "text" : "password"} placeholder="••••••••" className={`${ic(hasErr, false, false)} ${field.value && !hasErr && touchedFields.password ? "border-emerald-500/40 shadow-[0_0_12px_rgba(16,185,129,0.06)]" : ""} pr-10`} {...field} />
-                                  <button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors" onClick={() => setShowPassword(!showPassword)} tabIndex={-1}>{showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}</button>
+                                  <button type="button" className={`absolute top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors p-1 ${isArabic ? "left-3" : "right-3"}`} onClick={() => setShowPassword(!showPassword)} tabIndex={-1}>{showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}</button>
                                 </div>
                               </FormControl>
                               <PasswordStrength password={password} confirmPassword={confirmPassword} t={t} />
@@ -569,7 +774,7 @@ export default function SignUpPage() {
                               <FormControl>
                                 <div className="relative">
                                   <Input type={showConfirmPassword ? "text" : "password"} placeholder="••••••••" className={`${ic(hasErr, !!isMatch, !!touchedFields.confirmPassword)} pr-10`} {...field} />
-                                  <button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors" onClick={() => setShowConfirmPassword(!showConfirmPassword)} tabIndex={-1}>{showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}</button>
+                                  <button type="button" className={`absolute top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors p-1 ${isArabic ? "left-3" : "right-3"}`} onClick={() => setShowConfirmPassword(!showConfirmPassword)} tabIndex={-1}>{showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}</button>
                                 </div>
                               </FormControl>
                               {hasErr && <motion.p initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} className="text-xs text-destructive font-medium flex items-center gap-1"><XCircle className="w-3 h-3 shrink-0" />{E(errors.confirmPassword?.message || "", t)}</motion.p>}
@@ -622,6 +827,7 @@ export default function SignUpPage() {
                               <FormLabel className="flex items-center gap-1.5 text-foreground font-semibold text-sm"><Phone className="w-3.5 h-3.5 text-primary" />{F("phone", t)}<span className="text-primary text-xs">*</span>{touchedFields.phone && field.value && <FieldIcon value={field.value} error={errors.phone?.message} touched={!!touchedFields.phone} />}</FormLabel>
                               <FormControl><Input placeholder={P("phone", t)} className={ic(hasErr, isValid, !!touchedFields.phone)} {...field} /></FormControl>
                               <PhoneRules v={field.value} t={t} />
+                              <AvailabilityIndicator status={availability.phone} t={t} />
                               {hasErr && <motion.p initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} className="text-xs text-destructive font-medium flex items-center gap-1"><XCircle className="w-3 h-3 shrink-0" />{E(errors.phone?.message || "", t)}</motion.p>}
                             </FormItem>);
                           }} />
@@ -896,12 +1102,13 @@ export default function SignUpPage() {
                   ) : <div />}
 
                   {currentStep < STEPS.length - 1 ? (
-                    <Button type="submit" className="btn-glow glow-ring rounded-full text-sm font-bold h-11 px-7 group">
+                    <Button type="submit" disabled={currentStep === 0 && isAvailabilityBlocking} className="btn-glow glow-ring rounded-full text-sm font-bold h-11 px-7 group">
                       <span>{t("التالي", "Next")}</span>
+                      {currentStep === 0 && isAvailabilityBlocking && <Loader2 className="w-3.5 h-3.5 animate-spin ml-1.5" />}
                       {isArabic ? <ArrowLeft className="w-4 h-4 mr-0.5 group-hover:translate-x-0.5 transition-transform" /> : <ArrowRight className="w-4 h-4 ml-0.5 group-hover:translate-x-0.5 transition-transform" />}
                     </Button>
                   ) : (
-                    <Button type="submit" disabled={isSubmitting} className="btn-glow glow-ring rounded-full text-sm font-bold h-11 px-7 min-w-[160px] group">
+                    <Button type="submit" disabled={isSubmitting || !authConfigured} className="btn-glow glow-ring rounded-full text-sm font-bold h-11 px-7 min-w-[160px] group">
                       {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Sparkles className="w-4 h-4 mr-1.5" /><span>{t("إنشاء حساب", "Create Account")}</span></>}
                     </Button>
                   )}

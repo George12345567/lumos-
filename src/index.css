@@ -615,6 +615,17 @@ section[data-sonner-toaster] [data-sonner-toast] {
   100% { opacity: 0;    transform: translateY(6px);  }
 }
 
+@keyframes revealLine {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .animate-orb {
   animation: drift 12s ease-in-out infinite;
 }

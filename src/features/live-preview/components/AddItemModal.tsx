@@ -116,7 +116,7 @@ const AddItemModal = ({
             name: form.name.trim(),
             description: form.description.trim(),
             price: form.price,
-            image: form.image || "https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=400",
+            image: form.image || "/placeholder.svg",
             category: form.category,
             featured: form.featured,
             rating: editingItem?.rating ?? 4.5,

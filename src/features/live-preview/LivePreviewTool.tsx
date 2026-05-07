@@ -33,7 +33,7 @@ import {
 import { copyToClipboard } from "./utils/clipboard";
 import { saveDesign, updateDesign } from "@/services/designService";
 import type { SaveDesignPayload } from "@/services/designService";
-import { useAuth } from "@/context/AuthContext";
+import { useClient, useIsAuthenticated } from "@/context/AuthContext";
 import AddItemModal from "./components/AddItemModal";
 import SyncOrb from "./components/SyncOrb";
 import FloatingDock from "@/components/layout/FloatingDock";
@@ -78,7 +78,8 @@ const serviceTypes: ServiceType[] = serviceTypesConfig.map((config) => ({
 
 const LivePreviewTool = () => {
   // Auth & Navigation
-  const { client: authClient, isAuthenticated } = useAuth();
+  const authClient = useClient();
+  const isAuthenticated = useIsAuthenticated();
   const { t } = useLanguage();
   const navigate = useNavigate();
 
@@ -330,7 +331,7 @@ const LivePreviewTool = () => {
     }
     const item: MenuItem = {
       id: Date.now(), name: newItem.name, description: newItem.description,
-      price: newItem.price, image: newItem.image || "https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=400",
+      price: newItem.price, image: newItem.image || "/placeholder.svg",
       category: newItem.category, rating: 4.5,
     };
     setCustomItems(prev => [...prev, item]);

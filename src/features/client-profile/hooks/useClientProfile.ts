@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { profileService, type ProfileData } from '@/services/profileService';
-import { useAuth } from '@/context/AuthContext';
+import { useClient, useAuthActions } from '@/context/AuthContext';
 
 const EMPTY_PROFILE: ProfileData = {
   avatar_style: '',
@@ -22,7 +22,8 @@ const EMPTY_PROFILE: ProfileData = {
 };
 
 export function useClientProfile() {
-  const { client, refreshProfile } = useAuth();
+  const client = useClient();
+  const { refreshProfile } = useAuthActions();
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

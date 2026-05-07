@@ -1,4 +1,9 @@
-export interface Order {
+/**
+ * Legacy order shape used by older guest-tracking code paths. Kept for
+ * backwards compatibility with rows ingested before the current Order schema.
+ * New code should use {@link Order} below.
+ */
+export interface LegacyOrder {
     id: string;
     client_name: string;
     phone: string;
@@ -110,6 +115,12 @@ export interface Client {
     phone_number?: string;
     company_name?: string;
     security_question?: string;
+    /**
+     * @deprecated Plaintext security answers are no longer persisted. Existing
+     * rows may carry a legacy value but it must never be read or rewritten by
+     * the frontend. Salted hashes live server-side and are only verified via
+     * a future Edge Function. Do not surface this field in any UI.
+     */
     security_answer?: string;
     package_name?: string;
     status?: string;

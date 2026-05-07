@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630" role="img" aria-label="Lumos Agency — Brand, Web & Growth Studio">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#040814"/>
+      <stop offset="1" stop-color="#0a1828"/>
+    </linearGradient>
+    <radialGradient id="glowA" cx="0.18" cy="0.32" r="0.55">
+      <stop offset="0" stop-color="hsl(150, 100%, 40%)" stop-opacity="0.45"/>
+      <stop offset="1" stop-color="hsl(150, 100%, 40%)" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glowB" cx="0.85" cy="0.78" r="0.55">
+      <stop offset="0" stop-color="#00bcd4" stop-opacity="0.35"/>
+      <stop offset="1" stop-color="#00bcd4" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="hsl(150, 100%, 40%)"/>
+      <stop offset="1" stop-color="#00bcd4"/>
+    </linearGradient>
+    <linearGradient id="hairline" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="hsl(150, 100%, 40%)" stop-opacity="0"/>
+      <stop offset="0.5" stop-color="hsl(150, 100%, 40%)" stop-opacity="0.6"/>
+      <stop offset="1" stop-color="hsl(150, 100%, 40%)" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <rect width="1200" height="630" fill="url(#glowA)"/>
+  <rect width="1200" height="630" fill="url(#glowB)"/>
+
+  <!-- Grid lines for subtle depth -->
+  <g stroke="rgba(255,255,255,0.04)" stroke-width="1">
+    <line x1="0" y1="160" x2="1200" y2="160"/>
+    <line x1="0" y1="320" x2="1200" y2="320"/>
+    <line x1="0" y1="480" x2="1200" y2="480"/>
+  </g>
+
+  <!-- Top hairline -->
+  <rect x="80" y="92" width="1040" height="1" fill="url(#hairline)"/>
+
+  <!-- Brand mark -->
+  <g transform="translate(96, 160)">
+    <!-- Spark / star icon -->
+    <g transform="translate(0, 14)">
+      <path d="M28 0 L34 22 L56 28 L34 34 L28 56 L22 34 L0 28 L22 22 Z"
+            fill="hsl(150, 100%, 40%)"
+            opacity="0.95"/>
+      <circle cx="28" cy="28" r="3.6" fill="#040814"/>
+    </g>
+
+    <text x="80" y="56"
+          font-family="Poppins, system-ui, -apple-system, Segoe UI, Roboto, sans-serif"
+          font-size="56"
+          font-weight="800"
+          fill="#ffffff"
+          letter-spacing="-1.2">Lumos</text>
+    <text x="80" y="92"
+          font-family="Poppins, system-ui, -apple-system, Segoe UI, Roboto, sans-serif"
+          font-size="18"
+          font-weight="600"
+          fill="hsl(150, 100%, 55%)"
+          letter-spacing="6"
+          opacity="0.9">DIGITAL  AGENCY</text>
+  </g>
+
+  <!-- Headline -->
+  <g transform="translate(96, 320)">
+    <text font-family="Poppins, system-ui, -apple-system, Segoe UI, Roboto, sans-serif"
+          font-size="72"
+          font-weight="800"
+          fill="#ffffff"
+          letter-spacing="-2">
+      <tspan x="0" dy="0">Brand. Web. Growth.</tspan>
+    </text>
+    <text font-family="Poppins, system-ui, -apple-system, Segoe UI, Roboto, sans-serif"
+          font-size="26"
+          font-weight="500"
+          fill="rgba(255,255,255,0.72)"
+          letter-spacing="0">
+      <tspan x="0" dy="56">Brand identity, conversion-focused websites,</tspan>
+      <tspan x="0" dy="36">and digital growth — from strategy to launch.</tspan>
+    </text>
+  </g>
+
+  <!-- Service chips -->
+  <g transform="translate(96, 524)" font-family="Poppins, system-ui, -apple-system, Segoe UI, Roboto, sans-serif" font-size="18" font-weight="600">
+    <g>
+      <rect x="0" y="0" width="200" height="44" rx="22"
+            fill="rgba(255,255,255,0.06)"
+            stroke="rgba(0, 204, 102, 0.35)"/>
+      <text x="100" y="29" text-anchor="middle" fill="#ffffff">Brand Identity</text>
+    </g>
+    <g transform="translate(216, 0)">
+      <rect x="0" y="0" width="200" height="44" rx="22"
+            fill="rgba(255,255,255,0.06)"
+            stroke="rgba(0, 188, 212, 0.35)"/>
+      <text x="100" y="29" text-anchor="middle" fill="#ffffff">Web Systems</text>
+    </g>
+    <g transform="translate(432, 0)">
+      <rect x="0" y="0" width="220" height="44" rx="22"
+            fill="rgba(255,255,255,0.06)"
+            stroke="rgba(0, 204, 102, 0.35)"/>
+      <text x="110" y="29" text-anchor="middle" fill="#ffffff">Social Growth</text>
+    </g>
+  </g>
+
+  <!-- Right-side decoration -->
+  <g transform="translate(900, 130)" opacity="0.95">
+    <circle cx="120" cy="120" r="118" fill="none" stroke="url(#accent)" stroke-width="2" opacity="0.55"/>
+    <circle cx="120" cy="120" r="80" fill="none" stroke="url(#accent)" stroke-width="2" opacity="0.45"/>
+    <circle cx="120" cy="120" r="42" fill="none" stroke="url(#accent)" stroke-width="2" opacity="0.35"/>
+    <circle cx="120" cy="120" r="6" fill="hsl(150, 100%, 55%)"/>
+  </g>
+
+  <!-- URL -->
+  <text x="96" y="600"
+        font-family="Poppins, system-ui, -apple-system, Segoe UI, Roboto, sans-serif"
+        font-size="20"
+        font-weight="600"
+        fill="rgba(255,255,255,0.65)"
+        letter-spacing="2">getlumos.studio</text>
+  <rect x="1024" y="588" width="80" height="2" rx="1" fill="hsl(150, 100%, 40%)"/>
+  <text x="1104" y="600" text-anchor="end"
+        font-family="Poppins, system-ui, -apple-system, Segoe UI, Roboto, sans-serif"
+        font-size="20"
+        font-weight="600"
+        fill="rgba(255,255,255,0.65)"
+        letter-spacing="2">EGYPT · GLOBAL</text>
+</svg>

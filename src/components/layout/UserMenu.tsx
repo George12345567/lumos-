@@ -126,7 +126,7 @@ const UserMenu = ({
                     <button
                         onClick={() =>
                             handleAction(() =>
-                                onNavigate(isAdmin ? "/admin/profile" : "/clients/profile")
+                                onNavigate(isAdmin ? "/lumos-admin" : "/profile")
                             )
                         }
                         className="w-full px-4 pt-4 pb-3 border-b border-slate-700/60 hover:bg-slate-800/60 transition-colors text-left"
@@ -161,7 +161,7 @@ const UserMenu = ({
                             role="menuitem"
                             onClick={() =>
                                 handleAction(() =>
-                                    onNavigate(isAdmin ? "/dashboard" : "/clients/profile")
+                                    onNavigate(isAdmin ? "/lumos-admin" : "/profile")
                                 )
                             }
                             className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-300 hover:text-white hover:bg-slate-800 transition-all duration-150 group"
@@ -183,7 +183,7 @@ const UserMenu = ({
                             role="menuitem"
                             onClick={() =>
                                 handleAction(() =>
-                                    onNavigate(isAdmin ? "/admin/profile" : "/clients/profile")
+                                    onNavigate(isAdmin ? "/lumos-admin" : "/profile")
                                 )
                             }
                             className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-300 hover:text-white hover:bg-slate-800 transition-all duration-150 group"

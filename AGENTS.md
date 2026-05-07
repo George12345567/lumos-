@@ -34,7 +34,6 @@
 - **clsx** + **tailwind-merge** - Conditional classes
 - **sonner** - Toast notifications
 - **React Router DOM** 6.30.1 - Routing
-- **emailjs/browser** - Email sending
 
 ---
 

@@ -1,44 +1,121 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Loader2 } from 'lucide-react';
+import { Loader2, AlertTriangle } from 'lucide-react';
 import EnhancedNavbar from '@/components/layout/EnhancedNavbar';
-import { useAuth } from '@/context/AuthContext';
+import {
+  useClient,
+  useAuthActions,
+  useAuthLoading,
+  useIsAuthenticated,
+  useProfileError,
+  useProfileLoading,
+} from '@/context/AuthContext';
 import { useLanguage } from '@/context/LanguageContext';
 import type { ProfileData } from '@/services/profileService';
 import { useClientProfile } from './hooks/useClientProfile';
 import { useProfileMutation } from './hooks/useProfileMutation';
 import { useProfileTab } from './hooks/useProfileTab';
 import { usePortalData } from './hooks/usePortalData';
-import { TabBar } from './components/TabBar';
+import { useNotifications } from './hooks/useNotifications';
+import { useOrders } from './hooks/useOrders';
+import { adaptNotification, adaptOrder, adaptAsset } from './adapters';
+import { SidebarNav, MobileTabBar } from './components/SidebarNav';
 import { ProfileHero } from './sections/ProfileHero';
 import { OverviewSection } from './sections/OverviewSection';
 import { BrandStudioSection } from './sections/BrandStudioSection';
 import { LibrarySection } from './sections/LibrarySection';
 import { MessagesSection } from './sections/MessagesSection';
 import { AccountSection } from './sections/AccountSection';
+import { OrderTrackingSection } from './sections/OrderTrackingSection';
 import { DEFAULT_ACCENT } from './constants';
 
 export default function ClientProfilePage() {
-  const { client, loading: authLoading, logout } = useAuth();
+  const client = useClient();
+  const { logout, refreshProfile } = useAuthActions();
+  const authLoading = useAuthLoading();
+  const isAuthenticated = useIsAuthenticated();
+  const profileError = useProfileError();
+  const profileLoading = useProfileLoading();
   const { isArabic } = useLanguage();
   const navigate = useNavigate();
 
   const { profile, setField, loading } = useClientProfile();
   const { state: saveState, queue } = useProfileMutation();
   const { tab, setTab } = useProfileTab();
-  const { messages, designs, assets, deleteDesign, optimisticAddMessage } = usePortalData(client?.id);
+  const { messages, designs, assets, deleteDesign, optimisticAddMessage, sendMessage, reload: reloadPortal, loading: portalLoading, error: portalError } = usePortalData(client?.id);
+  const { orders, loading: ordersLoading } = useOrders(client?.id);
+  const { notifications } = useNotifications(client?.id);
+
+  const adaptedOrders = useMemo(() => orders.map(adaptOrder), [orders]);
+  const adaptedAssets = useMemo(() => assets.map(adaptAsset), [assets]);
+  const adaptedNotifications = useMemo(() => notifications.map(adaptNotification), [notifications]);
 
   useEffect(() => {
     if (authLoading) return;
-    if (!client) navigate('/client-login', { replace: true });
-  }, [authLoading, client, navigate]);
+    // Only redirect to login when there's no Supabase session at all.
+    // A transient profile-fetch failure should NOT log the user out.
+    if (!isAuthenticated) navigate('/client-login', { replace: true });
+  }, [authLoading, isAuthenticated, navigate]);
 
   const update = <K extends keyof ProfileData>(field: K, value: ProfileData[K]) => {
     setField(field, value);
     queue(field, value);
   };
 
-  if (authLoading || loading || !client || !profile) {
+  if (authLoading || (isAuthenticated && (profileLoading || loading) && !client)) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-50">
+        <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
+      </div>
+    );
+  }
+
+  // Authenticated but no profile available: show a friendly empty/error state
+  // with a retry, instead of forcing logout.
+  if (isAuthenticated && (!client || !profile)) {
+    return (
+      <div className="min-h-screen bg-slate-50" dir={isArabic ? 'rtl' : 'ltr'}>
+        <EnhancedNavbar />
+        <main className="mx-auto flex min-h-[60vh] w-full max-w-md flex-col items-center justify-center px-4 text-center">
+          <div className="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-amber-100 text-amber-700">
+              <AlertTriangle className="h-6 w-6" />
+            </div>
+            <h2 className="text-lg font-bold text-slate-900">
+              {isArabic ? 'تعذر تحميل ملفك الشخصي' : 'We couldn’t load your profile'}
+            </h2>
+            <p className="mt-2 text-sm text-slate-500">
+              {profileError
+                ? (isArabic
+                    ? 'حدث خطأ أثناء جلب البيانات. أعد المحاولة، أو تواصل مع الدعم إذا استمرت المشكلة.'
+                    : 'Something went wrong fetching your data. Try again, or contact support if it keeps happening.')
+                : (isArabic
+                    ? 'لم نعثر على ملف عميل لحسابك بعد.'
+                    : 'No client profile is linked to your account yet.')}
+            </p>
+            <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-center">
+              <button
+                type="button"
+                onClick={() => void refreshProfile()}
+                className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800"
+              >
+                {isArabic ? 'إعادة المحاولة' : 'Try again'}
+              </button>
+              <button
+                type="button"
+                onClick={async () => { await logout(); navigate('/client-login', { replace: true }); }}
+                className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+              >
+                {isArabic ? 'تسجيل الخروج' : 'Sign out'}
+              </button>
+            </div>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  if (!client || !profile) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-50">
         <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
@@ -57,7 +134,7 @@ export default function ClientProfilePage() {
     <div className="min-h-screen bg-slate-50 text-slate-900" dir={isArabic ? 'rtl' : 'ltr'}>
       <EnhancedNavbar />
 
-      <main className="mx-auto w-full max-w-5xl px-4 pb-24 pt-6 sm:px-6 sm:pt-10">
+      <main className="mx-auto w-full max-w-6xl px-4 pb-16 pt-6 sm:px-6 sm:pt-10">
         <ProfileHero
           clientId={client.id}
           username={client.username}
@@ -66,61 +143,102 @@ export default function ClientProfilePage() {
           accent={accent}
           saveState={saveState}
           onUpdate={update}
+          isArabic={isArabic}
+          isVerified={client.is_verified}
+          notifications={adaptedNotifications}
+          stats={{
+            orders: orders.length,
+            messages: messages.filter((m) => m.sender === 'team').length,
+            progress: client.progress ?? 0,
+          }}
         />
 
-        <div className="mt-6">
-          <TabBar active={tab} onChange={setTab} accent={accent} isArabic={isArabic} />
+        <MobileTabBar active={tab} onChange={setTab} accent={accent} isArabic={isArabic} />
 
-          {tab === 'overview' && (
-            <OverviewSection
-              profile={profile}
-              packageName={client.package_name}
-              status={client.status}
-              progress={client.progress}
-              nextSteps={client.next_steps}
-              accent={accent}
-              onUpdate={update}
-            />
-          )}
+        <div className="mt-4 flex gap-5 lg:mt-6">
+          <SidebarNav active={tab} onChange={setTab} accent={accent} isArabic={isArabic} />
 
-          {tab === 'brand' && (
-            <BrandStudioSection
-              clientId={client.id}
-              profile={profile}
-              accent={accent}
-              onUpdate={update}
-            />
-          )}
+          <div className="min-w-0 flex-1">
+            {tab === 'overview' && (
+              <OverviewSection
+                profile={profile}
+                clientInfo={{
+                  email: client.email,
+                  phone_number: client.phone_number,
+                  company_name: client.company_name,
+                  industry: client.industry,
+                  role: client.role,
+                  username: client.username,
+                  is_verified: client.is_verified,
+                }}
+                packageName={client.package_name}
+                status={client.status}
+                progress={client.progress}
+                nextSteps={client.next_steps}
+                accent={accent}
+                onUpdate={update}
+                isArabic={isArabic}
+              />
+            )}
 
-          {tab === 'library' && (
-            <LibrarySection
-              designs={designs}
-              assets={assets}
-              onDeleteDesign={deleteDesign}
-              accent={accent}
-            />
-          )}
+            {tab === 'orders' && (
+              <OrderTrackingSection
+                orders={adaptedOrders}
+                accent={accent}
+                isArabic={isArabic}
+              />
+            )}
 
-          {tab === 'messages' && (
-            <MessagesSection
-              clientId={client.id}
-              messages={messages}
-              onOptimisticAdd={optimisticAddMessage}
-              accent={accent}
-            />
-          )}
+            {tab === 'messages' && (
+              <MessagesSection
+                clientId={client.id}
+                messages={messages}
+                onOptimisticAdd={optimisticAddMessage}
+                onSendMessage={sendMessage}
+                onRefresh={reloadPortal}
+                accent={accent}
+                isArabic={isArabic}
+              />
+            )}
 
-          {tab === 'account' && (
-            <AccountSection
-              email={client.email}
-              phoneNumber={client.phone_number}
-              username={client.username}
-              profile={profile}
-              onUpdate={update}
-              onSignOut={handleSignOut}
-              hasSecurityQuestion={Boolean(client.security_question)}
-            />
-          )}
+            {tab === 'brand' && (
+              <BrandStudioSection
+                clientId={client.id}
+                profile={profile}
+                accent={accent}
+                onUpdate={update}
+              />
+            )}
+
+            {tab === 'library' && (
+              <LibrarySection
+                designs={designs}
+                assets={adaptedAssets}
+                onDeleteDesign={deleteDesign}
+                accent={accent}
+                isArabic={isArabic}
+              />
+            )}
+
+            {tab === 'account' && (
+              <AccountSection
+                clientInfo={{
+                  email: client.email,
+                  phone_number: client.phone_number,
+                  company_name: client.company_name,
+                  industry: client.industry,
+                  role: client.role,
+                  username: client.username,
+                }}
+                profile={profile}
+                onUpdate={update}
+                onSignOut={handleSignOut}
+                hasSecurityQuestion={Boolean(client.security_question)}
+                accent={accent}
+                isArabic={isArabic}
+              />
+            )}
+          </div>
         </div>
       </main>
     </div>

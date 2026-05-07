@@ -43,7 +43,7 @@ export async function saveContact(data: {
   }
 }
 
-export async function getContacts(): Promise<any[]> {
+export async function getContacts(): Promise<Record<string, unknown>[]> {
   try {
     const { data, error } = await supabase
       .from('contacts')
@@ -51,7 +51,7 @@ export async function getContacts(): Promise<any[]> {
       .order('created_at', { ascending: false });
 
     if (error) throw error;
-    return data || [];
+    return (data ?? []) as Record<string, unknown>[];
   } catch (error) {
     console.error('Error fetching contacts:', error);
     return [];

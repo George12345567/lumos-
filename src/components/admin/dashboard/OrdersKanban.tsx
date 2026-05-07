@@ -1,5 +1,5 @@
 import { memo, useMemo } from 'react';
-import { Order } from '@/types/dashboard';
+import { LegacyOrder as Order } from '@/types/dashboard';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';

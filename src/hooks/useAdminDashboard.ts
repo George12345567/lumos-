@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { hashPassword } from '@/lib/secretHash';
-import { getSessionToken } from '@/lib/sessionAuth';
 import { Order, Contact, Client, ClientUpdate, DashboardStats, SavedDesign, PricingRequest } from '@/types/dashboard';
 import { toast } from 'sonner';
 import {
@@ -18,6 +17,11 @@ import {
 } from '@/services/adminDashboardService';
 
 const ADMIN_EDGE_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-client-update`;
+
+async function getSessionToken(): Promise<string> {
+    const { data: { session } } = await supabase.auth.getSession();
+    return session?.access_token ?? '';
+}
 
 export const useAdminDashboard = () => {
     const [orders, setOrders] = useState<Order[]>([]);
@@ -274,7 +278,7 @@ export const useAdminDashboard = () => {
         package_name?: string;
         password?: string;
     }) => {
-        const sessionToken = getSessionToken();
+        const sessionToken = await getSessionToken();
         if (!sessionToken) throw new Error('Missing admin session token');
         const response = await fetch(ADMIN_EDGE_URL, {
             method: 'POST',
@@ -297,7 +301,7 @@ export const useAdminDashboard = () => {
 
     const deleteClient = useCallback(async (id: string) => {
         try {
-            const sessionToken = getSessionToken();
+            const sessionToken = await getSessionToken();
             if (!sessionToken) throw new Error('Missing admin session token');
             const response = await fetch(ADMIN_EDGE_URL, {
                 method: 'POST',
@@ -320,7 +324,7 @@ export const useAdminDashboard = () => {
 
     const updateClient = useCallback(async (id: string, data: Partial<Client>) => {
         try {
-            const sessionToken = getSessionToken();
+            const sessionToken = await getSessionToken();
             if (!sessionToken) throw new Error('Missing admin session token');
             const response = await fetch(ADMIN_EDGE_URL, {
                 method: 'POST',

@@ -82,6 +82,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useAppearance } from '@/context/AppearanceContext';
 import { useLanguage } from '@/context/LanguageContext';
+import { useSessionEmail, useIsAdmin, useAuthLoading, useAuthConfigured, useIsAuthenticated } from '@/context/AuthContext';
 import { PACKAGES, getAllServices } from '@/data/pricing';
 import { supabase } from '@/lib/supabaseClient';
 import { INDUSTRY_OPTIONS, BUDGET_RANGE_OPTIONS, TIMELINE_OPTIONS, REFERRAL_SOURCE_OPTIONS, SERVICE_CATEGORY_OPTIONS, SIGNUP_SOURCES } from '@/lib/constants';
@@ -95,8 +96,6 @@ import type {
   PricingRequestItem,
   TeamMember,
 } from '@/types/dashboard';
-
-const ADMIN_EMAIL = 'george30610@compit.aun.edu.eg';
 
 type Tab =
   | 'requests'
@@ -147,7 +146,6 @@ interface ClientForm {
   profile_picture: string;
   username: string;
   email: string;
-  password: string;
   phone: string;
   company_name: string;
   business_tagline: string;
@@ -164,7 +162,6 @@ interface ClientForm {
   signup_source: string;
   signup_completed_at: string;
   security_question: string;
-  security_answer: string;
   status: string;
   progress: number;
   next_steps: string;
@@ -178,6 +175,17 @@ interface ClientSignupProfile {
   website?: string;
   brand_feel?: string;
   auth_password_pending?: boolean;
+  security_question?: string;
+  // NOTE: plaintext security_answer is NEVER persisted. The audit-required
+  // hash is created server-side via signup; admins cannot set or read it.
+  industry?: string;
+  services_needed?: string[];
+  budget_range?: string;
+  timeline?: string;
+  referral_source?: string;
+  project_summary?: string;
+  signup_source?: string;
+  signup_completed_at?: string;
 }
 
 interface NotificationItem {
@@ -247,7 +255,6 @@ const DEFAULT_CLIENT_FORM: ClientForm = {
   profile_picture: '',
   username: '',
   email: '',
-  password: '',
   phone: '',
   company_name: '',
   business_tagline: '',
@@ -264,7 +271,6 @@ const DEFAULT_CLIENT_FORM: ClientForm = {
   signup_source: 'web_signup',
   signup_completed_at: '',
   security_question: '',
-  security_answer: '',
   status: 'active',
   progress: 0,
   next_steps: '',
@@ -912,9 +918,18 @@ const AdminDashboard = () => {
   const t = useCallback((ar: string, en: string) => (isArabic ? ar : en), [isArabic]);
   const renderLegacyInlineForms = false;
 
+  // Auth gating is provided by AdminRoute (UI-only) + Supabase RLS (real
+  // authorization). We use the auth context state here purely for UX —
+  // never as a security check.
+  const sessionEmail = useSessionEmail();
+  const isAdmin = useIsAdmin();
+  const isAuthenticated = useIsAuthenticated();
+  const authLoading = useAuthLoading();
+  const authConfigured = useAuthConfigured();
+  const adminAuditActor = sessionEmail || 'unknown_admin';
+
   const [activeTab, setActiveTab] = useState<Tab>('requests');
   const [loading, setLoading] = useState(true);
-  const [isAuthorized, setIsAuthorized] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('card');
   const [density, setDensity] = useState<Density>('comfortable');
   const [searchTerm, setSearchTerm] = useState('');
@@ -1150,59 +1165,34 @@ const AdminDashboard = () => {
         action,
         old_values: oldVal ? { value: oldVal } : null,
         new_values: newVal ? { value: newVal } : null,
-        changed_by: ADMIN_EMAIL,
+        changed_by: adminAuditActor,
         changed_by_type: 'team_member',
         created_at: new Date().toISOString(),
       });
     },
-    []
+    [adminAuditActor]
   );
 
+  // Defensive cleanup of any legacy admin-bypass flags. AdminRoute now performs
+  // the real UI gate, and Supabase RLS performs the actual authorization.
   useEffect(() => {
-    const checkAuth = async () => {
-      const params = new URLSearchParams(window.location.search);
-      const urlDevMode = params.get('dev');
-      const localDevMode = localStorage.getItem('lumos_admin_dev');
+    try {
+      localStorage.removeItem('lumos_admin_dev');
+    } catch {
+      // ignore — localStorage may be unavailable in private mode
+    }
+  }, []);
 
-      if (urlDevMode === 'true') localStorage.setItem('lumos_admin_dev', 'true');
-
-      if (urlDevMode === 'true' || localDevMode === 'true') {
-        setIsAuthorized(true);
-        await loadData();
-        return;
-      }
-
-      try {
-        const auth = supabase.auth as {
-          getUser?: () => Promise<{ data?: { user?: { email?: string | null } | null } }>;
-          getSession?: () => Promise<{
-            data?: { session?: { user?: { email?: string | null } | null } | null };
-          }>;
-        };
-
-        const userResponse = auth.getUser
-          ? await auth.getUser()
-          : await auth.getSession?.();
-        const email =
-          'session' in (userResponse?.data || {})
-            ? userResponse?.data?.session?.user?.email
-            : userResponse?.data?.user?.email;
-
-        if (email === ADMIN_EMAIL) {
-          setIsAuthorized(true);
-          await loadData();
-          return;
-        }
-
-        navigate('/');
-      } catch (error) {
-        console.error('Auth check failed:', error);
-        navigate('/');
-      }
-    };
-
-    checkAuth();
-  }, [loadData, navigate]);
+  useEffect(() => {
+    if (authLoading) return;
+    if (!authConfigured || !isAuthenticated || !isAdmin) {
+      // AdminRoute already redirects/blocks rendering, but guard anyway so
+      // we never issue admin queries from this component when ungated.
+      setLoading(false);
+      return;
+    }
+    void loadData();
+  }, [authLoading, authConfigured, isAuthenticated, isAdmin, loadData]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -1407,7 +1397,7 @@ const AdminDashboard = () => {
       {
         status,
         changed_at: new Date().toISOString(),
-        changed_by: ADMIN_EMAIL,
+        changed_by: adminAuditActor,
         note: `Status changed from ${oldStatus || 'unknown'} to ${status}`,
       },
     ];
@@ -1440,7 +1430,7 @@ const AdminDashboard = () => {
       {
         status: request?.status || 'new',
         changed_at: new Date().toISOString(),
-        changed_by: ADMIN_EMAIL,
+        changed_by: adminAuditActor,
         note: `Assigned to ${member?.name || 'unassigned'}`,
       },
     ];
@@ -1517,7 +1507,7 @@ const AdminDashboard = () => {
         {
           status: editRequestForm.status,
           changed_at: new Date().toISOString(),
-          changed_by: ADMIN_EMAIL,
+          changed_by: adminAuditActor,
           note: `Edited status/priority/assignment from admin sheet`,
         },
       ];
@@ -1576,13 +1566,13 @@ const AdminDashboard = () => {
 
   const deleteRequest = async (id: string) => {
     const request = pricingRequests.find((item) => item.id === id);
-    const archiveReason = deleteReason.trim() || `Archived by admin (${ADMIN_EMAIL})`;
+    const archiveReason = deleteReason.trim() || `Archived by admin (${adminAuditActor})`;
     const nextHistory = [
       ...(request?.status_history || []),
       {
         status: 'rejected',
         changed_at: new Date().toISOString(),
-        changed_by: ADMIN_EMAIL,
+        changed_by: adminAuditActor,
         note: archiveReason,
       },
     ];
@@ -1777,16 +1767,48 @@ const AdminDashboard = () => {
   };
 
   const buildClientPayload = (currentClient?: Client | null) => {
-    const existingDetails =
+    const existingDetailsRaw =
       currentClient?.package_details && typeof currentClient.package_details === 'object'
-        ? currentClient.package_details
+        ? (currentClient.package_details as Record<string, unknown>)
         : {};
+    // Defensively strip any legacy plaintext security_answer that may exist on
+    // older rows. Plaintext security answers must never be re-persisted.
+    const existingDetails: Record<string, unknown> = { ...existingDetailsRaw };
+    if (existingDetails.signup_profile && typeof existingDetails.signup_profile === 'object') {
+      const profile = { ...(existingDetails.signup_profile as Record<string, unknown>) };
+      delete profile.security_answer;
+      existingDetails.signup_profile = profile;
+    }
+    delete (existingDetails as Record<string, unknown>).security_answer;
+
     const signupProfile: ClientSignupProfile = {
       business_tagline: clientForm.business_tagline.trim(),
       full_contact_name: clientForm.full_contact_name.trim(),
       website: clientForm.website.trim(),
       brand_feel: clientForm.brand_feel.trim(),
-      auth_password_pending: Boolean(clientForm.password.trim()),
+      // Admin-created clients are profile-only — the auth user must be invited
+      // via Supabase. See SUPABASE_SECURITY_SETUP.md.
+      auth_password_pending: false,
+      security_question: clientForm.security_question.trim(),
+      // SECURITY: never write plaintext security_answer here. The hash is set
+      // server-side at signup time, and only via a future Edge Function.
+      industry: clientForm.industry.trim(),
+      services_needed: clientForm.services_needed.trim()
+        ? (() => {
+            try {
+              const parsed = JSON.parse(clientForm.services_needed);
+              return Array.isArray(parsed) ? parsed : [];
+            } catch {
+              return [];
+            }
+          })()
+        : [],
+      budget_range: clientForm.budget_range.trim(),
+      timeline: clientForm.timeline.trim(),
+      referral_source: clientForm.referral_source.trim(),
+      project_summary: clientForm.project_summary.trim(),
+      signup_source: clientForm.signup_source || 'web_signup',
+      signup_completed_at: clientForm.signup_completed_at || '',
     };
 
     return {
@@ -1794,8 +1816,6 @@ const AdminDashboard = () => {
       email: clientForm.email.trim() || null,
       phone: clientForm.phone.trim() || null,
       company_name: clientForm.company_name.trim() || null,
-      security_question: clientForm.security_question.trim() || null,
-      security_answer: clientForm.security_answer.trim() || null,
       package_name: clientForm.package_name.trim() || null,
       status: clientForm.status.trim() || 'active',
       progress: Math.max(0, Math.min(100, Number(clientForm.progress) || 0)),
@@ -1803,18 +1823,6 @@ const AdminDashboard = () => {
       admin_notes: clientForm.admin_notes.trim() || null,
       avatar_url: clientForm.profile_picture.trim() || null,
       brand_colors: parseBrandColors(clientForm.brand_colors),
-      industry: clientForm.industry.trim() || null,
-      services_needed: clientForm.services_needed.trim() ? JSON.parse(clientForm.services_needed) : [],
-      budget_range: clientForm.budget_range.trim() || null,
-      timeline: clientForm.timeline.trim() || null,
-      referral_source: clientForm.referral_source.trim() || null,
-      project_summary: clientForm.project_summary.trim() || null,
-      signup_source: clientForm.signup_source || 'web_signup',
-      signup_completed_at: clientForm.signup_completed_at || null,
-      business_tagline: clientForm.business_tagline.trim() || null,
-      full_contact_name: clientForm.full_contact_name.trim() || null,
-      website: clientForm.website.trim() || null,
-      brand_feel: clientForm.brand_feel.trim() || null,
       package_details: {
         ...existingDetails,
         signup_profile: signupProfile,
@@ -1826,7 +1834,6 @@ const AdminDashboard = () => {
     if (
       !clientForm.username.trim() ||
       !clientForm.email.trim() ||
-      !clientForm.password.trim() ||
       !clientForm.business_tagline.trim()
     ) {
       toast.error(t('أدخل البيانات المطلوبة', 'Fill required fields'));
@@ -1834,6 +1841,11 @@ const AdminDashboard = () => {
     }
 
     setSavingForm(true);
+    // NOTE: This creates a profile row only. It does NOT create a Supabase Auth
+    // user — that requires the service-role key, which must never be exposed
+    // to the frontend. To enable login for an admin-created client, invite
+    // them via Supabase (or implement an Edge Function as described in
+    // SUPABASE_SECURITY_SETUP.md).
     const response = await supabase.from('clients').insert(buildClientPayload()).select().single();
     const { data, error } = asDbResponse<Client>(response);
     setSavingForm(false);
@@ -1847,7 +1859,12 @@ const AdminDashboard = () => {
     setClientForm(DEFAULT_CLIENT_FORM);
     setShowAddClient(false);
     await loadClients();
-    toast.success(t('تم الإضافة', 'Added'));
+    toast.success(
+      t(
+        'تم إنشاء الملف. يجب دعوة الحساب من Supabase لتفعيل الدخول.',
+        'Profile created. Invite the auth account via Supabase to enable login.',
+      ),
+    );
   };
 
   const updateClient = async () => {
@@ -2003,7 +2020,6 @@ const AdminDashboard = () => {
             profile_picture: client.avatar_url || client.logo_url || '',
             username: client.username,
             email: client.email || '',
-            password: '',
             phone: client.phone || client.phone_number || '',
             company_name: client.company_name || '',
             business_tagline: client.business_tagline || signupProfile.business_tagline || '',
@@ -2020,7 +2036,6 @@ const AdminDashboard = () => {
             signup_source: client.signup_source || 'web_signup',
             signup_completed_at: client.signup_completed_at || '',
             security_question: client.security_question || '',
-            security_answer: client.security_answer || '',
             status: client.status || 'active',
             progress: client.progress || 0,
             next_steps: client.next_steps || '',
@@ -2056,7 +2071,10 @@ const AdminDashboard = () => {
     );
   }
 
-  if (!isAuthorized) return null;
+  // Defence-in-depth: AdminRoute already gates this page, but if the auth
+  // state ever changes mid-render (e.g. logout) bail out before issuing any
+  // admin queries.
+  if (!authConfigured || !isAuthenticated || !isAdmin) return null;
 
   const renderFilterButton = (
     key: string,
@@ -3475,14 +3493,13 @@ const AdminDashboard = () => {
                 <span className="text-xs font-black text-[var(--adm-text-muted)]">{t('البريد الإلكتروني *', 'Email Address *')}</span>
                 <input className={fieldClass} type="email" value={clientForm.email} onChange={(event) => setClientForm({ ...clientForm, email: event.target.value })} placeholder="client@company.com" />
               </label>
-              <label className="space-y-1.5">
-                <span className="text-xs font-black text-[var(--adm-text-muted)]">{t('كلمة المرور *', 'Password *')}</span>
-                <input className={fieldClass} type="password" value={clientForm.password} onChange={(event) => setClientForm({ ...clientForm, password: event.target.value })} placeholder={editingClient ? t('اتركها فارغة بدون تغيير', 'Leave empty to keep pending') : '••••••••'} />
-                <span className="block text-[11px] text-[var(--adm-text-faint)]">
-                  {t('مؤقتًا لا يتم حفظ كلمة المرور خام؛ ستتصل لاحقًا بنظام التسجيل.', 'Temporarily not stored as plain text; it will connect to auth later.')}
-                </span>
-              </label>
             </div>
+            <p className="mt-3 text-[11px] leading-relaxed text-[var(--adm-text-faint)]">
+              {t(
+                'هذا النموذج ينشئ ملف العميل فقط. لتفعيل الدخول، استخدم دعوة Supabase أو Edge Function آمنة (راجع SUPABASE_SECURITY_SETUP.md). لا يتم حفظ كلمات المرور هنا أبداً.',
+                'This form creates a client profile only. To enable sign-in, invite the user from Supabase or use a secure Edge Function (see SUPABASE_SECURITY_SETUP.md). Passwords are never stored here.',
+              )}
+            </p>
           </SectionCard>
 
           <SectionCard title={t('ملف الشركة والهوية', 'Business And Brand')} icon={Building2}>
@@ -3582,13 +3599,15 @@ const AdminDashboard = () => {
 
           <SectionCard title={t('الأمان والتشغيل', 'Security And Operations')} icon={Shield}>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-              <label className="space-y-1.5 md:col-span-2">
+              <label className="space-y-1.5 md:col-span-3">
                 <span className="text-xs font-black text-[var(--adm-text-muted)]">{t('سؤال الأمان', 'Security Question')}</span>
                 <input className={fieldClass} value={clientForm.security_question} onChange={(event) => setClientForm({ ...clientForm, security_question: event.target.value })} />
-              </label>
-              <label className="space-y-1.5">
-                <span className="text-xs font-black text-[var(--adm-text-muted)]">{t('إجابة الأمان', 'Security Answer')}</span>
-                <input className={fieldClass} value={clientForm.security_answer} onChange={(event) => setClientForm({ ...clientForm, security_answer: event.target.value })} />
+                <span className="block text-[11px] text-[var(--adm-text-faint)]">
+                  {t(
+                    'إجابة الأمان تُحفظ كهاش فقط أثناء التسجيل ولا يمكن تعديلها من هنا.',
+                    'Security answers are stored as a hash at signup time and cannot be edited here.',
+                  )}
+                </span>
               </label>
               <label className="space-y-1.5">
                 <span className="text-xs font-black text-[var(--adm-text-muted)]">{t('الباقة', 'Package')}</span>
@@ -4188,12 +4207,8 @@ const AdminDashboard = () => {
                       <p className="text-[var(--adm-text-sub)]">{client.security_question}</p>
                     </div>
                   )}
-                  {client.security_answer && (
-                    <div>
-                      <p className="text-xs font-black text-[var(--adm-text-faint)]">{t('إجابة الأمان', 'Security Answer')}</p>
-                      <p className="text-[var(--adm-text-sub)]">{client.security_answer}</p>
-                    </div>
-                  )}
+                  {/* Security answers are stored only as a salted hash and are
+                      never displayed or edited from the admin UI. */}
                   {signupProfile.auth_password_pending != null && (
                     <div>
                       <p className="text-xs font-black text-[var(--adm-text-faint)]">{t('كلمة المرور معلقة', 'Auth Password Pending')}</p>

@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { motion } from "framer-motion";
@@ -13,14 +13,14 @@ import {
   XCircle,
   ShieldCheck,
   ArrowRight,
+  AlertTriangle,
 } from "lucide-react";
 import { toast } from "sonner";
-import { Link } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { ROUTES } from "@/lib/constants";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Form,
   FormControl,
@@ -31,8 +31,19 @@ import {
 } from "@/components/ui/form";
 import { EnhancedNavbar, Footer } from "@/components/layout";
 import { useLanguage } from "@/context/LanguageContext";
-import { useAuth } from "@/context/AuthContext";
+import { useAuthActions, useIsAuthenticated, useAuthLoading, useAuthConfigured } from "@/context/AuthContext";
+import { authService, resolveAuthEmail } from "@/services/authService";
 import { loginSchema, type LoginInput } from "@/lib/validation";
+
+/** Restrict redirect targets to internal paths (no protocol-relative or absolute URLs). */
+function safeRedirectPath(value: string | null): string {
+  if (!value) return "/";
+  // Reject anything that doesn't start with a single "/", and anything that
+  // contains a backslash (some browsers normalise "\" to "/" before parsing,
+  // so "/\evil.com" can become "//evil.com" — a protocol-relative URL).
+  if (!value.startsWith("/") || value.startsWith("//") || value.includes("\\")) return "/";
+  return value;
+}
 
 function F(field: keyof LoginInput, t: (a: string, e: string) => string): string {
   const m: Record<keyof LoginInput, [string, string]> = {
@@ -53,6 +64,7 @@ function P(field: keyof LoginInput, t: (a: string, e: string) => string): string
 function E(code: string, t: (a: string, e: string) => string): string {
   const m: Record<string, [string, string]> = {
     "login.identifier_required": ["يرجى إدخال اسم المستخدم أو البريد الإلكتروني", "Please enter your username or email"],
+    "login.identifier_invalid": ["اسم المستخدم أو البريد الإلكتروني غير صالح", "Invalid username or email"],
     "password.required": ["كلمة المرور مطلوبة", "Password is required"],
   };
   const p = m[code];
@@ -80,12 +92,30 @@ function ic(hasErr: boolean, isValid: boolean, isTouched: boolean) {
 }
 
 export default function LogInPage() {
+  const { login } = useAuthActions();
+  const authLoading = useAuthLoading();
+  const isAuthenticated = useIsAuthenticated();
+  const authConfigured = useAuthConfigured();
   const { t, isArabic } = useLanguage();
-  const { login } = useAuth();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+
+  const redirectTo = useMemo(
+    () => safeRedirectPath(searchParams.get("redirectTo")),
+    [searchParams],
+  );
+
+  useEffect(() => {
+    if (!authLoading && isAuthenticated) {
+      navigate(redirectTo, { replace: true });
+    }
+  }, [authLoading, isAuthenticated, navigate, redirectTo]);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(false);
+  const [emailNotConfirmed, setEmailNotConfirmed] = useState(false);
+  const [resendingConfirmation, setResendingConfirmation] = useState(false);
+  const [confirmationResent, setConfirmationResent] = useState(false);
 
   const form = useForm<LoginInput>({
     resolver: zodResolver(loginSchema),
@@ -100,23 +130,89 @@ export default function LogInPage() {
   const usernameOrEmailVal = watch("usernameOrEmail");
   const passwordVal = watch("password");
 
-  const onSubmit = useCallback(async (_data: LoginInput) => {
+  const onSubmit = useCallback(async (data: LoginInput) => {
+    if (!authConfigured) {
+      toast.error(
+        t(
+          "نظام تسجيل الدخول غير مهيأ. يرجى التواصل مع دعم Lumos.",
+          "Authentication is not configured. Please contact Lumos support.",
+        ),
+      );
+      return;
+    }
+    if (isSubmitting) return;
     setIsSubmitting(true);
+    setEmailNotConfirmed(false);
+    setConfirmationResent(false);
     try {
-      const result = await login();
+      const result = await login(data.usernameOrEmail, data.password);
       if (result.success) {
         toast.success(t("تم تسجيل الدخول بنجاح!", "Logged in successfully!"));
+        navigate(redirectTo);
       } else {
-        toast.info(t("سيتم تفعيل تسجيل الدخول قريباً — هذه نسخة تجريبية", "Login will be available soon — this is a preview"), {
-          description: t("شكراً لاهتمامك بـ Lumos!", "Thank you for your interest in Lumos!"),
-        });
+        const errMsg = result.error || "login.failed";
+        if (errMsg === "auth.not_configured") {
+          toast.error(
+            t(
+              "نظام تسجيل الدخول غير مهيأ. يرجى التواصل مع دعم Lumos.",
+              "Authentication is not configured. Please contact Lumos support.",
+            ),
+          );
+        } else if (errMsg === "login.invalid_credentials") {
+          toast.error(t("اسم المستخدم أو كلمة المرور غير صحيحة", "Invalid username or password"));
+        } else if (errMsg === "login.identifier_invalid") {
+          toast.error(t("اسم المستخدم أو البريد الإلكتروني غير صالح", "Invalid username or email"));
+        } else if (errMsg === "login.email_not_confirmed") {
+          toast.error(t("يرجى تأكيد بريدك الإلكتروني أولاً", "Please confirm your email first"));
+          setEmailNotConfirmed(true);
+        } else if (errMsg === "login.rate_limited") {
+          toast.error(t("طلبات كثيرة. حاول مرة أخرى بعد دقيقة.", "Too many attempts. Please try again in a minute."));
+        } else if (errMsg === "login.forbidden") {
+          toast.error(t("غير مسموح بالوصول. تحقق من صلاحيات حسابك.", "Access denied. Please verify your account permissions."));
+        } else if (errMsg === "login.network_error") {
+          toast.error(t("خطأ في الاتصال. تحقق من الإنترنت وحاول مرة أخرى.", "Connection error. Check your internet and try again."));
+        } else {
+          toast.error(t("فشل تسجيل الدخول", "Login failed"));
+        }
       }
     } catch {
       toast.error(t("حدث خطأ غير متوقع", "An unexpected error occurred"));
     } finally {
       setIsSubmitting(false);
     }
-  }, [login, t]);
+  }, [login, t, navigate, redirectTo, isSubmitting, authConfigured]);
+
+  const handleResendConfirmation = useCallback(async () => {
+    const email = form.getValues("usernameOrEmail");
+    if (!email) return;
+    setResendingConfirmation(true);
+    try {
+      const resolvedEmail = await resolveAuthEmail(email);
+      if (!resolvedEmail) {
+        toast.error(t("اسم المستخدم أو البريد الإلكتروني غير صالح", "Invalid username or email"));
+        return;
+      }
+      const result = await authService.resendConfirmationEmail(resolvedEmail);
+      if (result.success) {
+        setConfirmationResent(true);
+        toast.success(t("تم إرسال بريد التأكيد. تحقق من صندوق الوارد.", "Confirmation email sent. Check your inbox."));
+      } else {
+        toast.error(t("فشل إرسال بريد التأكيد. حاول مرة أخرى.", "Failed to resend confirmation. Please try again."));
+      }
+    } catch {
+      toast.error(t("حدث خطأ. حاول مرة أخرى.", "An error occurred. Please try again."));
+    } finally {
+      setResendingConfirmation(false);
+    }
+  }, [form, t]);
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-background text-foreground flex items-center justify-center" dir={isArabic ? "rtl" : "ltr"}>
+        <Loader2 className="w-6 h-6 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background text-foreground" dir={isArabic ? "rtl" : "ltr"}>
@@ -172,6 +268,21 @@ export default function LogInPage() {
                   </p>
                 </div>
               </div>
+
+              {!authConfigured && (
+                <div
+                  role="alert"
+                  className="mb-5 rounded-xl border border-amber-300/50 bg-amber-50 p-3 flex items-start gap-2"
+                >
+                  <AlertTriangle className="w-4 h-4 text-amber-700 mt-0.5 shrink-0" />
+                  <p className="text-xs text-amber-800 leading-relaxed">
+                    {t(
+                      "نظام تسجيل الدخول غير مهيأ. يرجى التواصل مع دعم Lumos.",
+                      "Authentication is not configured. Please contact Lumos support.",
+                    )}
+                  </p>
+                </div>
+              )}
 
               <Form {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5" noValidate>
@@ -233,18 +344,7 @@ export default function LogInPage() {
                     )}
                   />
 
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-2">
-                      <Checkbox
-                        id="remember-me"
-                        checked={rememberMe}
-                        onCheckedChange={(checked) => setRememberMe(checked === true)}
-                        className="border-border/40 data-[state=checked]:bg-primary data-[state=checked]:border-primary"
-                      />
-                      <label htmlFor="remember-me" className="text-xs text-muted-foreground cursor-pointer select-none hover:text-foreground transition-colors">
-                        {t("تذكّرني", "Remember me")}
-                      </label>
-                    </div>
+<div className="flex items-center justify-end">
                     <Link
                       to={ROUTES.FORGOT_PASSWORD}
                       className="text-xs text-primary/70 hover:text-primary transition-colors hover:underline"
@@ -253,10 +353,34 @@ export default function LogInPage() {
                     </Link>
                   </div>
 
+                  {emailNotConfirmed && (
+                    <div className="rounded-xl border border-amber-300/50 bg-amber-50 p-3 text-center">
+                      <p className="text-xs text-amber-800 mb-2">
+                        {t("لم يتم تأكيد بريدك الإلكتروني بعد.", "Your email hasn't been confirmed yet.")}
+                      </p>
+                      {confirmationResent ? (
+                        <p className="text-xs text-emerald-600 font-medium">
+                          {t("تم إرسال البريد! تحقق من صندوق الوارد.", "Email sent! Check your inbox.")}
+                        </p>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={handleResendConfirmation}
+                          disabled={resendingConfirmation}
+                          className="text-xs font-semibold text-primary hover:underline disabled:opacity-50"
+                        >
+                          {resendingConfirmation
+                            ? t("جاري الإرسال...", "Sending...")
+                            : t("إعادة إرسال بريد التأكيد", "Resend confirmation email")}
+                        </button>
+                      )}
+                    </div>
+                  )}
+
                   <div className="pt-2">
                     <Button
                       type="submit"
-                      disabled={isSubmitting}
+                      disabled={isSubmitting || !authConfigured}
                       className="btn-glow glow-ring rounded-full text-sm font-bold h-11 px-7 w-full group"
                     >
                       {isSubmitting ? (

@@ -19,7 +19,7 @@ import {
   getAllServices,
 } from '@/data/pricing';
 import { useCurrency } from '@/hooks/useCurrency';
-import { useAuth } from '@/context/AuthContext';
+import { useAuthState } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabaseClient';
 import { validateDiscountCode, DiscountCode } from '@/services/discountService';
 import { submitContactForm } from '@/services/submissionService';
@@ -211,7 +211,7 @@ const hasStoredLanguagePreference = () => {
 // MAIN COMPONENT
 // ════════════════════════════════════════════════════════════════════
 const PricingModal = ({ open, onOpenChange, initialRequest = null }: PricingModalProps) => {
-  const { client, isAuthenticated, isAdmin } = useAuth();
+  const { client, isAuthenticated, isAdmin } = useAuthState();
   const { language, setLanguage, isArabic: globalArabic } = useLanguage();
 
   /* ── Geo-detection ── */

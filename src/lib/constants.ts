@@ -4,8 +4,10 @@ export const ROUTES = {
   CLIENT_SIGNUP: '/client-signup',
   CLIENT_LOGIN: '/client-login',
   FORGOT_PASSWORD: '/forgot-password',
-  CLIENT_DASHBOARD: '/clients/dashboard',
-  ADMIN_DASHBOARD: '/dashboard',
+  RESET_PASSWORD: '/reset-password',
+  CLIENT_PROFILE: '/profile',
+  CLIENT_PROFILE_PREVIEW: '/profile-preview',
+  ADMIN_DASHBOARD: '/lumos-admin',
 } as const;
 
 export const NAV_ITEMS = [

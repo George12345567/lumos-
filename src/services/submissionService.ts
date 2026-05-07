@@ -72,7 +72,7 @@ export const submitContactForm = async (
   }
 };
 
-export const getContacts = async (): Promise<any[]> => {
+export const getContacts = async (): Promise<Record<string, unknown>[]> => {
   try {
     const { data, error } = await supabase
       .from('contacts')
@@ -80,7 +80,7 @@ export const getContacts = async (): Promise<any[]> => {
       .order('created_at', { ascending: false });
 
     if (error) throw error;
-    return (data as any[]) || [];
+    return (data ?? []) as Record<string, unknown>[];
   } catch (error) {
     console.error('Error getting contacts:', error);
     return [];

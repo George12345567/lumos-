@@ -40,15 +40,17 @@ interface Template1ScreenProps {
 }
 
 // ─── Demo Data ────────────────────────────────────────────────────
+const LOCAL_PRODUCT_IMAGE = "/placeholder.svg";
+
 const PRODUCTS = [
-    { id: 1, name: "Midnight Latte", desc: "Rich espresso with vanilla foam", price: 45, img: "https://images.unsplash.com/photo-1461023058943-07fcbe16d735?w=400", rating: 4.9, category: "hot", featured: true },
-    { id: 2, name: "Berry Bliss Bowl", desc: "Açaí, granola & fresh berries", price: 65, img: "https://images.unsplash.com/photo-1590301157890-4810ed352733?w=400", rating: 4.8, category: "food", featured: true },
-    { id: 3, name: "Matcha Cloud", desc: "Ceremonial matcha latte", price: 55, img: "https://images.unsplash.com/photo-1536256263959-770b48d82b0a?w=400", rating: 4.7, category: "hot", featured: false },
-    { id: 4, name: "Tropical Sunset", desc: "Mango, passion fruit & coconut", price: 50, img: "https://images.unsplash.com/photo-1546171753-97d7676e4602?w=400", rating: 4.6, category: "cold", featured: true },
-    { id: 5, name: "Croissant Royal", desc: "Buttery layers with almond cream", price: 35, img: "https://images.unsplash.com/photo-1555507036-ab1f4038024a?w=400", rating: 4.9, category: "food", featured: false },
-    { id: 6, name: "Iced Caramel Drip", desc: "Cold brew with salted caramel", price: 48, img: "https://images.unsplash.com/photo-1461023058943-07fcbe16d735?w=400", rating: 4.5, category: "cold", featured: false },
-    { id: 7, name: "Avocado Toast", desc: "Sourdough, avocado, poached egg", price: 55, img: "https://images.unsplash.com/photo-1541519227354-08fa5d50c44d?w=400", rating: 4.8, category: "food", featured: true },
-    { id: 8, name: "Golden Turmeric", desc: "Turmeric latte with oat milk", price: 42, img: "https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=400", rating: 4.4, category: "hot", featured: false },
+    { id: 1, name: "Midnight Latte", desc: "Rich espresso with vanilla foam", price: 45, img: LOCAL_PRODUCT_IMAGE, rating: 4.9, category: "hot", featured: true },
+    { id: 2, name: "Berry Bliss Bowl", desc: "Açaí, granola & fresh berries", price: 65, img: LOCAL_PRODUCT_IMAGE, rating: 4.8, category: "food", featured: true },
+    { id: 3, name: "Matcha Cloud", desc: "Ceremonial matcha latte", price: 55, img: LOCAL_PRODUCT_IMAGE, rating: 4.7, category: "hot", featured: false },
+    { id: 4, name: "Tropical Sunset", desc: "Mango, passion fruit & coconut", price: 50, img: LOCAL_PRODUCT_IMAGE, rating: 4.6, category: "cold", featured: true },
+    { id: 5, name: "Croissant Royal", desc: "Buttery layers with almond cream", price: 35, img: LOCAL_PRODUCT_IMAGE, rating: 4.9, category: "food", featured: false },
+    { id: 6, name: "Iced Caramel Drip", desc: "Cold brew with salted caramel", price: 48, img: LOCAL_PRODUCT_IMAGE, rating: 4.5, category: "cold", featured: false },
+    { id: 7, name: "Avocado Toast", desc: "Sourdough, avocado, poached egg", price: 55, img: LOCAL_PRODUCT_IMAGE, rating: 4.8, category: "food", featured: true },
+    { id: 8, name: "Golden Turmeric", desc: "Turmeric latte with oat milk", price: 42, img: LOCAL_PRODUCT_IMAGE, rating: 4.4, category: "hot", featured: false },
 ];
 
 const CATEGORIES = [

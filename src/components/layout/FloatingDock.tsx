@@ -27,9 +27,8 @@ import {
     LogIn,
     Sparkles,
     Folder,
-    Bot,
 } from "lucide-react";
-import { useAuth } from "@/context/AuthContext";
+import { useIsAuthenticated, useIsAdmin, useAuthActions } from "@/context/AuthContext";
 import { useLanguage } from "@/context/LanguageContext";
 
 type DockTheme = "dark" | "light";
@@ -159,13 +158,15 @@ const DockSeparator = ({ theme = "dark" }: { theme?: DockTheme }) => (
 const FloatingDock = () => {
     const navigate = useNavigate();
     const location = useLocation();
-    const { isAuthenticated, isAdmin, logout } = useAuth();
+    const isAuthenticated = useIsAuthenticated();
+    const isAdmin = useIsAdmin();
+    const { logout } = useAuthActions();
     const { isArabic, t } = useLanguage();
 
     const isHomePage = location.pathname === "/";
-    const isDashboard = location.pathname === "/dashboard";
-    const isClientProfile = location.pathname === "/clients/profile";
-    const isAdminProfile = location.pathname === "/admin/profile";
+    const isDashboard = location.pathname === "/lumos-admin";
+    const isClientProfile = location.pathname === "/profile";
+    const isAdminProfile = location.pathname === "/lumos-admin";
     const isProfile = isAdminProfile || isClientProfile;
     const dockTheme: DockTheme = isProfile ? "light" : "dark";
 
@@ -299,10 +300,6 @@ const FloatingDock = () => {
         window.dispatchEvent(new CustomEvent("lumos:client-profile-dock-action", { detail: { action } }));
     }, []);
 
-    const openHomeAiChat = useCallback(() => {
-        window.dispatchEvent(new CustomEvent("lumos:open-home-ai-chat"));
-    }, []);
-
     const profileTabs = [
         { id: "home" as ProfileTabId, label: t("الواجهة", "Workspace"), icon: LayoutDashboard },
         { id: "library" as ProfileTabId, label: t("المكتبة", "Library"), icon: Folder },
@@ -396,15 +393,6 @@ const FloatingDock = () => {
                                         />
                                     ))}
                                     <DockItem mouseX={mouseX} isMobile={isMobile}
-                                        icon={Bot}
-                                        label={t("المساعد", "Assistant")}
-                                        description={t("افتح المساعد السريع أو درج المحادثة مع الفريق.", "Open the quick assistant or team chat drawer.")}
-                                        onClick={() => triggerProfileDockAction("assistant")}
-                                        variant="cta"
-                                        theme={dockTheme}
-                                        compact={isCompactProfileDock}
-                                    />
-                                    <DockItem mouseX={mouseX} isMobile={isMobile}
                                         icon={DollarSign}
                                         label={t("الخطط والأسعار", "Plans & Pricing")}
                                         description={t("افتح الباقات واطلب تحديثات أو تسعير من نافذة الأسعار.", "Open pricing packages and request updates from the pricing modal.")}
@@ -430,7 +418,7 @@ const FloatingDock = () => {
                                             icon={LayoutDashboard}
                                             label={t("لوحة التحكم", "Dashboard")}
                                             description={t("افتح لوحة الإدارة والنظرة التشغيلية العامة.", "Open the admin dashboard and operational overview.")}
-                                            onClick={() => navigate("/dashboard")}
+                                            onClick={() => navigate("/lumos-admin")}
                                             isActive={isDashboard}
                                             theme={dockTheme}
                                         />
@@ -439,20 +427,13 @@ const FloatingDock = () => {
                                         icon={User}
                                         label={isAdmin ? t("ملفي", "My Profile") : t("بوابتي", "My Portal")}
                                         description={isAdmin ? t("افتح ملفك الإداري وإعداداتك الشخصية.", "Open your admin profile and personal settings.") : t("افتح بوابة العميل والملفات وتقدّم المشروع.", "Open your client portal, files, and project progress.")}
-                                        onClick={() => navigate(isAdmin ? "/admin/profile" : "/clients/profile")}
+                                        onClick={() => navigate(isAdmin ? "/lumos-admin" : "/profile")}
                                         isActive={isProfile}
                                         theme={dockTheme}
                                     />
-                                    {isHomePage && (
-                                        <DockItem mouseX={mouseX} isMobile={isMobile}
-                                            icon={Bot}
-                                            label={t("محادثة AI", "AI Chat")}
-                                            description={t("اسأل عن الخدمة المناسبة أو مسار التسعير أو الخطوة التالية فورًا.", "Ask for the right service, pricing path, or next step instantly.")}
-                                            onClick={openHomeAiChat}
-                                            variant="cta"
-                                            theme={dockTheme}
-                                        />
-                                    )}
+                                    {/* AI Chat dock button intentionally removed: AiChatSidebar is not
+                                        mounted in production and the AI service relies on browser-exposed
+                                        API keys. Re-enable only behind a backend proxy. */}
                                     <DockItem mouseX={mouseX} isMobile={isMobile}
                                         icon={DollarSign}
                                         label={t("خطط الأسعار", "Pricing Plans")}
@@ -505,16 +486,7 @@ const FloatingDock = () => {
                                         forceTooltip={guideStep === 2}
                                         theme={dockTheme}
                                     />
-                                    {isHomePage && (
-                                        <DockItem mouseX={mouseX} isMobile={isMobile}
-                                            icon={Bot}
-                                            label={t("مساعد AI", "AI Guide")}
-                                            description={t("استخدم الذكاء الاصطناعي لتعرف أي خدمة أو خطوة تناسب حالتك.", "Use AI to understand which service or next action fits your case.")}
-                                            onClick={openHomeAiChat}
-                                            variant="cta"
-                                            theme={dockTheme}
-                                        />
-                                    )}
+                                    {/* AI Guide dock button intentionally removed — see comment above. */}
                                     <DockSeparator theme={dockTheme} />
                                     <DockItem
                                         icon={Sparkles}

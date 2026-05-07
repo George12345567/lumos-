@@ -16,18 +16,65 @@ interface GeoLocation {
     country_name?: string;
 }
 
-/**
- * ═══════════════════════════════════════════════════════════════════
- * useCurrency Hook - AUTO LOCATION DETECTION
- * ═══════════════════════════════════════════════════════════════════
- * 
- * Automatically detects user location using IP geolocation
- * Sets language and currency based on location:
- * - Egypt → Arabic + EGP
- * - Outside Egypt → English + USD
- * 
- * ═══════════════════════════════════════════════════════════════════
- */
+const GEO_CACHE_KEY = 'lumos_geo_cache_v1';
+const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+
+const detectFromTimezone = (): GeoLocation => {
+    try {
+        const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        if (tz.includes('Cairo') || tz.startsWith('Africa/')) {
+            return { country_code: 'EG', country_name: 'Egypt' };
+        }
+    } catch {
+        // best-effort detection; fall through to default
+    }
+    return { country_code: '', country_name: '' };
+};
+
+const detectFromIntl = (): GeoLocation => {
+    try {
+        const locale = navigator.language || '';
+        if (locale.includes('ar-EG') || locale === 'ar') {
+            return { country_code: 'EG', country_name: 'Egypt' };
+        }
+    } catch {
+        // best-effort detection; fall through to default
+    }
+    return { country_code: '', country_name: '' };
+};
+
+async function fetchGeoAPIs(controller: AbortController): Promise<GeoLocation | null> {
+    const apis: { url: string; parse: (data: Record<string, unknown>) => GeoLocation }[] = [
+        {
+            url: 'https://ipapi.co/json/',
+            parse: (data) => ({
+                country_code: (data.country_code as string) || '',
+                country_name: (data.country_name as string) || '',
+            }),
+        },
+        {
+            url: 'https://ipwho.is/',
+            parse: (data) => ({
+                country_code: (data.country_code as string) || '',
+                country_name: (data.country as string) || '',
+            }),
+        },
+    ];
+
+    for (const api of apis) {
+        try {
+            const response = await fetch(api.url, { signal: controller.signal });
+            if (!response.ok) continue;
+            const data = await response.json();
+            const geo = api.parse(data);
+            if (geo.country_code) return geo;
+        } catch {
+            continue;
+        }
+    }
+    return null;
+}
+
 export const useCurrency = () => {
     const [currencyData, setCurrencyData] = useState<CurrencyData>({
         country: 'Egypt',
@@ -59,49 +106,48 @@ export const useCurrency = () => {
             });
         };
 
-        const fallback = () => {
+        const fallback = (geo?: GeoLocation) => {
             if (!mounted) return;
+            if (geo?.country_code) {
+                applyGeo(geo);
+                return;
+            }
             setCurrencyData(prev => ({ ...prev, loading: false }));
         };
 
         const detectLocation = async () => {
             try {
-                const cached = localStorage.getItem('lumos_geo_cache_v1');
+                const cached = localStorage.getItem(GEO_CACHE_KEY);
                 if (cached) {
                     try {
                         const parsed = JSON.parse(cached) as { ts: number; data: GeoLocation };
-                        if (parsed?.ts && Date.now() - parsed.ts < 24 * 60 * 60 * 1000 && parsed.data) {
+                        if (parsed?.ts && Date.now() - parsed.ts < CACHE_TTL_MS && parsed.data?.country_code) {
                             applyGeo(parsed.data);
                             return;
                         }
                     } catch { /* ignore cache parse issues */ }
                 }
 
-                const response = await fetch(
-                    'https://ip-api.com/json/?fields=status,countryCode,country',
-                    { signal: controller.signal }
-                );
+                const apiResult = await fetchGeoAPIs(controller);
+                if (apiResult) {
+                    try {
+                        localStorage.setItem(GEO_CACHE_KEY, JSON.stringify({ ts: Date.now(), data: apiResult }));
+                    } catch { /* ignore quota */ }
+                    if (mounted) applyGeo(apiResult);
+                    return;
+                }
 
-                if (!response.ok) throw new Error('Geolocation API failed');
+                const tzGeo = detectFromTimezone();
+                if (tzGeo.country_code) {
+                    if (mounted) fallback(tzGeo);
+                    return;
+                }
 
-                const raw = await response.json() as { status: string; countryCode?: string; country?: string };
-                if (raw.status !== 'success') throw new Error('Geolocation API returned error');
-
-                const data: GeoLocation = {
-                    country_code: raw.countryCode || '',
-                    country_name: raw.country || '',
-                };
-
-                try {
-                    localStorage.setItem('lumos_geo_cache_v1', JSON.stringify({ ts: Date.now(), data }));
-                } catch { /* ignore storage quota issues */ }
-
-                applyGeo(data);
-
+                const intlGeo = detectFromIntl();
+                if (mounted) fallback(intlGeo);
             } catch (error) {
                 if ((error as Error).name === 'AbortError') return;
-                console.warn('Location detection failed, defaulting to Egypt:', error);
-                fallback();
+                if (mounted) fallback();
             }
         };
 

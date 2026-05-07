@@ -1,82 +1,127 @@
 import { createClient } from '@supabase/supabase-js';
+import { authConfig, isSupabaseConfigured as isConfigured } from '@/config/auth';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+const supabaseUrl = authConfig.supabaseUrl;
+const supabaseAnonKey = authConfig.supabaseAnonKey;
+
+function clearExpiredSupabaseTokens() {
+  try {
+    const now = Date.now() / 1000;
+    for (const key of Object.keys(localStorage)) {
+      if (!key.startsWith('sb-') || !key.endsWith('-auth-token')) continue;
+      try {
+        const raw = localStorage.getItem(key);
+        if (!raw) continue;
+        const parsed = JSON.parse(raw);
+        if (parsed?.expires_at && now >= parsed.expires_at) {
+          localStorage.removeItem(key);
+        }
+      } catch {
+        localStorage.removeItem(key);
+      }
+    }
+  } catch {
+    // localStorage unavailable (SSR / privacy mode) — safe to ignore
+  }
+}
+
+const NOT_CONFIGURED_ERROR = { message: 'auth.not_configured' };
+
+function makeStubResponse<T>(data: T, error: { message?: string } | null = null) {
+  return Promise.resolve({ data, error });
+}
+
+function makeStubQuery() {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const chain: any = {
+    eq: () => chain,
+    neq: () => chain,
+    like: () => chain,
+    ilike: () => chain,
+    in: () => chain,
+    is: () => chain,
+    order: () => chain,
+    limit: () => chain,
+    range: () => chain,
+    single: () => makeStubResponse(null, NOT_CONFIGURED_ERROR),
+    maybeSingle: () => makeStubResponse(null, null),
+    then: (cb: (res: { data: unknown; error: unknown }) => void) =>
+      cb({ data: [], error: null }),
+    promise: () => Promise.resolve({ data: [], error: null }),
+  };
+  return chain;
+}
+
+function makeStubChannel() {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const channel: any = {
+    on: () => channel,
+    subscribe: () => ({ unsubscribe: () => {} }),
+    unsubscribe: () => {},
+  };
+  return channel;
+}
 
 export const supabase = supabaseUrl && supabaseAnonKey
-  ? createClient(supabaseUrl, supabaseAnonKey)
+  ? (clearExpiredSupabaseTokens(), createClient(supabaseUrl, supabaseAnonKey, {
+      auth: {
+        autoRefreshToken: true,
+        persistSession: true,
+        detectSessionInUrl: true,
+      },
+    }))
   : {
       auth: {
         getSession: async () => ({ data: { session: null }, error: null }),
         onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } } }),
         signOut: async () => ({ error: null }),
+        signInWithPassword: async () => ({ data: { user: null, session: null }, error: NOT_CONFIGURED_ERROR }),
+        signUp: async () => ({ data: { user: null, session: null }, error: NOT_CONFIGURED_ERROR }),
+        resetPasswordForEmail: async () => ({ data: {}, error: NOT_CONFIGURED_ERROR }),
+        resend: async () => ({ data: {}, error: NOT_CONFIGURED_ERROR }),
+        updateUser: async () => ({ data: { user: null }, error: NOT_CONFIGURED_ERROR }),
+        getUser: async () => ({ data: { user: null }, error: NOT_CONFIGURED_ERROR }),
       },
-      from: (table: string) => ({
-        select: (columns?: string) => ({
-          eq: (column: string, value: unknown) => ({
-            single: async () => ({ data: null, error: null }),
-            maybeSingle: async () => ({ data: null, error: null }),
-            order: (column: string, options?: { ascending?: boolean }) => ({
-              limit: (n: number) => ({
-                then: (cb: (res: { data: unknown; error: unknown }) => void) => cb({ data: [], error: null }),
-                promise: () => Promise.resolve({ data: [], error: null }),
-              }),
-              then: (cb: (res: { data: unknown; error: unknown }) => void) => cb({ data: [], error: null }),
-              promise: () => Promise.resolve({ data: [], error: null }),
-            }),
-          }),
-          like: (column: string, pattern: string) => ({
-            order: (column: string, options?: { ascending?: boolean }) => ({
-              limit: (n: number) => ({
-                then: (cb: (res: { data: unknown; error: unknown }) => void) => cb({ data: [], error: null }),
-                promise: () => Promise.resolve({ data: [], error: null }),
-              }),
-              then: (cb: (res: { data: unknown; error: unknown }) => void) => cb({ data: [], error: null }),
-              promise: () => Promise.resolve({ data: [], error: null }),
-            }),
-          }),
-          in: (column: string, values: unknown[]) => ({
-            order: (column: string, options?: { ascending?: boolean }) => ({
-              limit: (n: number) => ({
-                then: (cb: (res: { data: unknown; error: unknown }) => void) => cb({ data: [], error: null }),
-                promise: () => Promise.resolve({ data: [], error: null }),
-              }),
-              then: (cb: (res: { data: unknown; error: unknown }) => void) => cb({ data: [], error: null }),
-              promise: () => Promise.resolve({ data: [], error: null }),
-            }),
-          }),
-          order: (column: string, options?: { ascending?: boolean }) => ({
-            limit: (n: number) => ({
-              then: (cb: (res: { data: unknown; error: unknown }) => void) => cb({ data: [], error: null }),
-              promise: () => Promise.resolve({ data: [], error: null }),
-            }),
-            then: (cb: (res: { data: unknown; error: unknown }) => void) => cb({ data: [], error: null }),
-            promise: () => Promise.resolve({ data: [], error: null }),
-          }),
-        }),
-        insert: (data: unknown) => ({
+      from: (_table: string) => ({
+        select: (_columns?: string) => makeStubQuery(),
+        insert: (_data: unknown) => ({
           select: () => ({
-            single: async () => ({ data: null, error: null }),
+            single: () => makeStubResponse(null, NOT_CONFIGURED_ERROR),
           }),
         }),
-        update: (data: unknown) => ({
-          eq: (column: string, value: unknown) => ({
+        upsert: (_data: unknown) => ({
+          select: () => ({
+            single: () => makeStubResponse(null, NOT_CONFIGURED_ERROR),
+          }),
+        }),
+        update: (_data: unknown) => ({
+          eq: () => ({
             select: () => ({
-              single: async () => ({ data: null, error: null }),
+              single: () => makeStubResponse(null, NOT_CONFIGURED_ERROR),
             }),
           }),
         }),
         delete: () => ({
-          eq: (column: string, value: unknown) => ({
-            then: (cb: (res: { data: unknown; error: unknown }) => void) => cb({ data: null, error: null }),
-            promise: () => Promise.resolve({ data: null, error: null }),
-          }),
+          eq: () => makeStubQuery(),
         }),
       }),
+      rpc: () => makeStubResponse(null, NOT_CONFIGURED_ERROR),
       storage: {
-        from: (bucket: string) => ({
-          upload: async (path: string, file: unknown) => ({ data: null, error: null }),
-          getPublicUrl: (path: string) => ({ data: { publicUrl: "" } }),
+        from: (_bucket: string) => ({
+          upload: async () => ({ data: null, error: NOT_CONFIGURED_ERROR }),
+          getPublicUrl: (_path: string) => ({ data: { publicUrl: '' } }),
         }),
       },
+      channel: (_name: string) => makeStubChannel(),
+      removeChannel: (_channel: unknown) => {},
     };
+
+export const isSupabaseConfigured = isConfigured;
+export { getSupabaseConfigError } from '@/config/auth';
+
+if (!isSupabaseConfigured() && authConfig.isProd) {
+  console.error(
+    '[Lumos] Supabase is NOT configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY before deploying. ' +
+      'Auth, signup, and admin features will be disabled.',
+  );
+}

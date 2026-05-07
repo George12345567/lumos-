@@ -15,6 +15,7 @@
  */
 
 import { z } from "zod";
+import { INDUSTRY_OPTIONS, BUDGET_RANGE_OPTIONS, TIMELINE_OPTIONS, REFERRAL_SOURCE_OPTIONS } from "@/lib/constants";
 
 // ─── Denylist helpers ──────────────────────────────────────────────
 
@@ -270,7 +271,7 @@ export const signupSchema = z.object({
   industry: z
     .string()
     .optional()
-    .refine((v) => !v || v === '' || ['restaurant', 'retail', 'factory', 'realestate', 'healthcare', 'education', 'salon', 'pharmacy', 'other'].includes(v), {
+    .refine((v) => !v || v === '' || INDUSTRY_OPTIONS.map(o => o.value).includes(v), {
       message: 'industry.invalid',
     }),
 
@@ -282,21 +283,21 @@ export const signupSchema = z.object({
   budgetRange: z
     .string()
     .optional()
-    .refine((v) => !v || v === '' || ['under_5000', '5000_15000', '15000_30000', '30000_50000', 'over_50000'].includes(v), {
+    .refine((v) => !v || v === '' || BUDGET_RANGE_OPTIONS.map(o => o.value).includes(v), {
       message: 'budget_range.invalid',
     }),
 
   timeline: z
     .string()
     .optional()
-    .refine((v) => !v || v === '' || ['asap', 'within_1_month', 'within_3_months', 'within_6_months', 'no_deadline'].includes(v), {
+    .refine((v) => !v || v === '' || TIMELINE_OPTIONS.map(o => o.value).includes(v), {
       message: 'timeline.invalid',
     }),
 
   referralSource: z
     .string()
     .optional()
-    .refine((v) => !v || v === '' || ['google', 'social_media', 'personal_referral', 'paid_ad', 'content_blog', 'other'].includes(v), {
+    .refine((v) => !v || v === '' || REFERRAL_SOURCE_OPTIONS.map(o => o.value).includes(v), {
       message: 'referral_source.invalid',
     }),
 

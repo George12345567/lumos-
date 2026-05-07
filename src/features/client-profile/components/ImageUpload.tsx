@@ -47,17 +47,35 @@ export function ImageUpload({
     setUploading(true);
     try {
       const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-      const path = `${pathPrefix}/${clientId}-${Date.now()}-${safeName}`;
-      const { error } = await supabase.storage
+      // Path layout is locked to the storage RLS policy installed by
+      // 20260507120300_storage_rls_client_assets.sql:
+      //   <auth.uid()>/<pathPrefix>/<timestamp>-<safe-name>
+      // The first segment MUST equal the caller's auth uid, otherwise the
+      // upload is rejected by RLS. Callers pass `clientId === auth.uid()`.
+      const path = `${clientId}/${pathPrefix}/${Date.now()}-${safeName}`;
+      const { error: uploadError } = await supabase.storage
         .from(STORAGE_BUCKET)
-        .upload(path, file, { upsert: true });
-      if (error) {
-        console.error('[ImageUpload] upload failed:', error);
+        .upload(path, file, { upsert: true, contentType: file.type || undefined });
+      if (uploadError) {
+        console.error('[ImageUpload] upload failed:', uploadError);
         toast.error('Upload failed.');
         return;
       }
-      const { data: urlData } = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(path);
-      onChange(urlData.publicUrl);
+      // The bucket is private. Use a long-lived signed URL for display.
+      // NOTE: signed URLs eventually expire. The proper long-term fix is to
+      // persist the object PATH on the row and resolve a fresh signed URL at
+      // render time (see profileService.getAvatarUrl). That is a follow-up
+      // refactor; this change keeps the existing { url } contract working.
+      const ONE_YEAR_SECONDS = 60 * 60 * 24 * 365;
+      const { data: signed, error: signError } = await supabase.storage
+        .from(STORAGE_BUCKET)
+        .createSignedUrl(path, ONE_YEAR_SECONDS);
+      if (signError || !signed?.signedUrl) {
+        console.error('[ImageUpload] sign failed:', signError);
+        toast.error('Upload succeeded but the preview link could not be generated.');
+        return;
+      }
+      onChange(signed.signedUrl);
     } catch (err) {
       console.error(err);
       toast.error('Upload failed.');

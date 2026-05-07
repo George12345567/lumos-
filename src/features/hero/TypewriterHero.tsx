@@ -1,12 +1,13 @@
 import { useState, useEffect, useMemo } from "react";
 import { Sparkles, ArrowRight, LogIn } from "lucide-react";
 import { Link } from 'react-router-dom';
-import { useAuth } from '@/context/AuthContext';
+import { useIsAuthenticated, useIsAdmin } from '@/context/AuthContext';
 import { useLanguage } from '@/context/LanguageContext';
 import { TeamModal } from '@/features/team';
 
 const TypewriterHero = () => {
-    const { isAuthenticated, isAdmin } = useAuth();
+    const isAuthenticated = useIsAuthenticated();
+    const isAdmin = useIsAdmin();
     const { isArabic, t } = useLanguage();
     const [teamOpen, setTeamOpen] = useState(false);
     const words = useMemo(() => (isArabic ? ["براندات", "مواقع", "متاجر", "منصات"] : ["Brands", "Websites", "Stores", "Platforms"]), [isArabic]);
@@ -257,6 +258,15 @@ const TypewriterHero = () => {
                 </span>
             </div>
 
+            <div className="space-y-1 mb-3">
+                <p className="text-xs sm:text-sm tracking-[0.3em] uppercase text-primary/70 animate-[revealLine_0.8s_ease-out_0.2s_both]">
+                    {t("شريكك الرقمي", "Your Digital Partner")}
+                </p>
+                <p className="text-sm sm:text-base text-muted-foreground/80 italic animate-[revealLine_0.8s_ease-out_0.6s_both]">
+                    {t("ننمو عندما ينمو براندك", "We grow when your brand grows.")}
+                </p>
+            </div>
+
                 <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-bold text-foreground leading-tight">
                     {t('نبني', 'We Build')}{" "}
                     <span className={`text-primary inline-block min-w-[120px] sm:min-w-[160px] md:min-w-[240px] lg:min-w-[300px] ${isArabic ? 'text-right' : 'text-left'}`}>
@@ -292,7 +302,7 @@ const TypewriterHero = () => {
 
                     {/* Client Portal Button */}
                     <Link
-                        to={isAuthenticated ? (isAdmin ? '/dashboard' : '/clients/profile') : '/client-login'}
+                        to={isAuthenticated ? (isAdmin ? '/lumos-admin' : '/profile') : '/client-login'}
                         className="px-6 sm:px-8 lg:px-10 py-3 sm:py-3.5 lg:py-4 rounded-full text-sm sm:text-base lg:text-lg font-bold relative group border-2 border-primary/60 text-primary hover:border-primary hover:shadow-[0_0_24px_rgba(0,188,212,0.15)] transition-all duration-300 inline-flex items-center gap-2"
                     >
                         {isAuthenticated ? (

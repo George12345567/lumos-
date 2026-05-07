@@ -3,7 +3,25 @@
     "allow": [
       "Bash(npm run *)",
       "Bash(xargs cat *)",
-      "Bash(npx tsc *)"
+      "Bash(npx tsc *)",
+      "Bash(sed -i 's/changed_by: ADMIN_EMAIL,/changed_by: adminAuditActor,/g' src/pages/AdminDashboard.tsx)",
+      "Bash(sed -i 's/Archived by admin \\(${ADMIN_EMAIL}\\)/Archived by admin \\(${adminAuditActor}\\)/g' src/pages/AdminDashboard.tsx)",
+      "Bash(echo \"exit=$?\")",
+      "Read(//tmp/**)",
+      "Bash(node -e \"console.log\\(JSON.stringify\\(require\\('./package.json'\\).scripts, null, 2\\)\\)\")",
+      "Bash(echo \"tsc exit=$?\")",
+      "Bash(echo \"build exit=$?\")",
+      "Bash(echo \"lint exit=$?\")",
+      "Bash(awk -F= 'NF && !/^#/ {print $1}' .env)",
+      "Bash(awk -F'|' '{print $3}')",
+      "Bash(awk -F'|' '{print $7, \"|\", $8, \"|\", $9, \"|\", $14}')",
+      "Bash(awk -F'|' '$2 ~ / public / && $3 ~ / clients / {gsub\\(/^ +| +$/, \"\", $7\\); gsub\\(/^ +| +$/, \"\", $8\\); gsub\\(/^ +| +$/, \"\", $15\\); print $7, \"|\", $8, \"|\", $15}' \"D:/my web lumos/LAST LUMOS PROCECC/supabase/current schema/current schema v1 markdown.txt\")",
+      "Bash(awk *)",
+      "Bash(command -v supabase)",
+      "Bash(supabase --version)",
+      "Bash(npm audit *)",
+      "Bash(cp package.json /tmp/package.json.bak)",
+      "Bash(cp package-lock.json /tmp/package-lock.json.bak)"
     ]
   }
 }

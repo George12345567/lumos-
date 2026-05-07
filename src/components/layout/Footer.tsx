@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Facebook, MessageCircle, Mail, Phone, Users } from "lucide-react";
+import { Link } from "react-router-dom";
 import { useLanguage } from "@/context/LanguageContext";
 import { TeamModal } from "@/features/team";
 
@@ -190,6 +191,22 @@ const Footer = () => {
           </div>
 
           <div className="border-t border-border pt-4 sm:pt-8 text-center text-muted-foreground">
+            <nav
+              className="mb-3 flex flex-wrap items-center justify-center gap-x-3 gap-y-1.5 text-xs sm:text-sm"
+              aria-label={t("روابط قانونية", "Legal links")}
+            >
+              <Link to="/privacy-policy" className="hover:text-primary transition-colors">
+                {t("سياسة الخصوصية", "Privacy Policy")}
+              </Link>
+              <span className="text-muted-foreground/40">·</span>
+              <Link to="/terms-and-conditions" className="hover:text-primary transition-colors">
+                {t("الشروط والأحكام", "Terms & Conditions")}
+              </Link>
+              <span className="text-muted-foreground/40">·</span>
+              <Link to="/cookie-policy" className="hover:text-primary transition-colors">
+                {t("سياسة الكوكيز", "Cookie Policy")}
+              </Link>
+            </nav>
             <p className="text-xs sm:text-sm">{t(`© ${new Date().getFullYear()} وكالة Lumos. جميع الحقوق محفوظة.`, `© ${new Date().getFullYear()} Lumos Agency. All rights reserved.`)}</p>
           </div>
         </div>

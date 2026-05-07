@@ -2,21 +2,17 @@ import { useState, useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Loader2, MapPin, CheckCircle, MessageCircle, X } from "lucide-react";
+import { Loader2, CheckCircle, MessageCircle } from "lucide-react";
 import { motion } from "framer-motion";
-import emailjs from '@emailjs/browser';
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { toast } from "sonner";
-import { useGeolocation } from "@/hooks";
-import { collectBrowserData } from "@/lib/collectBrowserData";
 import { saveContact } from "@/services/db";
 import { useLocation } from "react-router-dom";
-import { useAuth } from "@/context/AuthContext";
+import { useIsAuthenticated } from "@/context/AuthContext";
 import { useLanguage } from "@/context/LanguageContext";
 
 const formSchema = z.object({
@@ -31,15 +27,15 @@ const LeadCapturePopup = () => {
   const [open, setOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [capturedPhone, setCapturedPhone] = useState('');
   const firstInputRef = useRef<HTMLInputElement>(null);
-  const { location, loading: locationLoading, requestLocation } = useGeolocation();
   const routeLocation = useLocation();
-  const { isAuthenticated } = useAuth();
+  const isAuthenticated = useIsAuthenticated();
   const { isArabic, t } = useLanguage();
 
   // Pages where the popup should NOT appear
-  const blockedPaths = ['/dashboard', '/clients/profile', '/client-login', '/client-signup', '/forgot-password'];
+  const blockedPaths = ['/profile', '/lumos-admin', '/client-login', '/client-signup', '/forgot-password'];
   const isBlockedPage = blockedPaths.some(p => routeLocation.pathname.startsWith(p));
 
   useEffect(() => {
@@ -52,11 +48,10 @@ const LeadCapturePopup = () => {
     const timer = setTimeout(() => {
       setOpen(true);
       sessionStorage.setItem("lumos_lead_popup_shown", "true");
-      requestLocation();
     }, 300000); // 5 minutes
 
     return () => clearTimeout(timer);
-  }, [requestLocation, isBlockedPage, isAuthenticated]);
+  }, [isBlockedPage, isAuthenticated]);
 
   // Auto-focus first input when dialog opens
   useEffect(() => {
@@ -76,59 +71,41 @@ const LeadCapturePopup = () => {
     },
   });
 
-  const sendDataToEmail = async () => {
+  const saveLeadCapture = async (): Promise<{ ok: boolean; error?: string }> => {
     const formData = form.getValues();
-    const browserData = collectBrowserData();
-
-    const emailData = {
-      form_type: 'Lead Capture Popup',
-      action: 'Submit',
-      name: formData.name || 'Not provided',
-      phone: formData.phone || 'Not provided',
-      description: formData.description || 'Not provided',
-      location: location || 'Location not shared',
-      browser: browserData.browser,
-      os: browserData.os,
-      device_type: browserData.deviceType,
-      screen_resolution: browserData.screenResolution,
-      viewport_size: browserData.viewportSize,
-      language: browserData.language,
-      referrer: browserData.referrer,
-      timestamp: browserData.timestamp,
-      user_agent: browserData.userAgent,
-    };
-
-    // Send via EmailJS
     try {
-      await emailjs.send(
-        'service_qz9ng4q',
-        'template_a1gpr19',
-        emailData,
-        'QSbdI14b9C7c3rBmg'
-      );
-    } catch (error) {
-      // Silent fail — email is supplementary
-    }
-
-    // Save to Supabase
-    try {
-      await saveContact({
+      const result = await saveContact({
         name: formData.name || 'Not provided',
         phone: formData.phone || 'Not provided',
         message: formData.description || 'Lead capture popup submission',
       });
+      if (!result?.success) {
+        return { ok: false, error: result?.error };
+      }
+      return { ok: true };
     } catch (error) {
-      // Silent fail — email is primary
+      console.error('[LeadCapturePopup] saveContact threw:', error);
+      return { ok: false, error: error instanceof Error ? error.message : 'unknown' };
     }
   };
 
-  const onSubmit = async (values: FormValues) => {
+  const onSubmit = async () => {
+    if (isSubmitting) return; // guard duplicate submits
     setIsSubmitting(true);
+    setSubmitError(null);
 
-    // Send data to email & save to Supabase
-    await sendDataToEmail();
+    const result = await saveLeadCapture();
 
-    await new Promise((resolve) => setTimeout(resolve, 800));
+    if (!result.ok) {
+      setIsSubmitting(false);
+      setSubmitError(
+        t(
+          'تعذّر إرسال البيانات. حاول مرة أخرى أو راسلنا على واتساب.',
+          'We couldn\'t send your details. Please try again or message us on WhatsApp.',
+        ),
+      );
+      return;
+    }
 
     setIsSuccess(true);
     setTimeout(() => {
@@ -246,6 +223,15 @@ const LeadCapturePopup = () => {
                       </FormItem>
                     )}
                   />
+
+                  {submitError && (
+                    <div
+                      role="alert"
+                      className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive"
+                    >
+                      {submitError}
+                    </div>
+                  )}
 
                   <div className="flex flex-col-reverse sm:flex-row gap-3 pt-2">
                     <Button

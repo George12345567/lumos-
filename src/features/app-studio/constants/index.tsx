@@ -1,6 +1,8 @@
 import { Flame, Coffee, Scissors, Pill, Store, Building2 } from 'lucide-react';
 import type { ServiceType, Theme, MenuItem } from '../types';
 
+const LOCAL_DEMO_IMAGE = '/placeholder.svg';
+
 // Service Types with Categories
 export const SERVICE_TYPES: ServiceType[] = [
     {
@@ -188,7 +190,7 @@ export const DEFAULT_ITEMS_BY_SERVICE: Record<string, MenuItem[]> = {
             description: 'ريش ضاني طازجة مدخنة على الفحم مع الأرز والسلطة',
             price: 265,
             category: 'grill',
-            image: 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=400',
+            image: LOCAL_DEMO_IMAGE,
         },
         {
             id: 2,
@@ -196,7 +198,7 @@ export const DEFAULT_ITEMS_BY_SERVICE: Record<string, MenuItem[]> = {
             description: 'بريسكت مشوي مع الخضار الطازج والصلصة الخاصة',
             price: 210,
             category: 'sandwiches',
-            image: 'https://images.unsplash.com/photo-1473093295043-cdd812d0e601?w=400',
+            image: LOCAL_DEMO_IMAGE,
         },
         {
             id: 3,
@@ -204,7 +206,7 @@ export const DEFAULT_ITEMS_BY_SERVICE: Record<string, MenuItem[]> = {
             description: 'شاي تركي أصيل مع النعناع والليمون',
             price: 25,
             category: 'drinks',
-            image: 'https://images.unsplash.com/photo-1564890369478-c89ca6d9cde9?w=400',
+            image: LOCAL_DEMO_IMAGE,
         },
     ],
     cafe: [
@@ -214,7 +216,7 @@ export const DEFAULT_ITEMS_BY_SERVICE: Record<string, MenuItem[]> = {
             description: 'قهوة إسبريسو قوية ومكثفة من أجود أنواع البن',
             price: 35,
             category: 'hot',
-            image: 'https://images.unsplash.com/photo-1510591509098-f4fdc6d0ff04?w=400',
+            image: LOCAL_DEMO_IMAGE,
         },
         {
             id: 102,
@@ -222,7 +224,7 @@ export const DEFAULT_ITEMS_BY_SERVICE: Record<string, MenuItem[]> = {
             description: 'كابتشينو مع رغوة الحليب الكريمية والكاكاو',
             price: 45,
             category: 'hot',
-            image: 'https://images.unsplash.com/photo-1572442388796-11668a67e53d?w=400',
+            image: LOCAL_DEMO_IMAGE,
         },
     ],
     salon: [
@@ -232,7 +234,7 @@ export const DEFAULT_ITEMS_BY_SERVICE: Record<string, MenuItem[]> = {
             description: 'قص شعر احترافي مع تصفيف وتشذيب',
             price: 120,
             category: 'haircut',
-            image: 'https://images.unsplash.com/photo-1562322140-8baeececf3df?w=400',
+            image: LOCAL_DEMO_IMAGE,
         },
     ],
     pharmacy: [
@@ -242,7 +244,7 @@ export const DEFAULT_ITEMS_BY_SERVICE: Record<string, MenuItem[]> = {
             description: 'مسكن للآلام وخافض للحرارة',
             price: 15,
             category: 'medicines',
-            image: 'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=400',
+            image: LOCAL_DEMO_IMAGE,
         },
     ],
     store: [
@@ -252,7 +254,7 @@ export const DEFAULT_ITEMS_BY_SERVICE: Record<string, MenuItem[]> = {
             description: 'هاتف ذكي بشاشة 6.7 بوصة وكاميرا 108 ميجابكسل',
             price: 8500,
             category: 'electronics',
-            image: 'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=400',
+            image: LOCAL_DEMO_IMAGE,
         },
     ],
     clinic: [
@@ -262,7 +264,7 @@ export const DEFAULT_ITEMS_BY_SERVICE: Record<string, MenuItem[]> = {
             description: 'فحص طبي شامل مع طبيب مختص',
             price: 200,
             category: 'consultation',
-            image: 'https://images.unsplash.com/photo-1576091160399-112ba8d25d1f?w=400',
+            image: LOCAL_DEMO_IMAGE,
         },
     ],
 };
@@ -288,3 +290,4 @@ export const DEFAULT_DESIGN_CONFIG = {
     },
     colors: {},
 };
+

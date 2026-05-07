@@ -20,4 +20,6 @@ export interface ProfileSnapshot {
 
 export type ProfileField = keyof ProfileData;
 
+export type { MockOrder } from './mockData';
+
 export type ProfileUpdater = <K extends ProfileField>(field: K, value: ProfileData[K]) => void;

@@ -26,7 +26,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { Home, Briefcase, DollarSign, Sparkles, Eye, HelpCircle, MessageSquare, X } from "lucide-react";
 import PricingModal from "@/components/pricing/PricingModal";
 import FloatingDock from "@/components/layout/FloatingDock";
-import { useAuth } from "@/context/AuthContext";
+import { useAuthState } from "@/context/AuthContext";
 import { profileService } from "@/services/profileService";
 import type { PricingRequest } from "@/types/dashboard";
 import { useLanguage } from "@/context/LanguageContext";
@@ -50,7 +50,7 @@ const EnhancedNavbar = () => {
   const navGuideRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const location = useLocation();
-  const { isAuthenticated, isAdmin, client } = useAuth();
+  const { isAuthenticated, isAdmin, client } = useAuthState();
   const { isArabic, t } = useLanguage();
 
   const openPricingModal = useCallback((request: PricingRequest | null = null) => {
@@ -403,58 +403,12 @@ const EnhancedNavbar = () => {
 
                   {/* ── Right side: Get Started CTA ── */}
                   <div className="flex items-center gap-2" ref={getStartedRef}>
-                    {location.pathname === "/" && (
-                      <div className="relative" ref={navGuideRef}>
-                        <button
-                          type="button"
-                          onClick={() => setShowNavGuide(v => !v)}
-                          className="inline-flex items-center gap-2 rounded-xl border border-white/12 bg-white/[0.06] px-3 py-2 text-xs font-semibold text-white/80 transition-all duration-300 hover:bg-white/10 hover:text-white"
-                        >
-                          <HelpCircle className="h-4 w-4 text-[hsl(150,100%,40%)]" />
-                          <span className="hidden sm:inline">{t("طريقة الاستخدام", "How To Use")}</span>
-                        </button>
-
-                        {showNavGuide && (
-                          <div className="absolute right-0 top-[calc(100%+10px)] z-[75] w-[320px] rounded-2xl border border-white/12 bg-[#0c1222]/96 p-3 shadow-2xl backdrop-blur-xl sm:w-[380px]">
-                            <div className="flex items-start justify-between gap-3 border-b border-white/8 px-1 pb-3">
-                              <div>
-                                <p className="text-sm font-semibold text-white">{t("دليل التنقل", "Navigation Guide")}</p>
-                                <p className="mt-1 text-xs leading-5 text-white/50">{t("شرح مختصر لكل زر مهم في شريط التنقل والدوك داخل الصفحة الرئيسية.", "Short explanations for every important button in the home page navigation and dock.")}</p>
-                              </div>
-                              <button
-                                type="button"
-                                onClick={() => setShowNavGuide(false)}
-                                className="rounded-full p-1.5 text-white/40 transition-colors hover:bg-white/8 hover:text-white/75"
-                                aria-label={t("إغلاق دليل التنقل", "Close navigation guide")}
-                              >
-                                <X className="h-4 w-4" />
-                              </button>
-                            </div>
-
-                            <div className="mt-3 space-y-4">
-                              {homeNavigationGuide.map(section => (
-                                <div key={section.group} className="space-y-2">
-                                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[hsl(150,100%,40%)]">{section.group}</p>
-                                  <div className="space-y-2">
-                                    {section.items.map(item => (
-                                      <div key={item.label} className="rounded-xl border border-white/8 bg-white/[0.03] px-3 py-2.5">
-                                        <p className="text-sm font-semibold text-white">{item.label}</p>
-                                        <p className="mt-1 text-xs leading-5 text-white/50">{item.desc}</p>
-                                      </div>
-                                    ))}
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    )}
+                    {/* "How To Use" navigation guide is intentionally not rendered. */}
 
                     {isAuthenticated && client && !isAdmin && (
                       <button
                         type="button"
-                        onClick={() => navigate("/clients/profile")}
+                        onClick={() => navigate("/profile")}
                         className="group inline-flex items-center gap-2 rounded-xl border border-white/12 bg-white/[0.06] px-2.5 py-2 text-white/85 transition-all duration-300 hover:bg-white/10 hover:text-white"
                         title={t("افتح بوابة العميل والملفات والطلبات والتقدم الحالي", "Open your client portal, files, requests, and progress")}
                       >

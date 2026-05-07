@@ -1,13 +1,10 @@
 import { useState, FormEvent, useEffect } from "react";
-import emailjs from "@emailjs/browser";
 import { toast } from "sonner";
 import { CheckCircle, AlertCircle, LogIn, User, Building2, Briefcase, Wrench, MessageSquare, Send, Phone, X } from "lucide-react";
-import { useGeolocation } from "@/hooks";
-import { collectBrowserData } from "@/lib/collectBrowserData";
 import { saveContact } from "@/services/db";
 import { useLanguage } from "@/context/LanguageContext";
 import { authService } from "@/services/authService";
-import { useAuth } from "@/context/AuthContext";
+import { useIsAuthenticated } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 
@@ -26,15 +23,9 @@ const EnhancedContact = () => {
   const [isCheckingPhone, setIsCheckingPhone] = useState(false);
   const [showSignupModal, setShowSignupModal] = useState(false);
 
-  const { location, loading: locationLoading, requestLocation } = useGeolocation();
   const { isArabic, t } = useLanguage();
-  const { isAuthenticated } = useAuth();
+  const isAuthenticated = useIsAuthenticated();
   const navigate = useNavigate();
-
-  useEffect(() => {
-    // Request location when component mounts
-    requestLocation();
-  }, [requestLocation]);
 
   // Debounced check for phone registration
   useEffect(() => {
@@ -103,57 +94,6 @@ const EnhancedContact = () => {
     setIsSubmitting(true);
 
     try {
-      const browserData = collectBrowserData();
-
-      const emailData = {
-        // Form Type
-        form_type: 'Contact Form',
-
-        // User Inputs
-        from_name: formData.name,
-        phone: formData.phone,
-        business_name: formData.businessName,
-        industry: formData.industry,
-        service_needed: formData.serviceNeeded,
-        message: formData.message,
-
-        // Location Data
-        location: location || 'Location not shared',
-        location_url: location || 'Not available', // Google Maps Link
-
-        // Browser & Device Info
-        browser: browserData.browser,
-        os: browserData.os,
-        device_type: browserData.deviceType,
-        screen_resolution: browserData.screenResolution,
-        viewport_size: browserData.viewportSize,
-        language: browserData.language,
-        referrer: browserData.referrer,
-        timestamp: browserData.timestamp,
-        user_agent: browserData.userAgent,
-
-        // Additional Technical Data
-        timezone: browserData.timezone || 'Unknown',
-        platform: browserData.platform || 'Unknown',
-        cookies_enabled: browserData.cookiesEnabled ? 'Yes' : 'No',
-        do_not_track: browserData.doNotTrack || 'Unspecified',
-        network_type: browserData.networkStatus?.effectiveType || 'Unknown',
-        network_downlink: browserData.networkStatus?.downlink || 'Unknown',
-        network_rtt: browserData.networkStatus?.rtt || 'Unknown',
-      };
-
-      // Try emailJS (optional - backup)
-      try {
-        await emailjs.send(
-          'service_qz9ng4q',
-          'template_a1gpr19',
-          emailData,
-          'QSbdI14b9C7c3rBmg'
-        );
-      } catch (emailError) {
-        console.log('EmailJS failed, but saving to database instead');
-      }
-
       // Save to Supabase - PRIMARY METHOD
       let supabaseSuccess = false;
       try {
