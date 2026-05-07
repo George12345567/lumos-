@@ -5,6 +5,7 @@ export const ROUTES = {
   CLIENT_LOGIN: '/client-login',
   FORGOT_PASSWORD: '/forgot-password',
   RESET_PASSWORD: '/reset-password',
+  INVITE_ONBOARDING: '/invite-onboarding',
   CLIENT_PROFILE: '/profile',
   CLIENT_PROFILE_PREVIEW: '/profile-preview',
   ADMIN_DASHBOARD: '/lumos-admin',

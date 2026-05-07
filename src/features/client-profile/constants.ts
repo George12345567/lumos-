@@ -1,7 +1,7 @@
-import { LayoutDashboard, Sparkles, Folder, MessageCircle, Settings, Package } from 'lucide-react';
+import { LayoutDashboard, FolderOpen, MessageCircle, Settings, Briefcase } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
-export type TabId = 'overview' | 'orders' | 'messages' | 'brand' | 'library' | 'account';
+export type TabId = 'overview' | 'projects' | 'messages' | 'files' | 'account';
 
 export interface TabDef {
   id: TabId;
@@ -10,14 +10,29 @@ export interface TabDef {
   icon: LucideIcon;
 }
 
+/**
+ * Five primary sections of the simplified premium profile.
+ * Brand controls (logo, colors, social) live inside Account → Brand details.
+ * Orders are surfaced under "Projects" and saved designs/shared files under "Files".
+ */
 export const TABS: TabDef[] = [
   { id: 'overview', label: 'Overview', labelAr: 'نظرة عامة', icon: LayoutDashboard },
-  { id: 'orders', label: 'Orders', labelAr: 'الطلبات', icon: Package },
-  { id: 'messages', label: 'Messages', labelAr: 'المحادثة', icon: MessageCircle },
-  { id: 'brand', label: 'Brand', labelAr: 'الهوية', icon: Sparkles },
-  { id: 'library', label: 'Library', labelAr: 'المكتبة', icon: Folder },
+  { id: 'projects', label: 'Projects', labelAr: 'المشاريع', icon: Briefcase },
+  { id: 'messages', label: 'Messages', labelAr: 'الرسائل', icon: MessageCircle },
+  { id: 'files', label: 'Files', labelAr: 'الملفات', icon: FolderOpen },
   { id: 'account', label: 'Account', labelAr: 'الحساب', icon: Settings },
 ];
+
+/**
+ * Aliases for legacy URLs / FloatingDock action names. Keeps old bookmarks
+ * (?tab=orders, ?tab=library, ?tab=brand) and dock CTAs from breaking.
+ */
+export const TAB_ALIASES: Record<string, TabId> = {
+  orders: 'projects',
+  library: 'files',
+  brand: 'account',
+  home: 'overview',
+};
 
 export const DEFAULT_ACCENT = '#077F5B';
 

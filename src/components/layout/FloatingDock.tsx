@@ -26,13 +26,11 @@ import {
     LogOut,
     LogIn,
     Sparkles,
-    Folder,
 } from "lucide-react";
 import { useIsAuthenticated, useIsAdmin, useAuthActions } from "@/context/AuthContext";
 import { useLanguage } from "@/context/LanguageContext";
 
 type DockTheme = "dark" | "light";
-type ProfileTabId = "home" | "library" | "brand" | "account";
 
 const DockItem = ({
     icon: Icon,
@@ -174,7 +172,6 @@ const FloatingDock = () => {
     const [guideStep, setGuideStep] = useState<0 | 1 | 2>(0);
     const [typedGuideText, setTypedGuideText] = useState("");
     const [isMobile, setIsMobile] = useState(false);
-    const [currentClientTab, setCurrentClientTab] = useState<ProfileTabId>("home");
     const [isVisible, setIsVisible] = useState(true);
     const lastScrollY = useRef(0);
     const dockRef = useRef<HTMLDivElement>(null);
@@ -283,35 +280,9 @@ const FloatingDock = () => {
         return () => mediaQuery.removeEventListener("change", syncMobile);
     }, []);
 
-    useEffect(() => {
-        const handleProfileState = (event: Event) => {
-            const customEvent = event as CustomEvent<{ tab?: ProfileTabId }>;
-            const nextTab = customEvent.detail?.tab;
-            if (nextTab === "home" || nextTab === "library" || nextTab === "brand" || nextTab === "account") {
-                setCurrentClientTab(nextTab);
-            }
-        };
-
-        window.addEventListener("lumos:client-profile-dock-state", handleProfileState as EventListener);
-        return () => window.removeEventListener("lumos:client-profile-dock-state", handleProfileState as EventListener);
-    }, []);
-
-    const triggerProfileDockAction = useCallback((action: string) => {
-        window.dispatchEvent(new CustomEvent("lumos:client-profile-dock-action", { detail: { action } }));
-    }, []);
-
-    const profileTabs = [
-        { id: "home" as ProfileTabId, label: t("الواجهة", "Workspace"), icon: LayoutDashboard },
-        { id: "library" as ProfileTabId, label: t("المكتبة", "Library"), icon: Folder },
-        { id: "brand" as ProfileTabId, label: t("الهوية", "Brand"), icon: Sparkles },
-        { id: "account" as ProfileTabId, label: t("الحساب", "Account"), icon: User },
-    ];
-
-    const orderedProfileTabs = [...profileTabs].sort((left, right) => {
-        if (left.id === currentClientTab) return -1;
-        if (right.id === currentClientTab) return 1;
-        return 0;
-    });
+    // Section navigation lives in the in-page sidebar of /profile, so the
+    // floating dock only carries cross-page actions when the user is on the
+    // profile route (Home / Plans & Pricing / Sign Out).
 
     const isCompactProfileDock = isClientProfile && isMobile;
     const isCompactActive = isMobile || isCompactProfileDock;
@@ -380,18 +351,6 @@ const FloatingDock = () => {
                             {isClientProfile ? (
                                 <>
                                     <DockItem mouseX={mouseX} isMobile={isMobile} icon={Home} label={t("الرئيسية", "Home")} onClick={() => navigate("/")} theme={dockTheme} compact={isCompactProfileDock} />
-                                    {orderedProfileTabs.map(item => (
-                                        <DockItem mouseX={mouseX} isMobile={isMobile}
-                                            key={item.id}
-                                            icon={item.icon}
-                                            label={item.label}
-                                            description={`Open the ${item.label.toLowerCase()} section inside your client portal.`}
-                                            onClick={() => triggerProfileDockAction(item.id)}
-                                            isActive={item.id === currentClientTab}
-                                            theme={dockTheme}
-                                            compact={isCompactProfileDock}
-                                        />
-                                    ))}
                                     <DockItem mouseX={mouseX} isMobile={isMobile}
                                         icon={DollarSign}
                                         label={t("الخطط والأسعار", "Plans & Pricing")}

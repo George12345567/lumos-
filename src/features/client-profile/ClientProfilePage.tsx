@@ -22,7 +22,6 @@ import { adaptNotification, adaptOrder, adaptAsset } from './adapters';
 import { SidebarNav, MobileTabBar } from './components/SidebarNav';
 import { ProfileHero } from './sections/ProfileHero';
 import { OverviewSection } from './sections/OverviewSection';
-import { BrandStudioSection } from './sections/BrandStudioSection';
 import { LibrarySection } from './sections/LibrarySection';
 import { MessagesSection } from './sections/MessagesSection';
 import { AccountSection } from './sections/AccountSection';
@@ -42,18 +41,51 @@ export default function ClientProfilePage() {
   const { profile, setField, loading } = useClientProfile();
   const { state: saveState, queue } = useProfileMutation();
   const { tab, setTab } = useProfileTab();
-  const { messages, designs, assets, deleteDesign, optimisticAddMessage, sendMessage, reload: reloadPortal, loading: portalLoading, error: portalError } = usePortalData(client?.id);
-  const { orders, loading: ordersLoading } = useOrders(client?.id);
+  const {
+    messages,
+    designs,
+    assets,
+    deleteDesign,
+    optimisticAddMessage,
+    sendMessage,
+    reload: reloadPortal,
+  } = usePortalData(client?.id);
+  const { orders } = useOrders(client?.id);
   const { notifications } = useNotifications(client?.id);
 
   const adaptedOrders = useMemo(() => orders.map(adaptOrder), [orders]);
   const adaptedAssets = useMemo(() => assets.map(adaptAsset), [assets]);
   const adaptedNotifications = useMemo(() => notifications.map(adaptNotification), [notifications]);
 
+  // Stats: derived strictly from real data (no faking).
+  const activeProjects = useMemo(
+    () =>
+      orders.filter((o) => {
+        const s = (o.status || '').toLowerCase();
+        return s === 'pending' || s === 'reviewing' || s === 'approved' || s === 'in_progress';
+      }).length,
+    [orders],
+  );
+
+  // `client_messages` doesn't carry an is_read column, so use unread admin
+  // notifications (which do) as the closest honest proxy for "fresh updates".
+  const unreadMessages = useMemo(
+    () => adaptedNotifications.filter((n) => !n.is_read).length,
+    [adaptedNotifications],
+  );
+
+  const nextDelivery = useMemo(() => {
+    const upcoming = orders
+      .map((o) => o.estimated_delivery)
+      .filter((d): d is string => !!d)
+      .sort();
+    return upcoming[0];
+  }, [orders]);
+
   useEffect(() => {
     if (authLoading) return;
     // Only redirect to login when there's no Supabase session at all.
-    // A transient profile-fetch failure should NOT log the user out.
+    // A transient profile-fetch failure must NOT log the user out.
     if (!isAuthenticated) navigate('/client-login', { replace: true });
   }, [authLoading, isAuthenticated, navigate]);
 
@@ -70,8 +102,6 @@ export default function ClientProfilePage() {
     );
   }
 
-  // Authenticated but no profile available: show a friendly empty/error state
-  // with a retry, instead of forcing logout.
   if (isAuthenticated && (!client || !profile)) {
     return (
       <div className="min-h-screen bg-slate-50" dir={isArabic ? 'rtl' : 'ltr'}>
@@ -82,16 +112,16 @@ export default function ClientProfilePage() {
               <AlertTriangle className="h-6 w-6" />
             </div>
             <h2 className="text-lg font-bold text-slate-900">
-              {isArabic ? 'تعذر تحميل ملفك الشخصي' : 'We couldn’t load your profile'}
+              {isArabic ? 'تعذّر تحميل ملفك الشخصي' : 'We couldn’t load your profile'}
             </h2>
             <p className="mt-2 text-sm text-slate-500">
               {profileError
-                ? (isArabic
-                    ? 'حدث خطأ أثناء جلب البيانات. أعد المحاولة، أو تواصل مع الدعم إذا استمرت المشكلة.'
-                    : 'Something went wrong fetching your data. Try again, or contact support if it keeps happening.')
-                : (isArabic
-                    ? 'لم نعثر على ملف عميل لحسابك بعد.'
-                    : 'No client profile is linked to your account yet.')}
+                ? isArabic
+                  ? 'حدث خطأ أثناء جلب البيانات. أعد المحاولة، أو تواصل مع الدعم إذا استمرت المشكلة.'
+                  : 'Something went wrong fetching your data. Try again, or contact support if it keeps happening.'
+                : isArabic
+                  ? 'لم نعثر على ملف عميل لحسابك بعد.'
+                  : 'No client profile is linked to your account yet.'}
             </p>
             <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-center">
               <button
@@ -103,7 +133,10 @@ export default function ClientProfilePage() {
               </button>
               <button
                 type="button"
-                onClick={async () => { await logout(); navigate('/client-login', { replace: true }); }}
+                onClick={async () => {
+                  await logout();
+                  navigate('/client-login', { replace: true });
+                }}
                 className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
               >
                 {isArabic ? 'تسجيل الخروج' : 'Sign out'}
@@ -145,18 +178,18 @@ export default function ClientProfilePage() {
           onUpdate={update}
           isArabic={isArabic}
           isVerified={client.is_verified}
-          notifications={adaptedNotifications}
-          stats={{
-            orders: orders.length,
-            messages: messages.filter((m) => m.sender === 'team').length,
-            progress: client.progress ?? 0,
-          }}
         />
 
         <MobileTabBar active={tab} onChange={setTab} accent={accent} isArabic={isArabic} />
 
-        <div className="mt-4 flex gap-5 lg:mt-6">
-          <SidebarNav active={tab} onChange={setTab} accent={accent} isArabic={isArabic} />
+        <div className="mt-5 flex gap-5 lg:mt-6">
+          <SidebarNav
+            active={tab}
+            onChange={setTab}
+            onSignOut={handleSignOut}
+            accent={accent}
+            isArabic={isArabic}
+          />
 
           <div className="min-w-0 flex-1">
             {tab === 'overview' && (
@@ -177,11 +210,19 @@ export default function ClientProfilePage() {
                 nextSteps={client.next_steps}
                 accent={accent}
                 onUpdate={update}
+                onEditAccount={() => setTab('account')}
                 isArabic={isArabic}
+                stats={{
+                  activeProjects,
+                  unreadMessages,
+                  progress: client.progress ?? 0,
+                  nextDelivery,
+                }}
+                recentActivity={adaptedNotifications}
               />
             )}
 
-            {tab === 'orders' && (
+            {tab === 'projects' && (
               <OrderTrackingSection
                 orders={adaptedOrders}
                 accent={accent}
@@ -201,16 +242,7 @@ export default function ClientProfilePage() {
               />
             )}
 
-            {tab === 'brand' && (
-              <BrandStudioSection
-                clientId={client.id}
-                profile={profile}
-                accent={accent}
-                onUpdate={update}
-              />
-            )}
-
-            {tab === 'library' && (
+            {tab === 'files' && (
               <LibrarySection
                 designs={designs}
                 assets={adaptedAssets}
@@ -222,6 +254,7 @@ export default function ClientProfilePage() {
 
             {tab === 'account' && (
               <AccountSection
+                clientId={client.id}
                 clientInfo={{
                   email: client.email,
                   phone_number: client.phone_number,

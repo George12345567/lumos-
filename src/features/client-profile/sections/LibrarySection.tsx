@@ -50,9 +50,13 @@ export function LibrarySection({ designs, assets, onDeleteDesign, accent, isArab
   const previewUrl = (d: SavedDesign) =>
     `/demo?name=${encodeURIComponent(d.business_name)}&service=${encodeURIComponent(d.service_type)}&theme=${encodeURIComponent(d.selected_theme || '')}&template=${encodeURIComponent(d.selected_template || '')}&dark=${d.is_dark_mode}`;
 
+  const sharedEmptyCopy = isArabic
+    ? 'سيظهر أي ملف تشاركه أو يشاركه فريق Lumos هنا.'
+    : 'Files shared by you or Lumos will appear here.';
+
   return (
     <div className="space-y-5" dir={isArabic ? 'rtl' : 'ltr'}>
-      <Card icon={Folder} title={isArabic ? 'التصميمات' : 'Designs'} description={`${designs.length} ${isArabic ? 'تصميم محفوظ' : 'saved design'}${designs.length === 1 ? '' : isArabic ? '' : 's'}`}>
+      <Card icon={Folder} title={isArabic ? 'تصميماتي' : 'My Designs'} description={`${designs.length} ${isArabic ? 'تصميم محفوظ' : 'saved design'}${designs.length === 1 ? '' : isArabic ? '' : 's'}`}>
         <div className="relative mb-3">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
           <input
@@ -118,12 +122,12 @@ export function LibrarySection({ designs, assets, onDeleteDesign, accent, isArab
       <Card
         icon={Shield}
         title={isArabic ? 'الملفات المشتركة' : 'Shared Files'}
-        description={isArabic ? 'ملفات ووثائق شاركها فريق لوموس معك' : 'Files and documents shared by the Lumos team with you'}
+        description={isArabic ? 'ملفات ووثائق شاركها فريق Lumos معك.' : 'Files and documents shared with you by the Lumos team.'}
       >
         {assets.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-slate-200 bg-slate-50/50 py-8 text-center">
             <FileIcon className="h-6 w-6 text-slate-300" />
-            <p className="text-sm text-slate-500">{isArabic ? 'لم يتم مشاركة ملفات بعد' : 'No files have been shared yet.'}</p>
+            <p className="text-sm text-slate-500">{sharedEmptyCopy}</p>
           </div>
         ) : (
           <ul className="divide-y divide-slate-100">
@@ -159,16 +163,21 @@ export function LibrarySection({ designs, assets, onDeleteDesign, accent, isArab
                       </span>
                     </div>
                   </div>
-                  <a
-                    href={a.asset_url || '#'}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 shadow-sm transition hover:border-slate-300 hover:text-slate-800"
-                    style={{ color: undefined }}
-                  >
-                    <Download className="h-3.5 w-3.5" />
-                    {isArabic ? 'تحميل' : 'Download'}
-                  </a>
+                  {a.asset_url ? (
+                    <a
+                      href={a.asset_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 shadow-sm transition hover:border-slate-300 hover:text-slate-800"
+                    >
+                      <Download className="h-3.5 w-3.5" />
+                      {isArabic ? 'تحميل' : 'Download'}
+                    </a>
+                  ) : (
+                    <span className="text-[11px] text-slate-400">
+                      {isArabic ? 'الرابط غير متاح' : 'No link'}
+                    </span>
+                  )}
                 </li>
               );
             })}

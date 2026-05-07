@@ -21,7 +21,8 @@
       "Bash(supabase --version)",
       "Bash(npm audit *)",
       "Bash(cp package.json /tmp/package.json.bak)",
-      "Bash(cp package-lock.json /tmp/package-lock.json.bak)"
+      "Bash(cp package-lock.json /tmp/package-lock.json.bak)",
+      "Bash(xargs -I {} ls \"D:/my web lumos/LAST LUMOS PROCECC/supabase/migrations/\")"
     ]
   }
 }

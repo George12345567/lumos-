@@ -1,11 +1,15 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { TABS, type TabId } from '../constants';
+import { TABS, TAB_ALIASES, type TabId } from '../constants';
 
 const VALID_IDS = new Set<TabId>(TABS.map((t) => t.id));
 
 function parseTab(value: string | null): TabId {
-  if (value && VALID_IDS.has(value as TabId)) return value as TabId;
+  if (!value) return 'overview';
+  if (VALID_IDS.has(value as TabId)) return value as TabId;
+  // Fold legacy ids like ?tab=orders / ?tab=library / ?tab=brand onto the new tabs.
+  const aliased = TAB_ALIASES[value];
+  if (aliased) return aliased;
   return 'overview';
 }
 

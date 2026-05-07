@@ -64,7 +64,7 @@ export function OrderTrackingSection({ orders, accent, isArabic }: Props) {
     <div className="space-y-4">
       <Card
         icon={Filter}
-        title={isArabic ? 'تصفية الطلبات' : 'Filter Orders'}
+        title={isArabic ? 'تصفية المشاريع' : 'Filter Projects'}
         className="!py-3"
       >
         <div className="flex flex-wrap gap-2">
@@ -90,7 +90,13 @@ export function OrderTrackingSection({ orders, accent, isArabic }: Props) {
         <div className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-slate-200 bg-slate-50/50 py-12 text-center">
           <Package className="h-8 w-8 text-slate-300" />
           <p className="text-sm text-slate-500">
-            {isArabic ? 'لا توجد طلبات تطابق هذا التص-filter.' : 'No orders match this filter.'}
+            {orders.length === 0
+              ? isArabic
+                ? 'ستظهر مشاريعك هنا بمجرد بدء فريق Lumos العمل معك.'
+                : 'Your projects will appear here once Lumos starts working with you.'
+              : isArabic
+                ? 'لا توجد مشاريع تطابق هذا الفلتر.'
+                : 'No projects match this filter.'}
           </p>
         </div>
       )}
@@ -178,7 +184,7 @@ export function OrderTrackingSection({ orders, accent, isArabic }: Props) {
 
                 <div className="mb-5">
                   <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                    {isArabic ? 'تفاصيل الطلب' : 'Order Details'}
+                    {isArabic ? 'تفاصيل المشروع' : 'Project Details'}
                   </h4>
                   <div className="overflow-hidden rounded-xl border border-slate-200/70">
                     <table className="w-full text-sm">

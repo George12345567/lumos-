@@ -1,8 +1,11 @@
 import { useState } from 'react';
-import { Mail, Phone, Globe, Building2, MapPin, Clock, Eye, Shield, LogOut, ChevronDown, Pencil, Check, X as XIcon, AlertTriangle, Briefcase } from 'lucide-react';
+import { Mail, Phone, Globe, Building2, MapPin, Eye, Shield, LogOut, ChevronDown, Pencil, Check, X as XIcon, AlertTriangle, Briefcase, Palette, Image as ImageIcon, Share2 } from 'lucide-react';
 import { Card } from '../components/Card';
-import { PRESET_TIMEZONES, PROFILE_VISIBILITY_OPTIONS } from '../constants';
+import { ImageUpload } from '../components/ImageUpload';
+import { ColorPicker } from '../components/ColorPicker';
+import { PRESET_TIMEZONES, PROFILE_VISIBILITY_OPTIONS, STORAGE_PATHS } from '../constants';
 import { isE164, normalizeWebsiteUrl, notDisposable } from '@/lib/validation';
+import type { ProfileData as FullProfileData, SocialLinks } from '@/services/profileService';
 
 /** Returns null if valid, otherwise an error message. Empty input is allowed. */
 function validateField(
@@ -57,17 +60,7 @@ function normalizeField(kind: 'email' | 'phone' | 'website' | 'name' | 'company'
   return trimmed;
 }
 
-interface ProfileData {
-  display_name?: string;
-  tagline?: string;
-  bio?: string;
-  website?: string;
-  location?: string;
-  timezone?: string;
-  theme_accent?: string;
-  brand_colors?: string[];
-  profile_visibility?: string;
-}
+type ProfileData = FullProfileData;
 
 interface ClientInfo {
   email?: string;
@@ -79,6 +72,7 @@ interface ClientInfo {
 }
 
 interface Props {
+  clientId: string;
   clientInfo: ClientInfo;
   profile: ProfileData;
   onUpdate: <K extends keyof ProfileData>(field: K, value: ProfileData[K]) => void;
@@ -87,6 +81,15 @@ interface Props {
   accent: string;
   isArabic?: boolean;
 }
+
+const SOCIAL_FIELDS: { key: keyof SocialLinks; label: string; placeholder: string }[] = [
+  { key: 'twitter', label: 'Twitter / X', placeholder: 'https://x.com/yourbrand' },
+  { key: 'instagram', label: 'Instagram', placeholder: 'https://instagram.com/yourbrand' },
+  { key: 'linkedin', label: 'LinkedIn', placeholder: 'https://linkedin.com/company/yourbrand' },
+  { key: 'behance', label: 'Behance', placeholder: 'https://behance.net/yourbrand' },
+  { key: 'dribbble', label: 'Dribbble', placeholder: 'https://dribbble.com/yourbrand' },
+  { key: 'github', label: 'GitHub', placeholder: 'https://github.com/yourbrand' },
+];
 
 interface EditableFieldInlineProps {
   value: string;
@@ -195,7 +198,18 @@ function CollapsibleSection({ title, titleAr, icon: Icon, defaultOpen = false, c
   );
 }
 
-export function AccountSection({ clientInfo, profile, onUpdate, onSignOut, hasSecurityQuestion, accent, isArabic }: Props) {
+export function AccountSection({ clientId, clientInfo, profile, onUpdate, onSignOut, hasSecurityQuestion, accent, isArabic }: Props) {
+  const updateSocial = (key: keyof SocialLinks, value: string) => {
+    const next: SocialLinks = { ...(profile.social_links || {}) };
+    const trimmed = value.trim();
+    if (trimmed) {
+      next[key] = trimmed;
+    } else {
+      delete next[key];
+    }
+    onUpdate('social_links', next);
+  };
+
   return (
     <div className="space-y-4" dir={isArabic ? 'rtl' : 'ltr'}>
       <Card title={isArabic ? 'معلومات الحساب' : 'Account Information'}>
@@ -204,14 +218,10 @@ export function AccountSection({ clientInfo, profile, onUpdate, onSignOut, hasSe
             <div className="mb-1 flex items-center gap-1.5 text-xs font-medium text-slate-500">
               <Mail className="h-3.5 w-3.5" /> {isArabic ? 'البريد الإلكتروني' : 'Email'}
             </div>
-            <EditableFieldInline
-              value={clientInfo.email || ''}
-              onSave={(v) => onUpdate('email' as never, v)}
-              isArabic={isArabic}
-              type="email"
-              validate={(v) => validateField('email', v, isArabic)}
-              normalize={(v) => normalizeField('email', v)}
-            />
+            {/* Email is the auth identifier — must be changed via support, not in-app. */}
+            <span className="text-sm text-slate-700 break-all">
+              {clientInfo.email || <span className="text-slate-400">—</span>}
+            </span>
           </div>
           <div className="rounded-xl border border-slate-100 bg-slate-50/50 p-3">
             <div className="mb-1 flex items-center gap-1.5 text-xs font-medium text-slate-500">
@@ -329,6 +339,58 @@ export function AccountSection({ clientInfo, profile, onUpdate, onSignOut, hasSe
                 className="h-9 w-9 cursor-pointer rounded-lg border border-slate-200"
               />
               <span className="text-sm text-slate-600">{profile.theme_accent || accent}</span>
+            </div>
+          </div>
+        </div>
+      </CollapsibleSection>
+
+      <CollapsibleSection title="Brand details" titleAr="تفاصيل الهوية" icon={Palette} accent={accent} isArabic={isArabic}>
+        <div className="space-y-5">
+          <div>
+            <h4 className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
+              <ImageIcon className="h-3.5 w-3.5" /> {isArabic ? 'الشعار' : 'Logo'}
+            </h4>
+            <ImageUpload
+              clientId={clientId}
+              pathPrefix={STORAGE_PATHS.logo}
+              currentUrl={profile.logo_url}
+              onChange={(url) => onUpdate('logo_url', url)}
+              onClear={() => onUpdate('logo_url', '')}
+              label={isArabic ? 'شعار العلامة التجارية' : 'Brand logo'}
+              shape="square"
+              size={88}
+            />
+          </div>
+
+          <div>
+            <h4 className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
+              <Palette className="h-3.5 w-3.5" /> {isArabic ? 'ألوان العلامة' : 'Brand colors'}
+            </h4>
+            <ColorPicker
+              colors={profile.brand_colors || []}
+              onChange={(next) => onUpdate('brand_colors', next)}
+              accent={accent}
+              onAccentChange={(next) => onUpdate('theme_accent', next)}
+            />
+          </div>
+
+          <div>
+            <h4 className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
+              <Share2 className="h-3.5 w-3.5" /> {isArabic ? 'روابط التواصل' : 'Social links'}
+            </h4>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {SOCIAL_FIELDS.map((f) => (
+                <label key={f.key} className="flex flex-col gap-1">
+                  <span className="text-xs font-medium text-slate-500">{f.label}</span>
+                  <input
+                    type="url"
+                    defaultValue={profile.social_links?.[f.key] || ''}
+                    placeholder={f.placeholder}
+                    onBlur={(e) => updateSocial(f.key, e.target.value)}
+                    className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-100"
+                  />
+                </label>
+              ))}
             </div>
           </div>
         </div>

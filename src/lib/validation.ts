@@ -387,6 +387,77 @@ export const resetPasswordSchema = z
 
 export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
 
+// ─── Invite Onboarding Schema ──────────────────────────────────────
+// Used by /invite-onboarding when an admin-invited user completes their
+// account. Mirrors signup field rules but only asks for what's strictly
+// required to activate the client profile.
+
+export const inviteOnboardingSchema = z
+  .object({
+    username: z
+      .string({ required_error: "username.required" })
+      .trim()
+      .toLowerCase()
+      .min(3, { message: "username.too_short" })
+      .max(20, { message: "username.too_long" })
+      .regex(/^[a-z][a-z0-9_-]{2,19}$/, { message: "username.invalid_format" })
+      .refine(notReserved, { message: "username.reserved" }),
+
+    contactName: z
+      .string({ required_error: "full_name.invalid" })
+      .trim()
+      .refine(isValidFullName, { message: "full_name.invalid" }),
+
+    companyName: z
+      .string({ required_error: "company_name.invalid" })
+      .trim()
+      .refine(isValidCompanyName, { message: "company_name.invalid" }),
+
+    phone: z
+      .string({ required_error: "phone.invalid" })
+      .trim()
+      .min(1, { message: "phone.invalid" })
+      .refine((v) => isE164(v), { message: "phone.invalid" }),
+
+    website: z
+      .string()
+      .optional()
+      .refine(
+        (v) => {
+          if (!v || !v.trim()) return true;
+          return normalizeWebsiteUrl(v) !== null;
+        },
+        { message: "website.invalid" },
+      ),
+
+    industry: z
+      .string()
+      .optional()
+      .refine((v) => !v || v === "" || INDUSTRY_OPTIONS.map((o) => o.value).includes(v), {
+        message: "industry.invalid",
+      }),
+
+    projectSummary: z
+      .string()
+      .optional()
+      .refine((v) => !v || v.trim().length <= 500, { message: "project_summary.too_long" }),
+
+    newPassword: z
+      .string({ required_error: "password.required" })
+      .min(8, { message: "password.min_length" })
+      .refine(isStrongPassword, { message: "password.too_weak" }),
+
+    confirmNewPassword: z
+      .string({ required_error: "password.confirm_required" })
+      .min(1, { message: "password.confirm_required" }),
+  })
+  .refine((data) => data.newPassword === data.confirmNewPassword, {
+    message: "password.mismatch",
+    path: ["confirmNewPassword"],
+  });
+
+export type InviteOnboardingInput = z.infer<typeof inviteOnboardingSchema>;
+
 // ─── Password rules for UI checklist ─────────────────────────────
 
 export interface PwdRule {

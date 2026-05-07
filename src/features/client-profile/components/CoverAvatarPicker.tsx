@@ -11,8 +11,14 @@ interface Props {
   isArabic?: boolean;
   onAvatarSelect: (url: string) => void;
   onCoverSelect: (gradient: string) => void;
+  /** @deprecated use onAvatarFile — kept for backwards-compat with the test view. */
   onAvatarUpload: (url: string) => void;
+  /** @deprecated use onCoverFile — kept for backwards-compat with the test view. */
   onCoverUpload: (url: string) => void;
+  /** Called with the raw File so the parent can do a real Supabase upload. */
+  onAvatarFile?: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  /** Called with the raw File so the parent can do a real Supabase upload. */
+  onCoverFile?: (e: React.ChangeEvent<HTMLInputElement>) => void;
 }
 
 type Tab = 'avatar' | 'cover';
@@ -28,6 +34,8 @@ export function CoverAvatarPicker({
   onCoverSelect,
   onAvatarUpload,
   onCoverUpload,
+  onAvatarFile,
+  onCoverFile,
 }: Props) {
   const [tab, setTab] = useState<Tab>('avatar');
   const [avatarMode, setAvatarMode] = useState<'presets' | 'upload'>('presets');
@@ -38,6 +46,12 @@ export function CoverAvatarPicker({
   if (!open) return null;
 
   const handleAvatarFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (onAvatarFile) {
+      onAvatarFile(e);
+      return;
+    }
+    // Legacy preview-only path (used by ClientProfileTestView): create a local
+    // blob URL for visual preview without persisting anywhere.
     const file = e.target.files?.[0];
     if (!file) return;
     const url = URL.createObjectURL(file);
@@ -46,6 +60,10 @@ export function CoverAvatarPicker({
   };
 
   const handleCoverFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (onCoverFile) {
+      onCoverFile(e);
+      return;
+    }
     const file = e.target.files?.[0];
     if (!file) return;
     const url = URL.createObjectURL(file);

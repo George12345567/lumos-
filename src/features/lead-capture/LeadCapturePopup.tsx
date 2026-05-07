@@ -35,7 +35,7 @@ const LeadCapturePopup = () => {
   const { isArabic, t } = useLanguage();
 
   // Pages where the popup should NOT appear
-  const blockedPaths = ['/profile', '/lumos-admin', '/client-login', '/client-signup', '/forgot-password'];
+  const blockedPaths = ['/profile', '/lumos-admin', '/client-login', '/client-signup', '/forgot-password', '/reset-password', '/invite-onboarding'];
   const isBlockedPage = blockedPaths.some(p => routeLocation.pathname.startsWith(p));
 
   useEffect(() => {

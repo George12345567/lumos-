@@ -5,7 +5,6 @@ import type { TabId } from './constants';
 import { SidebarNav, MobileTabBar } from './components/SidebarNav';
 import { ProfileHero } from './sections/ProfileHero';
 import { OverviewSection } from './sections/OverviewSection';
-import { BrandStudioSection } from './sections/BrandStudioSection';
 import { LibrarySection } from './sections/LibrarySection';
 import { MessagesSection } from './sections/MessagesSection';
 import { AccountSection } from './sections/AccountSection';
@@ -66,18 +65,12 @@ export default function ClientProfileTestView() {
           onUpdate={update}
           isArabic={isArabic}
           isVerified={MOCK_CLIENT.is_verified}
-          notifications={MOCK_ADMIN_NOTIFICATIONS}
-          stats={{
-            orders: MOCK_ORDERS.length,
-            messages: messages.filter((m) => m.sender === 'team').length,
-            progress: MOCK_CLIENT.progress,
-          }}
         />
 
         <MobileTabBar active={tab} onChange={setTab} accent={accent} isArabic={isArabic} />
 
         <div className="mt-4 flex gap-5 lg:mt-6">
-          <SidebarNav active={tab} onChange={setTab} accent={accent} isArabic={isArabic} />
+          <SidebarNav active={tab} onChange={setTab} onSignOut={() => {}} accent={accent} isArabic={isArabic} />
 
           <div className="min-w-0 flex-1">
             {tab === 'overview' && (
@@ -98,11 +91,19 @@ export default function ClientProfileTestView() {
                 nextSteps={MOCK_CLIENT.next_steps}
                 accent={accent}
                 onUpdate={update}
+                onEditAccount={() => setTab('account')}
                 isArabic={isArabic}
+                stats={{
+                  activeProjects: MOCK_ORDERS.length,
+                  unreadMessages: MOCK_ADMIN_NOTIFICATIONS.filter((n) => !n.is_read).length,
+                  progress: MOCK_CLIENT.progress,
+                  nextDelivery: MOCK_ORDERS[0]?.estimated_delivery,
+                }}
+                recentActivity={MOCK_ADMIN_NOTIFICATIONS}
               />
             )}
 
-            {tab === 'orders' && (
+            {tab === 'projects' && (
               <OrderTrackingSection
                 orders={MOCK_ORDERS}
                 accent={accent}
@@ -120,16 +121,7 @@ export default function ClientProfileTestView() {
               />
             )}
 
-            {tab === 'brand' && (
-              <BrandStudioSection
-                clientId={MOCK_CLIENT.id}
-                profile={profile}
-                accent={accent}
-                onUpdate={update}
-              />
-            )}
-
-            {tab === 'library' && (
+            {tab === 'files' && (
               <LibrarySection
                 designs={MOCK_DESIGNS}
                 assets={MOCK_ASSETS}
@@ -141,6 +133,7 @@ export default function ClientProfileTestView() {
 
             {tab === 'account' && (
               <AccountSection
+                clientId={MOCK_CLIENT.id}
                 clientInfo={{
                   email: MOCK_CLIENT.email,
                   phone_number: MOCK_CLIENT.phone_number,
