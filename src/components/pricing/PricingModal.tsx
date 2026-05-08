@@ -36,6 +36,7 @@ import { toast } from 'sonner';
 import type { PricingRequest } from '@/types/dashboard';
 import { useLanguage } from '@/context/LanguageContext';
 import { AnimatedPrice, isValidPhoneNumber, slide } from '@/components/pricing/pricingHelpers';
+import { RequestStatusTimeline } from '@/components/requests/RequestStatusTimeline';
 
 
 // ── Types ──────────────────────────────────────────────────────────
@@ -248,6 +249,7 @@ const PricingModal = ({ open, onOpenChange, initialRequest = null }: PricingModa
   const [isTrackingView, setIsTrackingView] = useState(false);
   const [isEditingMode, setIsEditingMode] = useState(false);
   const [isCopying, setIsCopying] = useState(false);
+  const [showGuestAccessCode, setShowGuestAccessCode] = useState(false);
   const [requestEditCount, setRequestEditCount] = useState<Record<string, number>>({});
 
   /* ── Validation States ── */
@@ -2459,31 +2461,13 @@ const PricingModal = ({ open, onOpenChange, initialRequest = null }: PricingModa
                   const isGuestResult = Boolean(guestTrackingResult || isTrackingMode);
                   const canEdit = ['new', 'reviewing'].includes(currentStatus) && remainingEdits > 0 && !isGuestResult;
                   const canCancel = ['new', 'reviewing'].includes(currentStatus) && !isGuestResult;
-                  
-                  const getStepStatus = (stepName: string) => {
-                    const statusOrder = ['new', 'reviewing', 'approved', 'converted'];
-                    const currentIdx = statusOrder.indexOf(currentStatus);
-                    const stepIdx = statusOrder.indexOf(stepName);
-                    
-                    if (currentStatus === 'rejected') {
-                      if (stepIdx <= 1) return 'completed';
-                      return 'pending';
-                    }
-                    if (currentStatus === 'cancelled') {
-                      return stepName === 'new' ? 'completed' : 'pending';
-                    }
-                    
-                    if (stepIdx < currentIdx) return 'completed';
-                    if (stepIdx === currentIdx) return 'current';
-                    return 'pending';
-                  };
-
-                  const timelineSteps = [
-                    { key: 'new', label: isAr ? 'تم استلام الطلب' : 'Order Received', subLabel: isAr ? 'تم تسجيل طلبك بنجاح' : 'Your order has been registered' },
-                    { key: 'reviewing', label: isAr ? 'جاري المراجعة' : 'Under Review', subLabel: isAr ? 'الفريق يفحص تفاصيل طلبك' : 'Team is reviewing your details' },
-                    { key: 'approved', label: isAr ? 'تأكيد وبدء العمل' : 'Approved & Started', subLabel: isAr ? 'تم اعتماد الطلب وسيبدأ العمل' : 'Order approved, work begins soon' },
-                    { key: 'converted', label: isAr ? 'تسليم المشروع' : 'Project Delivery', subLabel: isAr ? 'سيتم تسليم المشروع النهائي' : 'Final project will be delivered' },
-                  ];
+                  const successServices = guestTrackingResult?.request.selected_services
+                    || ((currentRequest as PricingRequest | null)?.selected_services)
+                    || totals.items
+                    || [];
+                  const maskedTrackingKey = guestTrackingResult?.trackingKey
+                    ? `${guestTrackingResult.trackingKey.slice(0, 16)}••••••••`
+                    : '';
 
                   return (
                     <motion.div 
@@ -2503,8 +2487,16 @@ const PricingModal = ({ open, onOpenChange, initialRequest = null }: PricingModa
                           <CheckCircle2 className="w-8 h-8 text-emerald-600" />
                         </motion.div>
                         <h2 className="text-2xl sm:text-3xl font-black text-slate-900 mb-2">
-                          {isAr ? 'طلبك في أمان!' : 'Your Order is Safe!'}
+                          {isAr ? 'تم استلام طلبك بنجاح' : 'Your request has been received'}
                         </h2>
+                        <p className="mx-auto mb-3 max-w-md text-sm font-semibold leading-6 text-slate-500">
+                          {isAr
+                            ? 'طلبك وصل. حفظنا الخدمات اللي اخترتها وجهزنا لك رابط آمن لتتبع الطلب.'
+                            : "Your request is in. We've saved your selected services and created a secure guest access link."}
+                        </p>
+                        <p className="mb-3 text-sm font-bold text-emerald-700">
+                          {isAr ? 'فريقنا هيراجع الطلب قريبًا.' : 'Our team will review it soon.'}
+                        </p>
                         <p className="text-slate-400 text-sm font-medium flex items-center justify-center gap-1">
                           <span>{isAr ? 'رقم الفاتورة: ' : 'Invoice: '}</span>
                           <span className="font-mono text-slate-600">{invoiceNumber || 'N/A'}</span>
@@ -2526,98 +2518,67 @@ const PricingModal = ({ open, onOpenChange, initialRequest = null }: PricingModa
                       </div>
 
                       {/* ════ MIDDLE SECTION: TIMELINE ════ */}
-                      <div className="relative mb-8">
-                        {timelineSteps.map((step, idx) => {
-                          const status = getStepStatus(step.key);
-                          const isLast = idx === timelineSteps.length - 1;
-                          
-                          return (
-                            <div key={step.key} className="flex gap-4">
-                              <div className="flex flex-col items-center">
-                                <motion.div 
-                                  className={`w-5 h-5 rounded-full border-2 z-10 ${
-                                    status === 'completed' 
-                                      ? 'bg-emerald-500 border-emerald-500' 
-                                      : status === 'current'
-                                        ? 'bg-purple-500 border-purple-500 animate-pulse'
-                                        : 'bg-white border-slate-300'
-                                  }`}
-                                  animate={status === 'current' ? { scale: [1, 1.2, 1] } : {}}
-                                  transition={{ repeat: Infinity, duration: 1.5 }}
-                                >
-                                  {status === 'completed' && <Check className="w-3 h-3 text-white m-0.5" />}
-                                </motion.div>
-                                {!isLast && (
-                                  <div className={`w-0.5 h-12 ${status === 'completed' ? 'bg-emerald-400' : 'bg-slate-200'}`} />
-                                )}
-                              </div>
-                              <div className="pb-6">
-                                <p className={`text-sm font-bold ${status === 'pending' ? 'text-slate-400' : 'text-slate-800'}`}>
-                                  {step.label}
-                                </p>
-                                <p className={`text-xs ${status === 'pending' ? 'text-slate-300' : 'text-slate-500'}`}>
-                                  {step.subLabel}
-                                </p>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
+                      <RequestStatusTimeline
+                        status={currentStatus}
+                        status_history={(currentRequest as PricingRequest | GuestTrackedRequest | null)?.status_history}
+                        mode="compact"
+                        animated
+                        className="mb-8"
+                      />
 
-                      {/* ════ BOTTOM SECTION: ORDER SUMMARY CARD ════ */}
-                      <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 mb-6">
-                        <div className="grid grid-cols-2 gap-4">
+                      {/* ════ BOTTOM SECTION: REQUEST SUMMARY ════ */}
+                      <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 mb-4">
+                        <div className="flex items-start justify-between gap-4">
                           <div>
                             <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">
-                              {isAr ? 'الباقة' : 'Package'}
+                              {isAr ? 'الخدمات المختارة' : 'Selected services'}
                             </p>
-                            <p className="font-bold text-slate-800">{isTrackingMode ? savedPendingRequest?.packageName : (selectedPkg ? Object.values(PACKAGES).find(p => p.id === selectedPkg)?.nameEn : (isAr ? 'باقة مخصصة' : 'Custom Plan'))}</p>
-                          </div>
-                          <div>
-                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">
-                              {isAr ? 'المبلغ الإجمالي' : 'Total Amount'}
-                            </p>
-                            <p className="font-bold text-slate-800">
-                              {(isTrackingMode ? savedPendingRequest?.estimatedTotal : totals.total)?.toLocaleString()} {isTrackingMode ? savedPendingRequest?.currency : currency}
+                            <p className="text-sm font-semibold text-slate-600">
+                              {isAr ? 'الخدمات دي اتحفظت مع الطلب.' : 'These services were saved with your request.'}
                             </p>
                           </div>
-                          {contact.phone && (
-                            <div className="col-span-2">
-                              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">
-                                {isAr ? 'رقم الهاتف' : 'Phone'}
-                              </p>
-                              <p className="font-bold text-slate-800">{contact.phone}</p>
-                            </div>
-)}
+                          <p className="shrink-0 rounded-full bg-white px-3 py-1 text-[10px] font-black text-emerald-700 shadow-sm">
+                            {successServices.length} {isAr ? 'خدمة' : 'services'}
+                          </p>
+                        </div>
+                        <div className="mt-4 flex flex-wrap gap-2">
+                          {successServices.length === 0 ? (
+                            <span className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-500">
+                              {isAr ? 'باقة مخصصة' : 'Custom plan'}
+                            </span>
+                          ) : successServices.slice(0, 8).map((service) => (
+                            <span
+                              key={service.id}
+                              className="rounded-full border border-emerald-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-800 shadow-sm"
+                            >
+                              {isAr ? service.nameAr || service.name : service.name}
+                            </span>
+                          ))}
+                          {successServices.length > 8 ? (
+                            <span className="rounded-full bg-emerald-100 px-3 py-1.5 text-xs font-black text-emerald-700">
+                              +{successServices.length - 8}
+                            </span>
+                          ) : null}
                         </div>
                       </div>
 
                       {guestTrackingResult && (
                         <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-5 mb-6">
-                          <p className="text-[10px] font-black uppercase tracking-widest text-emerald-700 mb-2">
-                            {isAr ? 'رابط التتبع الآمن' : 'Secure tracking access'}
+                          <p className="text-sm font-black text-emerald-950">
+                            {isAr ? 'احتفظ برابط الدخول. من غير حساب، ده هو الطريق للرجوع للطلب.' : "Save this access link. Without an account, this is how you'll return to your request."}
                           </p>
-                          <div className="space-y-3">
-                            <div>
-                              <p className="text-[10px] font-bold uppercase tracking-widest text-emerald-700/70">
-                                {isAr ? 'كود التتبع' : 'Tracking code'}
-                              </p>
-                              <p className="mt-1 break-all font-mono text-sm font-black text-slate-900">
-                                {guestTrackingResult.trackingKey}
-                              </p>
-                            </div>
-                            <div>
-                              <p className="text-[10px] font-bold uppercase tracking-widest text-emerald-700/70">
-                                {isAr ? 'الرابط' : 'Link'}
-                              </p>
-                              <p className="mt-1 break-all font-mono text-xs text-slate-700">
-                                {guestTrackingResult.trackingUrl}
-                              </p>
-                            </div>
-                            <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800">
-                              {isAr
-                                ? 'احفظ رابط التتبع ده. بدون تحقق بالبريد، Lumos لا تستطيع استعادة وصول التتبع تلقائياً.'
-                                : 'Save this tracking link. Without email verification, Lumos cannot recover this guest tracking access automatically.'}
+                          <div className="mt-3 rounded-xl border border-emerald-200 bg-white/70 p-3">
+                            <button
+                              type="button"
+                              onClick={() => setShowGuestAccessCode((value) => !value)}
+                              className="text-[10px] font-black uppercase tracking-widest text-emerald-700 hover:text-emerald-900"
+                            >
+                              {showGuestAccessCode
+                                ? (isAr ? 'إخفاء كود الدخول' : 'Hide access code')
+                                : (isAr ? 'عرض كود الدخول' : 'Show access code')}
+                            </button>
+                            <p className="mt-2 break-all font-mono text-xs font-black text-slate-700">
+                              {showGuestAccessCode ? guestTrackingResult.trackingKey : maskedTrackingKey}
                             </p>
                           </div>
                         </div>
@@ -2657,27 +2618,27 @@ const PricingModal = ({ open, onOpenChange, initialRequest = null }: PricingModa
                         {isGuestResult && (
                           <button
                             onClick={() => {
-                              setIsCopying(true);
-                              navigator.clipboard.writeText(trackingPortalUrl);
-                              setTimeout(() => setIsCopying(false), 1500);
-                              toast.success(isAr ? 'تم نسخ رابط التتبع' : 'Tracking link copied');
+                              window.location.href = trackingPortalUrl;
                             }}
-                            className="h-10 px-5 rounded-full bg-gradient-to-r from-emerald-600 to-teal-600 text-white text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 shadow-md hover:from-emerald-700 hover:to-teal-700"
+                            className="h-11 px-6 rounded-full bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 shadow-lg hover:bg-slate-800"
                           >
-                            {isCopying ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                            {isAr ? 'نسخ رابط التتبع' : 'Copy tracking link'}
+                            <Receipt className="w-3.5 h-3.5" />
+                            {isAr ? 'تتبع وتحكم في طلبك' : 'Track and manage your request'}
                           </button>
                         )}
 
                         {isGuestResult && (
                           <button
                             onClick={() => {
-                              window.location.href = trackingPortalUrl;
+                              setIsCopying(true);
+                              navigator.clipboard.writeText(trackingPortalUrl);
+                              setTimeout(() => setIsCopying(false), 1500);
+                              toast.success(isAr ? 'تم نسخ رابط الدخول' : 'Access link copied');
                             }}
-                            className="h-10 px-5 rounded-full bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 shadow-md hover:bg-slate-800"
+                            className="h-10 px-5 rounded-full bg-white text-slate-700 border border-slate-200 text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 shadow-sm hover:bg-slate-50"
                           >
-                            <Receipt className="w-3.5 h-3.5" />
-                            {isAr ? 'فتح التتبع' : 'Track request'}
+                            {isCopying ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                            {isAr ? 'نسخ رابط الدخول' : 'Copy tracking access link'}
                           </button>
                         )}
 

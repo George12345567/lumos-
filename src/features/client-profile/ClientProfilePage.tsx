@@ -98,6 +98,7 @@ import { usePortalData } from './hooks/usePortalData';
 import { useProfileMutation } from './hooks/useProfileMutation';
 import type { PricingRequest } from '@/types/dashboard';
 import { DEFAULT_ACCENT, TAB_ALIASES } from './constants';
+import { RequestStatusTimeline } from '@/components/requests/RequestStatusTimeline';
 
 type ProfileTab = 'overview' | 'projects' | 'messages' | 'files' | 'identity' | 'account';
 
@@ -1845,6 +1846,13 @@ function ClientRequestsPanel({
                     {req.request_notes}
                   </p>
                 ) : null}
+                <RequestStatusTimeline
+                  status={req.status}
+                  status_history={req.status_history}
+                  mode="compact"
+                  animated={false}
+                  className="mt-4 bg-muted/20"
+                />
               </Card>
             );
           })}

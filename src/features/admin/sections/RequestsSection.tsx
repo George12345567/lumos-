@@ -31,6 +31,7 @@ import {
 } from '../components/primitives';
 import { AdminDrawer } from '../components/AdminDrawer';
 import { adminDashboardService } from '@/services/adminDashboardService';
+import { RequestStatusTimeline } from '@/components/requests/RequestStatusTimeline';
 
 type StatusFilter = 'all' | PricingRequest['status'] | 'urgent';
 
@@ -748,6 +749,12 @@ function RequestEditDrawer({
 
         {tab === 'workflow' && (
           <SoftCard className="p-5 space-y-3">
+            <RequestStatusTimeline
+              status={request.status}
+              status_history={request.status_history}
+              mode="compact"
+              animated={false}
+            />
             <p className="text-xs font-bold uppercase text-emerald-700">{t('إجراءات سريعة', 'Quick actions')}</p>
             <div className="flex flex-wrap gap-2">
               <SoftButton variant="primary" size="sm" onClick={() => void onConvert(request)} disabled={!canAssign || request.status === 'converted'}>
