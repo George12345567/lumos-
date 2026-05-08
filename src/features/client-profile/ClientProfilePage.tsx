@@ -24,6 +24,7 @@ import {
   FileText,
   FolderOpen,
   Globe2,
+  Hash,
   Image as ImageIcon,
   LayoutDashboard,
   Link2,
@@ -92,8 +93,10 @@ import { useClientProfile } from './hooks/useClientProfile';
 import { useClientIdentity } from './hooks/useClientIdentity';
 import { useNotifications } from './hooks/useNotifications';
 import { useOrders } from './hooks/useOrders';
+import { useClientPricingRequests } from './hooks/useClientPricingRequests';
 import { usePortalData } from './hooks/usePortalData';
 import { useProfileMutation } from './hooks/useProfileMutation';
+import type { PricingRequest } from '@/types/dashboard';
 import { DEFAULT_ACCENT, TAB_ALIASES } from './constants';
 
 type ProfileTab = 'overview' | 'projects' | 'messages' | 'files' | 'identity' | 'account';
@@ -574,6 +577,12 @@ export default function ClientProfilePage() {
     reload: reloadIdentity,
   } = useClientIdentity(client?.id);
   const { orders, loading: ordersLoading, error: ordersError, refetch: refetchOrders } = useOrders(client?.id);
+  const {
+    requests: clientRequests,
+    loading: requestsLoading,
+    error: requestsError,
+    refetch: refetchRequests,
+  } = useClientPricingRequests(client?.id);
   const { notifications } = useNotifications(client?.id);
 
   const [tab, setTab] = useState<ProfileTab>(() => normalizeProfileTab(searchParams.get('tab')) ?? 'overview');
@@ -877,6 +886,10 @@ export default function ClientProfilePage() {
               error={ordersError}
               isArabic={isArabic}
               onRefresh={refetchOrders}
+              pricingRequests={clientRequests}
+              requestsLoading={requestsLoading}
+              requestsError={requestsError}
+              onRefreshRequests={refetchRequests}
             />
           )}
 
@@ -1602,21 +1615,34 @@ function ProjectsTab({
   error,
   isArabic,
   onRefresh,
+  pricingRequests,
+  requestsLoading,
+  requestsError,
+  onRefreshRequests,
 }: {
   orders: Order[];
   loading: boolean;
   error: string | null;
   isArabic: boolean;
   onRefresh: () => Promise<void>;
+  pricingRequests: PricingRequest[];
+  requestsLoading: boolean;
+  requestsError: string | null;
+  onRefreshRequests: () => Promise<void>;
 }) {
   const [expanded, setExpanded] = useState<string | null>(null);
 
-  if (loading) {
-    return <SkeletonGrid count={3} />;
-  }
-
   return (
-    <section className="space-y-5">
+    <section className="space-y-8">
+      <ClientRequestsPanel
+        requests={pricingRequests}
+        loading={requestsLoading}
+        error={requestsError}
+        isArabic={isArabic}
+        onRefresh={onRefreshRequests}
+      />
+
+      <div className="space-y-5">
       <SectionHeader
         title={isArabic ? 'المشاريع' : 'Projects'}
         description={isArabic ? 'طلباتك الحالية تظهر كمشاريع داخل البوابة.' : 'Orders are shown as client projects inside the portal.'}
@@ -1627,7 +1653,9 @@ function ProjectsTab({
 
       {error && <InlineError message={error} />}
 
-      {orders.length === 0 ? (
+      {loading ? (
+        <SkeletonGrid count={3} />
+      ) : orders.length === 0 ? (
         <EmptyState icon={FolderOpen} text={isArabic ? 'ستظهر مشاريعك هنا بمجرد أن يبدأ لوموس العمل معك.' : 'Your projects will appear here once Lumos starts working with you.'} />
       ) : (
         <div className="grid gap-4">
@@ -1700,6 +1728,122 @@ function ProjectsTab({
                 >
                   {open ? (isArabic ? 'إخفاء التفاصيل' : 'Hide Details') : isArabic ? 'عرض التفاصيل' : 'View Details'}
                 </button>
+              </Card>
+            );
+          })}
+        </div>
+      )}
+      </div>
+    </section>
+  );
+}
+
+const REQUEST_STATUS_LABELS: Record<PricingRequest['status'], { en: string; ar: string; tone: string }> = {
+  new: { en: 'New', ar: 'جديد', tone: 'bg-sky-100 text-sky-800 dark:bg-sky-500/15 dark:text-sky-200' },
+  reviewing: { en: 'In Review', ar: 'قيد المراجعة', tone: 'bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-200' },
+  approved: { en: 'Approved', ar: 'معتمد', tone: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-200' },
+  converted: { en: 'Converted', ar: 'محوّل', tone: 'bg-violet-100 text-violet-800 dark:bg-violet-500/15 dark:text-violet-200' },
+  rejected: { en: 'Needs revision', ar: 'يحتاج تعديل', tone: 'bg-rose-100 text-rose-800 dark:bg-rose-500/15 dark:text-rose-200' },
+};
+
+function ClientRequestsPanel({
+  requests,
+  loading,
+  error,
+  isArabic,
+  onRefresh,
+}: {
+  requests: PricingRequest[];
+  loading: boolean;
+  error: string | null;
+  isArabic: boolean;
+  onRefresh: () => Promise<void>;
+}) {
+  return (
+    <section className="space-y-4">
+      <SectionHeader
+        title={isArabic ? 'طلبات التسعير' : 'Pricing Requests'}
+        description={
+          isArabic
+            ? 'الطلبات التي قدّمتها من نافذة الأسعار تظهر هنا. الحالة تتحدّث عندما يراجعها فريقنا.'
+            : 'Pricing requests you submitted from the pricing modal appear here. The status updates as our team reviews them.'
+        }
+        action={
+          <RefreshButton label={isArabic ? 'تحديث' : 'Refresh'} loading={loading} onClick={onRefresh} />
+        }
+      />
+
+      {error && <InlineError message={error} />}
+
+      {loading && requests.length === 0 ? (
+        <Card className="p-5">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            {isArabic ? 'جارٍ تحميل الطلبات…' : 'Loading requests…'}
+          </div>
+        </Card>
+      ) : requests.length === 0 ? (
+        <EmptyState
+          icon={FileText}
+          text={
+            isArabic
+              ? 'لم تقدّم أي طلب تسعير بعد. افتح نافذة الأسعار وأرسل طلبك الأول.'
+              : 'You have not submitted any pricing requests yet. Open the pricing modal to send your first one.'
+          }
+        />
+      ) : (
+        <div className="grid gap-3">
+          {requests.map((req) => {
+            const statusCfg = REQUEST_STATUS_LABELS[req.status] ?? REQUEST_STATUS_LABELS.new;
+            const breakdown = req.discount_breakdown;
+            const discountAmount = breakdown
+              ? (breakdown.base_discount || 0) + (breakdown.promo_discount || 0) + (breakdown.reward_discount || 0)
+              : 0;
+            const promo = (req.applied_promo_code || '').trim();
+            return (
+              <Card key={req.id} className="p-4 sm:p-5">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      {req.invoice_number ? (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-1 font-mono text-[11px] font-bold text-card-foreground">
+                          <Hash className="h-3 w-3" />
+                          {req.invoice_number}
+                        </span>
+                      ) : null}
+                      <span className={cn('rounded-full px-2.5 py-1 text-[11px] font-semibold', statusCfg.tone)}>
+                        {isArabic ? statusCfg.ar : statusCfg.en}
+                      </span>
+                    </div>
+                    <h3 className="mt-2 text-base font-semibold text-card-foreground truncate">
+                      {req.package_name || (req.request_type === 'custom' ? (isArabic ? 'باقة مخصصة' : 'Custom plan') : (isArabic ? 'طلب تسعير' : 'Pricing request'))}
+                    </h3>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      {formatTime(req.created_at)}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-base font-bold text-card-foreground tabular-nums">
+                      {req.estimated_total
+                        ? `${new Intl.NumberFormat(isArabic ? 'ar' : 'en').format(req.estimated_total)} ${req.price_currency || 'EGP'}`
+                        : '—'}
+                    </p>
+                    {discountAmount > 0 ? (
+                      <p className="text-[11px] text-emerald-700 dark:text-emerald-300 tabular-nums">
+                        −{new Intl.NumberFormat(isArabic ? 'ar' : 'en').format(discountAmount)} {req.price_currency || 'EGP'}
+                        {promo ? ` · ${promo}` : ''}
+                      </p>
+                    ) : promo ? (
+                      <p className="text-[11px] font-mono font-bold tracking-wider text-emerald-700 dark:text-emerald-300">{promo}</p>
+                    ) : null}
+                  </div>
+                </div>
+
+                {req.request_notes ? (
+                  <p className="mt-3 rounded-2xl bg-muted/60 px-3 py-2 text-xs text-muted-foreground whitespace-pre-wrap">
+                    {req.request_notes}
+                  </p>
+                ) : null}
               </Card>
             );
           })}

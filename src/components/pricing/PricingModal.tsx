@@ -24,6 +24,13 @@ import { supabase } from '@/lib/supabaseClient';
 import { validateDiscountCode, DiscountCode } from '@/services/discountService';
 import { submitContactForm } from '@/services/submissionService';
 import { submitPricingRequest } from '@/services/pricingRequestService';
+import {
+  buildGuestTrackingUrl,
+  checkGuestContactAvailability,
+  GUEST_DUPLICATE_MESSAGE_AR,
+  GUEST_DUPLICATE_MESSAGE_EN,
+  type GuestTrackedRequest,
+} from '@/services/guestTrackingService';
 import { calculatePricing } from '@/lib/pricingEngine';
 import { toast } from 'sonner';
 import type { PricingRequest } from '@/types/dashboard';
@@ -59,7 +66,8 @@ const LANGUAGE_STORAGE_KEY = 'lumos_app_language';
 const EXPIRY_DAYS = 30;
 
 interface StoredRequest {
-  id: string;
+  id?: string;
+  invoiceNumber?: string | null;
   status: string;
   packageName: string;
   estimatedTotal: number;
@@ -81,7 +89,8 @@ type ActiveRequestSnapshot = (PricingRequest | StoredRequest) & {
 };
 
 const savePendingRequest = (request: {
-  id: string;
+  id?: string;
+  invoiceNumber?: string | null;
   status: string;
   packageName: string;
   estimatedTotal: number;
@@ -98,7 +107,10 @@ const savePendingRequest = (request: {
   try {
     const now = new Date();
     const existing = loadPendingRequest();
-    const isSameRequest = existing?.id === request.id;
+    const isSameRequest = Boolean(
+      (request.invoiceNumber && existing?.invoiceNumber === request.invoiceNumber)
+      || (request.id && existing?.id === request.id),
+    );
     const createdAt = isSameRequest ? existing!.createdAt : now.toISOString();
     const expiresAt = isSameRequest
       ? existing!.expiresAt
@@ -236,8 +248,6 @@ const PricingModal = ({ open, onOpenChange, initialRequest = null }: PricingModa
   const [isTrackingView, setIsTrackingView] = useState(false);
   const [isEditingMode, setIsEditingMode] = useState(false);
   const [isCopying, setIsCopying] = useState(false);
-  const [showDeleteWarning, setShowDeleteWarning] = useState(false);
-  const [deleteReason, setDeleteReason] = useState('');
   const [requestEditCount, setRequestEditCount] = useState<Record<string, number>>({});
 
   /* ── Validation States ── */
@@ -252,13 +262,14 @@ const PricingModal = ({ open, onOpenChange, initialRequest = null }: PricingModa
   const [duplicateCheck, setDuplicateCheck] = useState<{
     isLoading: boolean;
     found: boolean;
-    existingData: {
-      source: 'client' | 'pricing_request' | 'contact' | null;
-      name: string | null;
-      phone: string | null;
-      email: string | null;
-    } | null;
-  }>({ isLoading: false, found: false, existingData: null });
+    error?: string | null;
+  }>({ isLoading: false, found: false, error: null });
+
+  const [guestTrackingResult, setGuestTrackingResult] = useState<{
+    request: GuestTrackedRequest;
+    trackingKey: string;
+    trackingUrl: string;
+  } | null>(null);
 
   /* ── isAr Helper ── */
   const isAr = lang === 'ar';
@@ -306,88 +317,27 @@ const PricingModal = ({ open, onOpenChange, initialRequest = null }: PricingModa
   const isEmailValid = contact.email ? !validateEmail(contact.email, isAr) : undefined;
   const isNotesValid = contact.notes ? !validateNotes(contact.notes, isAr) : undefined;
 
-  /* ── Check Duplicate Contact in Database ── */
+  /* ── Check Duplicate Contact via safe RPC ── */
   const checkDuplicateContact = useCallback(async (phone: string, email: string, name: string) => {
+    void name;
     // Reset if no data to check
-    if (!phone && !email && !name) {
-      setDuplicateCheck({ isLoading: false, found: false, existingData: null });
+    if (!phone && !email) {
+      setDuplicateCheck({ isLoading: false, found: false, error: null });
       return;
     }
 
     setDuplicateCheck(prev => ({ ...prev, isLoading: true }));
 
     try {
-      // Check in clients table
-      const { data: clientData, error: clientError } = await supabase
-        .from('clients')
-        .select('display_name, username, phone, email')
-        .or(`phone.eq.${phone},email.ilike.${email},display_name.ilike.${encodeURIComponent(name)},username.ilike.${encodeURIComponent(name)}`)
-        .limit(1)
-        .maybeSingle();
-
-      if (!clientError && clientData) {
-        setDuplicateCheck({
-          isLoading: false,
-          found: true,
-          existingData: {
-            source: 'client',
-            name: clientData.display_name || clientData.username || null,
-            phone: clientData.phone,
-            email: clientData.email,
-          },
-        });
-        return;
-      }
-
-      // Check in pricing_requests table
-      const { data: requestData, error: requestError } = await supabase
-        .from('pricing_requests')
-        .select('guest_name, guest_phone, guest_email')
-        .or(`guest_phone.eq.${phone},guest_email.ilike.${email},guest_name.ilike.${encodeURIComponent(name)}`)
-        .limit(1)
-        .maybeSingle();
-
-      if (!requestError && requestData) {
-        setDuplicateCheck({
-          isLoading: false,
-          found: true,
-          existingData: {
-            source: 'pricing_request',
-            name: requestData.guest_name,
-            phone: requestData.guest_phone,
-            email: requestData.guest_email,
-          },
-        });
-        return;
-      }
-
-      // Check in contacts table
-      const { data: contactData, error: contactError } = await supabase
-        .from('contacts')
-        .select('name, phone, email')
-        .or(`phone.eq.${phone},email.ilike.${email},name.ilike.${encodeURIComponent(name)}`)
-        .limit(1)
-        .maybeSingle();
-
-      if (!contactError && contactData) {
-        setDuplicateCheck({
-          isLoading: false,
-          found: true,
-          existingData: {
-            source: 'contact',
-            name: contactData.name,
-            phone: contactData.phone,
-            email: contactData.email,
-          },
-        });
-        return;
-      }
-
-      // No duplicate found
-      setDuplicateCheck({ isLoading: false, found: false, existingData: null });
+      const result = await checkGuestContactAvailability({ phone, email });
+      setDuplicateCheck({
+        isLoading: false,
+        found: !result.available,
+        error: result.error || null,
+      });
     } catch (error) {
       console.error('Error checking duplicate:', error);
-      setDuplicateCheck({ isLoading: false, found: false, existingData: null });
+      setDuplicateCheck({ isLoading: false, found: false, error: null });
     }
   }, []);
 
@@ -424,75 +374,27 @@ const PricingModal = ({ open, onOpenChange, initialRequest = null }: PricingModa
   /* ── Load saved pending request on modal open ── */
   useEffect(() => {
     if (!open) return;
-    let cancelled = false;
     const saved = loadPendingRequest();
     if (!saved) return;
-
-    const fetchFreshStatus = async () => {
-      if (cancelled) return;
-      if (shouldRefreshStatus(saved)) {
-        try {
-          const { data: freshData } = await supabase
-            .from('pricing_requests')
-            .select('status, package_name, estimated_total, price_currency')
-            .eq('id', saved.id)
-            .single();
-          
-          if (cancelled) return;
-          const checkedNow = new Date().toISOString();
-          if (freshData) {
-            const updated = {
-              ...saved,
-              status: freshData.status || saved.status,
-              packageName: freshData.package_name || saved.packageName,
-              estimatedTotal: freshData.estimated_total || saved.estimatedTotal,
-              currency: freshData.price_currency || saved.currency,
-              lastCheckedAt: checkedNow,
-            };
-            setSavedPendingRequest(updated);
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-          } else {
-            const updated = { ...saved, lastCheckedAt: checkedNow };
-            setSavedPendingRequest(updated);
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-          }
-        } catch (e) {
-          console.error('Failed to fetch fresh status:', e);
-          if (!cancelled) {
-            const updated = { ...saved, lastCheckedAt: new Date().toISOString() };
-            setSavedPendingRequest(updated);
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-          }
-        }
-      } else {
-        if (!cancelled) {
-          setSavedPendingRequest(saved);
-        }
-      }
-      if (!cancelled) {
-        setStep('success');
-        setIsTrackingView(true);
-        setIsEditingMode(false);
-        setContact({
-          name: saved.guestName || '',
-          phone: saved.guestPhone || '',
-          email: saved.guestEmail || '',
-          notes: '',
-        });
-        if (saved.mode === 'packages') {
-          setMode('packages');
-          setSelectedPkg(saved.selectedPkg || null);
-        } else if (saved.mode === 'custom' && saved.selectedServices) {
-          setMode('custom');
-          setSelectedServices(new Set(saved.selectedServices));
-        }
-      }
-    };
-
-    fetchFreshStatus();
-    return () => {
-      cancelled = true;
-    };
+    const updated = { ...saved, lastCheckedAt: new Date().toISOString() };
+    setSavedPendingRequest(updated);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+    setStep('success');
+    setIsTrackingView(true);
+    setIsEditingMode(false);
+    setContact({
+      name: saved.guestName || '',
+      phone: saved.guestPhone || '',
+      email: saved.guestEmail || '',
+      notes: '',
+    });
+    if (saved.mode === 'packages') {
+      setMode('packages');
+      setSelectedPkg(saved.selectedPkg || null);
+    } else if (saved.mode === 'custom' && saved.selectedServices) {
+      setMode('custom');
+      setSelectedServices(new Set(saved.selectedServices));
+    }
   }, [open]);
 
   /* ── 40-Second Easter Egg Trigger ── */
@@ -542,7 +444,8 @@ const PricingModal = ({ open, onOpenChange, initialRequest = null }: PricingModa
         setPromoCode('');
         setAppliedPromo(null);
         setPromoError('');
-        setDuplicateCheck({ isLoading: false, found: false, existingData: null });
+        setDuplicateCheck({ isLoading: false, found: false, error: null });
+        setGuestTrackingResult(null);
       }
     }
   }, [hydrateRequest, initialRequest, open]);
@@ -629,6 +532,78 @@ const PricingModal = ({ open, onOpenChange, initialRequest = null }: PricingModa
     totalDiscountPercentage: engineContext.totalDiscountPercentage
   }), [engineContext]);
 
+  // Resolve the localized name of the selected package up-front so that
+  // buildPricingPayload (declared just below) can reference it without
+  // hitting a temporal dead zone.
+  const selectedPackageName = useMemo(() => {
+    if (!selectedPkg) return null;
+    const pkg = Object.values(PACKAGES).find(p => p.id === selectedPkg);
+    if (!pkg) return null;
+    return isAr ? pkg.nameAr : pkg.name;
+  }, [isAr, selectedPkg]);
+
+  /**
+   * Build the payload sent to `submitPricingRequest`. This is the single source of
+   * truth for what gets persisted on a pricing_requests row, regardless of which
+   * submission button the user pressed (WhatsApp, Save to dashboard, Confirm).
+   *
+   * For logged-in clients we always populate the contact snapshot (guest_name etc.)
+   * from the client profile. The DB columns named `guest_*` actually hold any
+   * contact snapshot — without them the admin dashboard falls back to "Unnamed".
+   * The active `client_id` is what distinguishes a real client from a true guest.
+   *
+   * Discount fields (`appliedPromoCode`, `discountBreakdown`) are always included
+   * when a code is active, so they show up in the admin even if the user never
+   * opened the discount input again before submitting.
+   */
+  const buildPricingPayload = useCallback((opts?: { withLocationUrl?: boolean }) => {
+    const isPackages = mode === 'packages';
+    const baseDiscount = Math.max(0, (totals.discount || 0) - (totals.promoDiscountValue || 0));
+    const hasDiscount = !!appliedPromo || baseDiscount > 0;
+
+    const snapshotName = isKnownClient && client
+      ? (client.full_contact_name || client.display_name || client.username || contact.name || '').trim()
+      : contact.name.trim();
+    const snapshotPhone = isKnownClient && client
+      ? (client.phone || client.phone_number || contact.phone || '').trim()
+      : contact.phone.trim();
+    const snapshotEmail = isKnownClient && client
+      ? (client.email || contact.email || '').trim()
+      : contact.email.trim();
+    const snapshotCompany = isKnownClient && client
+      ? (client.company_name || '').trim()
+      : '';
+
+    const guestContact = (snapshotName || snapshotPhone || snapshotEmail)
+      ? { name: snapshotName, phone: snapshotPhone, email: snapshotEmail || undefined }
+      : undefined;
+
+    return {
+      requestId: editingRequestId,
+      clientId: isKnownClient && client?.id ? client.id : undefined,
+      requestType: (isPackages ? 'package' : 'custom') as 'package' | 'custom',
+      packageId: isPackages ? selectedPkg : null,
+      packageName: isPackages ? selectedPackageName : 'Custom Plan',
+      selectedServices: totals.items,
+      estimatedSubtotal: totals.subtotal,
+      estimatedTotal: totals.total,
+      priceCurrency: currency || 'EGP',
+      requestNotes: contact.notes || undefined,
+      guestContact,
+      companyName: snapshotCompany || undefined,
+      appliedPromoCode: appliedPromo?.code,
+      discountBreakdown: hasDiscount
+        ? {
+            base_discount: Number.isFinite(baseDiscount) ? baseDiscount : 0,
+            promo_discount: Number.isFinite(totals.promoDiscountValue) ? totals.promoDiscountValue : 0,
+            reward_discount: 0,
+            total_discount_percent: totals.totalDiscountPercentage || 0,
+          }
+        : undefined,
+      locationUrl: opts?.withLocationUrl ? window.location.href : undefined,
+    };
+  }, [isKnownClient, client, contact, mode, selectedPkg, selectedPackageName, totals, currency, editingRequestId, appliedPromo]);
+
   /* ── Validate Promo Code ── */
   const handleApplyPromo = async () => {
     if (!promoCode.trim()) return;
@@ -670,13 +645,6 @@ const PricingModal = ({ open, onOpenChange, initialRequest = null }: PricingModa
 
   /* ── Navigation ── */
   const selectMode = useCallback((m: Mode) => { setMode(m); setStep('build'); scrollTop(); }, [scrollTop]);
-
-  const selectedPackageName = useMemo(() => {
-    if (!selectedPkg) return null;
-    const pkg = Object.values(PACKAGES).find(p => p.id === selectedPkg);
-    if (!pkg) return null;
-    return isAr ? pkg.nameAr : pkg.name;
-  }, [isAr, selectedPkg]);
 
   const accountDisplayName = client?.company_name || client?.display_name || client?.username || (isAr ? 'عميل مسجل' : 'Logged-in client');
   const isEditing = !!editingRequestId;
@@ -720,6 +688,14 @@ const PricingModal = ({ open, onOpenChange, initialRequest = null }: PricingModa
           note: isAr ? 'الطلب يحتاج تعديل في النطاق أو التفاصيل قبل اعتماده.' : 'The request needs a scope or detail revision before it can be approved.',
           nextStep: isAr ? 'افتح نفس الطلب وعدّل الخدمات أو الملاحظات ثم أعد الإرسال.' : 'Reopen the same request, adjust the scope or notes, then resubmit it.',
           progress: 60,
+        };
+      case 'cancelled':
+        return {
+          label: isAr ? 'تم الإلغاء' : 'Cancelled',
+          pill: 'bg-slate-100 text-slate-700 border-slate-200',
+          note: isAr ? 'تم إلغاء الطلب، ولن يتم تعديله من هنا.' : 'This request was cancelled and cannot be edited here.',
+          nextStep: isAr ? 'تواصل مع الفريق لو احتجت إعادة فتح أو طلب جديد.' : 'Contact the team if you need to reopen or start a new request.',
+          progress: 25,
         };
       default:
         return {
@@ -766,7 +742,7 @@ const PricingModal = ({ open, onOpenChange, initialRequest = null }: PricingModa
     }));
   }, [activeRequestContext, isAr]);
 
-  const goNext = useCallback(() => {
+  const goNext = useCallback(async () => {
     if (step === 'build') {
       if ((mode === 'packages' && !selectedPkg) || (mode === 'custom' && selectedServices.size === 0)) {
         toast.error(isAr ? 'اختر باقة أو خدمة واحدة على الأقل للمتابعة.' : 'Please select a package or at least one service to continue.');
@@ -789,11 +765,20 @@ const PricingModal = ({ open, onOpenChange, initialRequest = null }: PricingModa
           return;
         }
 
-        // Block if duplicate contact found in database
+        const availability = await checkGuestContactAvailability({
+          phone: contact.phone,
+          email: contact.email,
+        });
+
+        if (!availability.available) {
+          setDuplicateCheck({ isLoading: false, found: true, error: availability.error || 'duplicate_contact' });
+          toast.error(isAr ? GUEST_DUPLICATE_MESSAGE_AR : GUEST_DUPLICATE_MESSAGE_EN);
+          return;
+        }
+
+        // Block if duplicate contact found by the latest safe precheck.
         if (duplicateCheck.found) {
-          toast.error(isAr 
-            ? 'هذا البيانات مسجلة بالفعل. يرجى التواصل معنا أو استخدام بيانات مختلفة.' 
-            : 'This contact information already exists. Please contact us or use different data.');
+          toast.error(isAr ? GUEST_DUPLICATE_MESSAGE_AR : GUEST_DUPLICATE_MESSAGE_EN);
           return;
         }
       }
@@ -889,18 +874,7 @@ const PricingModal = ({ open, onOpenChange, initialRequest = null }: PricingModa
     const msg = buildMessage();
 
     if (isKnownClient && client?.id) {
-      const result = await submitPricingRequest({
-        requestId: editingRequestId,
-        clientId: client.id,
-        requestType: mode === 'packages' ? 'package' : 'custom',
-        packageId: mode === 'packages' ? selectedPkg : null,
-        packageName: mode === 'packages' ? selectedPackageName : 'Custom Plan',
-        selectedServices: totals.items,
-        estimatedSubtotal: totals.subtotal,
-        estimatedTotal: totals.total,
-        priceCurrency: currency || 'EGP',
-        requestNotes: contact.notes,
-      });
+      const result = await submitPricingRequest(buildPricingPayload());
 
       setSending(false);
 
@@ -918,23 +892,7 @@ const PricingModal = ({ open, onOpenChange, initialRequest = null }: PricingModa
 
     // 1. Save to admin dashboard
     try {
-      await submitPricingRequest({
-        requestId: editingRequestId,
-        requestType: mode === 'packages' ? 'package' : 'custom',
-        packageId: mode === 'packages' ? selectedPkg : null,
-        packageName: mode === 'packages' ? selectedPackageName : 'Custom Plan',
-        selectedServices: totals.items,
-        estimatedSubtotal: totals.subtotal,
-        estimatedTotal: totals.total,
-        priceCurrency: currency || 'EGP',
-        requestNotes: contact.notes,
-        guestContact: {
-          name: contact.name,
-          phone: contact.phone,
-          email: contact.email,
-        },
-        locationUrl: window.location.href,
-      });
+      await submitPricingRequest(buildPricingPayload({ withLocationUrl: true }));
 
       await submitContactForm(
         {
@@ -953,25 +911,14 @@ const PricingModal = ({ open, onOpenChange, initialRequest = null }: PricingModa
     // 2. Open WhatsApp
     window.open(`https://wa.me/201277636616?text=${encodeURIComponent(msg)}`, '_blank');
     setSending(false);
-  }, [buildMessage, client?.id, contact, currency, editingRequestId, isAr, isEditing, isKnownClient, mode, onOpenChange, selectedPackageName, selectedPkg, totals]);
+  }, [buildMessage, buildPricingPayload, client?.id, contact, isAr, isEditing, isKnownClient, mode, onOpenChange, selectedPkg]);
 
   /* ── Save to Dashboard Only (without WhatsApp) ── */
   const handleSaveToDashboard = useCallback(async () => {
     setSending(true);
     
     if (isKnownClient && client?.id) {
-      const result = await submitPricingRequest({
-        requestId: editingRequestId,
-        clientId: client.id,
-        requestType: mode === 'packages' ? 'package' : 'custom',
-        packageId: mode === 'packages' ? selectedPkg : null,
-        packageName: mode === 'packages' ? selectedPackageName : 'Custom Plan',
-        selectedServices: totals.items,
-        estimatedSubtotal: totals.subtotal,
-        estimatedTotal: totals.total,
-        priceCurrency: currency || 'EGP',
-        requestNotes: contact.notes,
-      });
+      const result = await submitPricingRequest(buildPricingPayload());
 
       setSending(false);
 
@@ -989,23 +936,7 @@ const PricingModal = ({ open, onOpenChange, initialRequest = null }: PricingModa
 
     // Guest: Save to dashboard only
     try {
-      await submitPricingRequest({
-        requestId: editingRequestId,
-        requestType: mode === 'packages' ? 'package' : 'custom',
-        packageId: mode === 'packages' ? selectedPkg : null,
-        packageName: mode === 'packages' ? selectedPackageName : 'Custom Plan',
-        selectedServices: totals.items,
-        estimatedSubtotal: totals.subtotal,
-        estimatedTotal: totals.total,
-        priceCurrency: currency || 'EGP',
-        requestNotes: contact.notes,
-        guestContact: {
-          name: contact.name,
-          phone: contact.phone,
-          email: contact.email,
-        },
-        locationUrl: window.location.href,
-      });
+      await submitPricingRequest(buildPricingPayload({ withLocationUrl: true }));
 
       await submitContactForm(
         {
@@ -1026,47 +957,23 @@ const PricingModal = ({ open, onOpenChange, initialRequest = null }: PricingModa
     }
     
     setSending(false);
-  }, [buildMessage, client?.id, contact, currency, editingRequestId, isAr, isEditing, isKnownClient, mode, onOpenChange, selectedPackageName, selectedPkg, totals]);
+  }, [buildMessage, buildPricingPayload, client?.id, contact, isAr, isEditing, isKnownClient, mode, onOpenChange, selectedPkg]);
 
   /* ── Confirm: Save to Database and Show Success ── */
   const handleConfirm = useCallback(async () => {
     setSending(true);
     
     try {
-      // 1. Save pricing request
-      const result = isKnownClient && client?.id
-        ? await submitPricingRequest({
-            requestId: editingRequestId,
-            clientId: client.id,
-            requestType: mode === 'packages' ? 'package' : 'custom',
-            packageId: mode === 'packages' ? selectedPkg : null,
-            packageName: mode === 'packages' ? selectedPackageName : 'Custom Plan',
-            selectedServices: totals.items,
-            estimatedSubtotal: totals.subtotal,
-            estimatedTotal: totals.total,
-            priceCurrency: currency || 'EGP',
-            requestNotes: contact.notes,
-          })
-        : await submitPricingRequest({
-            requestId: editingRequestId,
-            requestType: mode === 'packages' ? 'package' : 'custom',
-            packageId: mode === 'packages' ? selectedPkg : null,
-            packageName: mode === 'packages' ? selectedPackageName : 'Custom Plan',
-            selectedServices: totals.items,
-            estimatedSubtotal: totals.subtotal,
-            estimatedTotal: totals.total,
-            priceCurrency: currency || 'EGP',
-            requestNotes: contact.notes,
-            guestContact: {
-              name: contact.name,
-              phone: contact.phone,
-              email: contact.email,
-            },
-            locationUrl: window.location.href,
-          });
+      // 1. Save pricing request (single source of truth — buildPricingPayload picks
+      //    up the auth client snapshot for logged-in users automatically).
+      const result = await submitPricingRequest(
+        buildPricingPayload({ withLocationUrl: !isKnownClient }),
+      );
 
       if (!result.success) {
-        toast.error(result.error || (isAr ? 'فشل حفظ الطلب' : 'Failed to save request'));
+        toast.error(result.error === 'duplicate_contact'
+          ? (isAr ? GUEST_DUPLICATE_MESSAGE_AR : GUEST_DUPLICATE_MESSAGE_EN)
+          : result.error || (isAr ? 'فشل حفظ الطلب' : 'Failed to save request'));
         setSending(false);
         return;
       }
@@ -1084,24 +991,20 @@ const PricingModal = ({ open, onOpenChange, initialRequest = null }: PricingModa
         'Pricing Order'
       );
 
-      // 3. For guests: fetch the newly created request for tracking
-      if (!isKnownClient && contact.phone) {
-        const { data: requestData } = await supabase
-          .from('pricing_requests')
-          .select('*')
-          .eq('guest_phone', contact.phone)
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .single();
-        
-        if (requestData) {
-          setSubmittedRequest(requestData as PricingRequest);
+      // 3. For guests: keep only the safe RPC response and a convenience cache.
+      if (!isKnownClient && result.guestRequest && result.trackingKey) {
+          const trackingUrl = buildGuestTrackingUrl(result.guestRequest.invoice_number, result.trackingKey);
+          setGuestTrackingResult({
+            request: result.guestRequest,
+            trackingKey: result.trackingKey,
+            trackingUrl,
+          });
           savePendingRequest({
-            id: requestData.id,
-            status: requestData.status || 'pending',
-            packageName: requestData.package_name || selectedPackageName || 'Custom Plan',
-            estimatedTotal: requestData.estimated_total || totals.total,
-            currency: requestData.price_currency || currency || 'EGP',
+            invoiceNumber: result.guestRequest.invoice_number,
+            status: result.guestRequest.status || 'new',
+            packageName: result.guestRequest.package_name || selectedPackageName || 'Custom Plan',
+            estimatedTotal: result.guestRequest.estimated_total || totals.total,
+            currency: result.guestRequest.price_currency || currency || 'EGP',
             guestPhone: contact.phone,
             guestName: contact.name,
             guestEmail: contact.email,
@@ -1110,7 +1013,6 @@ const PricingModal = ({ open, onOpenChange, initialRequest = null }: PricingModa
             mode: mode,
             editCount: 0,
           });
-        }
       } else if (isKnownClient && client?.id && result.id) {
         // For logged-in clients, fetch the newly created request
         const { data: newRequest } = await supabase
@@ -1139,12 +1041,26 @@ const PricingModal = ({ open, onOpenChange, initialRequest = null }: PricingModa
     }
     
     setSending(false);
-  }, [isKnownClient, client?.id, editingRequestId, mode, selectedPkg, selectedServices, selectedPackageName, totals, currency, contact, isAr, isEditing, buildMessage]);
+  }, [isKnownClient, client?.id, mode, selectedPkg, selectedServices, selectedPackageName, totals, currency, contact, isAr, isEditing, buildMessage, buildPricingPayload]);
 
   /* ── Edit Request (from success screen) ── */
   const handleEditRequest = useCallback(async () => {
+    if (guestTrackingResult) {
+      window.location.href = guestTrackingResult.trackingUrl;
+      return;
+    }
+
     const activeReq = submittedRequest || latestClientRequest;
     const isTrackingMode = savedPendingRequest && !submittedRequest && !latestClientRequest;
+
+    if (isTrackingMode) {
+      const invoice = savedPendingRequest?.invoiceNumber || '';
+      window.location.href = invoice
+        ? buildGuestTrackingUrl(invoice)
+        : '/track-request';
+      return;
+    }
+
     const currentRequest = (isTrackingMode ? savedPendingRequest : activeReq) as ActiveRequestSnapshot | null;
     const currentStatus = currentRequest?.status || 'new';
     const currentEditCount = isTrackingMode 
@@ -1167,58 +1083,17 @@ const PricingModal = ({ open, onOpenChange, initialRequest = null }: PricingModa
     } else if (latestClientRequest) {
       hydrateRequest(latestClientRequest);
       setStep('build');
-    } else if (savedPendingRequest) {
-      setIsEditingMode(true);
-      setStep('build');
-      if (savedPendingRequest.mode === 'packages') {
-        setMode('packages');
-        setSelectedPkg(savedPendingRequest.selectedPkg || null);
-      } else if (savedPendingRequest.mode === 'custom' && savedPendingRequest.selectedServices) {
-        setMode('custom');
-        setSelectedServices(new Set(savedPendingRequest.selectedServices));
-      }
     }
     
     const newCount = currentEditCount + 1;
-    if (isTrackingMode) {
-      incrementLocalEditCount(currentRequest?.id);
-    } else if (currentRequest?.id) {
+    if (currentRequest?.id) {
       setRequestEditCount(prev => ({ ...prev, [currentRequest.id]: newCount }));
       await supabase
         .from('pricing_requests')
         .update({ edit_count: newCount })
         .eq('id', currentRequest.id);
     }
-  }, [submittedRequest, latestClientRequest, savedPendingRequest, hydrateRequest, requestEditCount, isAr]);
-
-  /* ── Cancel Order Forever (Delete from DB + localStorage) ── */
-  const handleCancelOrderForever = useCallback(async () => {
-    if (!savedPendingRequest) return;
-    
-    try {
-      // Delete from Supabase
-      await supabase
-        .from('pricing_requests')
-        .delete()
-        .eq('id', savedPendingRequest.id);
-      
-      // Clear from localStorage and state
-      clearPendingRequest();
-      setSavedPendingRequest(null);
-      setIsTrackingView(false);
-      setIsEditingMode(false);
-      setStep('mode');
-      setMode(null);
-      setSelectedPkg(null);
-      setSelectedServices(new Set());
-      setContact({ name: '', phone: '', email: '', notes: '' });
-      
-      toast.success(isAr ? 'تم إلغاء الطلب بنجاح' : 'Order cancelled successfully');
-    } catch (e) {
-      console.error('Failed to cancel order:', e);
-      toast.error(isAr ? 'فشل إلغاء الطلب' : 'Failed to cancel order');
-    }
-  }, [savedPendingRequest, isAr]);
+  }, [guestTrackingResult, submittedRequest, latestClientRequest, savedPendingRequest, hydrateRequest, requestEditCount, isAr]);
 
   /* ── Cancel Request ── */
   const handleCancelRequest = useCallback(async () => {
@@ -1226,10 +1101,18 @@ const PricingModal = ({ open, onOpenChange, initialRequest = null }: PricingModa
     
     const requestToCancel = submittedRequest || latestClientRequest;
     if (!requestToCancel?.id) return;
+    const now = new Date().toISOString();
 
     const { error } = await supabase
       .from('pricing_requests')
-      .update({ status: 'rejected' })
+      .update({
+        status: 'cancelled',
+        status_history: [
+          ...(requestToCancel.status_history || []),
+          { status: 'cancelled', changed_at: now, changed_by: client?.id || null, note: 'Client cancelled request' },
+        ],
+        updated_at: now,
+      })
       .eq('id', requestToCancel.id);
 
     if (error) {
@@ -1237,52 +1120,10 @@ const PricingModal = ({ open, onOpenChange, initialRequest = null }: PricingModa
       return;
     }
 
-    setSubmittedRequest(prev => prev ? { ...prev, status: 'rejected' } : null);
+    setSubmittedRequest(prev => prev ? { ...prev, status: 'cancelled' } : null);
     
     toast.success(isAr ? 'تم إلغاء الطلب بنجاح' : 'Request cancelled successfully');
-  }, [submittedRequest, latestClientRequest, isAr]);
-
-  /* ── Permanent Delete Request ── */
-  const handlePermanentDelete = useCallback(async () => {
-    const activeReq = submittedRequest || latestClientRequest;
-    const isTrackingMode = savedPendingRequest && !submittedRequest && !latestClientRequest;
-    const currentRequest = (isTrackingMode ? savedPendingRequest : activeReq) as ActiveRequestSnapshot | null;
-    
-    if (!currentRequest?.id) return;
-    
-    try {
-      const { error } = await supabase
-        .from('pricing_requests')
-        .delete()
-        .eq('id', currentRequest.id);
-
-      if (error) throw error;
-
-      if (isTrackingMode) {
-        clearPendingRequest();
-        setSavedPendingRequest(null);
-      } else {
-        setSubmittedRequest(null);
-        setLatestClientRequest(null);
-      }
-      
-      setShowDeleteWarning(false);
-      setDeleteReason('');
-      setIsTrackingView(false);
-      setStep('mode');
-      setMode(null);
-      setSelectedPkg(null);
-      setSelectedServices(new Set());
-      setContact({ name: '', phone: '', email: '', notes: '' });
-      
-      toast.success(isAr ? 'تم حذف الطلب نهائياً' : 'Request permanently deleted');
-      onOpenChange(false);
-    } catch (e) {
-      console.error('Failed to delete request:', e);
-      toast.error(isAr ? 'فشل حذف الطلب' : 'Failed to delete request');
-    }
-  }, [submittedRequest, latestClientRequest, savedPendingRequest, isAr, onOpenChange]);
-
+  }, [submittedRequest, latestClientRequest, client?.id, isAr]);
 
   /* ── Step config ── */
   const stepsList: { key: Step; en: string; ar: string }[] = useMemo(() => [
@@ -2081,33 +1922,39 @@ const PricingModal = ({ open, onOpenChange, initialRequest = null }: PricingModa
                     )}
 
                     {/* Duplicate Warning Banner */}
-                    {duplicateCheck.found && duplicateCheck.existingData && !isKnownClient && (
+                    {duplicateCheck.found && !isKnownClient && (
                       <div className="mb-6 p-4 rounded-xl bg-amber-50 border-2 border-amber-200">
                         <div className="flex items-start gap-3">
                           <AlertTriangle className="w-5 h-5 text-amber-600 mt-0.5 shrink-0" />
                           <div className="flex-1">
                             <p className="text-sm font-bold text-amber-800">
-                              {isAr ? 'هذا البيانات مسجلة بالفعل' : 'This contact information is already registered'}
+                              {isAr ? 'البيانات مستخدمة من قبل' : 'Details already connected'}
                             </p>
                             <p className="text-xs text-amber-700 mt-1">
-                              {isAr 
-                                ? 'نأسف، لكن لا يمكنك المتابعة بنفس البيانات. تواصل معنا للمساعدة:' 
-                                : 'Sorry, you cannot proceed with the same data. Contact us for assistance:'}
+                              {isAr ? GUEST_DUPLICATE_MESSAGE_AR : GUEST_DUPLICATE_MESSAGE_EN}
                             </p>
                             
-                            {/* WhatsApp Button */}
-                            <button
-                              onClick={() => {
-                                const message = isAr 
-                                  ? `مرحباً، أريد المساعدة بشأن بيانات مسجلة بالفعل في النظام. اسمي: ${contact.name} ورقم الهاتف: ${contact.phone}`
-                                  : `Hello, I need help regarding contact info that's already registered in the system. My name: ${contact.name}, Phone: ${contact.phone}`;
-                                window.open(`https://wa.me/201277636616?text=${encodeURIComponent(message)}`, '_blank');
-                              }}
-                              className="mt-3 h-10 px-5 rounded-full bg-[#25D366] text-white text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 shadow-[0_4px_20px_rgba(37,211,102,0.35)] hover:bg-[#20b558] hover:shadow-[0_6px_24px_rgba(37,211,102,0.45)]"
-                            >
-                              <MessageSquare className="w-3.5 h-3.5" />
-                              {isAr ? 'تواصل معنا على واتساب' : 'Contact Us on WhatsApp'}
-                            </button>
+                            <div className="mt-3 flex flex-wrap gap-2">
+                              <button
+                                onClick={() => window.open('/track-request', '_blank')}
+                                className="h-9 px-4 rounded-full bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 hover:bg-slate-800"
+                              >
+                                <Receipt className="w-3.5 h-3.5" />
+                                {isAr ? 'تتبع طلب سابق' : 'Track existing request'}
+                              </button>
+                              <button
+                                onClick={() => {
+                                  const message = isAr
+                                    ? 'مرحباً، أحتاج مساعدة بخصوص طلب أو حساب سابق مرتبط ببيانات التواصل الخاصة بي.'
+                                    : 'Hello, I need help with a previous request or account connected to my contact details.';
+                                  window.open(`https://wa.me/201277636616?text=${encodeURIComponent(message)}`, '_blank');
+                                }}
+                                className="h-9 px-4 rounded-full bg-[#25D366] text-white text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 shadow-[0_4px_20px_rgba(37,211,102,0.25)] hover:bg-[#20b558]"
+                              >
+                                <MessageSquare className="w-3.5 h-3.5" />
+                                {isAr ? 'تواصل مع Lumos' : 'Contact Lumos'}
+                              </button>
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -2583,20 +2430,26 @@ const PricingModal = ({ open, onOpenChange, initialRequest = null }: PricingModa
 
 {/* ──────── STEP 6: SUCCESS / TRACKING (NEW TIMELINE UI) ──────── */}
                 {step === 'success' && (() => {
-                  const activeReq = submittedRequest || latestClientRequest;
-                  const isTrackingMode = savedPendingRequest && !submittedRequest && !latestClientRequest;
+                  const activeReq = submittedRequest || latestClientRequest || guestTrackingResult?.request || null;
+                  const isTrackingMode = savedPendingRequest && !submittedRequest && !latestClientRequest && !guestTrackingResult;
                   
                   const currentRequest = (isTrackingMode ? savedPendingRequest : activeReq) as ActiveRequestSnapshot | null;
                   const currentStatus = currentRequest?.status || 'new';
+                  const invoiceNumber = guestTrackingResult?.request.invoice_number
+                    || (activeReq as PricingRequest | GuestTrackedRequest | null)?.invoice_number
+                    || savedPendingRequest?.invoiceNumber
+                    || null;
+                  const trackingPortalUrl = guestTrackingResult?.trackingUrl
+                    || (invoiceNumber ? buildGuestTrackingUrl(invoiceNumber) : '/track-request');
                   
                   const currentEditCount = isTrackingMode 
                     ? (savedPendingRequest?.editCount || 0) 
                     : (requestEditCount[currentRequest?.id] || 0);
                   const remainingEdits = Math.max(0, 3 - currentEditCount);
                   
-                  const canEdit = ['new', 'reviewing'].includes(currentStatus) && remainingEdits > 0;
-                  const canDelete = currentStatus !== 'converted' && currentStatus !== 'rejected';
-                  const canCancel = currentStatus !== 'converted' && currentStatus !== 'rejected';
+                  const isGuestResult = Boolean(guestTrackingResult || isTrackingMode);
+                  const canEdit = ['new', 'reviewing'].includes(currentStatus) && remainingEdits > 0 && !isGuestResult;
+                  const canCancel = ['new', 'reviewing'].includes(currentStatus) && !isGuestResult;
                   
                   const getStepStatus = (stepName: string) => {
                     const statusOrder = ['new', 'reviewing', 'approved', 'converted'];
@@ -2606,6 +2459,9 @@ const PricingModal = ({ open, onOpenChange, initialRequest = null }: PricingModa
                     if (currentStatus === 'rejected') {
                       if (stepIdx <= 1) return 'completed';
                       return 'pending';
+                    }
+                    if (currentStatus === 'cancelled') {
+                      return stepName === 'new' ? 'completed' : 'pending';
                     }
                     
                     if (stepIdx < currentIdx) return 'completed';
@@ -2641,12 +2497,12 @@ const PricingModal = ({ open, onOpenChange, initialRequest = null }: PricingModa
                           {isAr ? 'طلبك في أمان!' : 'Your Order is Safe!'}
                         </h2>
                         <p className="text-slate-400 text-sm font-medium flex items-center justify-center gap-1">
-                          <span>{isAr ? 'رقم الطلب: ' : 'Order ID: '}</span>
-                          <span className="font-mono text-slate-600">#{currentRequest?.id?.slice(0, 8) || 'N/A'}</span>
+                          <span>{isAr ? 'رقم الفاتورة: ' : 'Invoice: '}</span>
+                          <span className="font-mono text-slate-600">{invoiceNumber || 'N/A'}</span>
                           <button
                             onClick={() => {
                               setIsCopying(true);
-                              navigator.clipboard.writeText(currentRequest?.id?.slice(0, 8) || '');
+                              navigator.clipboard.writeText(invoiceNumber || '');
                               setTimeout(() => setIsCopying(false), 1500);
                             }}
                             className="p-1 hover:bg-slate-100 rounded transition-colors"
@@ -2727,6 +2583,47 @@ const PricingModal = ({ open, onOpenChange, initialRequest = null }: PricingModa
                         </div>
                       </div>
 
+                      {guestTrackingResult && (
+                        <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-5 mb-6">
+                          <p className="text-[10px] font-black uppercase tracking-widest text-emerald-700 mb-2">
+                            {isAr ? 'رابط التتبع الآمن' : 'Secure tracking access'}
+                          </p>
+                          <div className="space-y-3">
+                            <div>
+                              <p className="text-[10px] font-bold uppercase tracking-widest text-emerald-700/70">
+                                {isAr ? 'كود التتبع' : 'Tracking code'}
+                              </p>
+                              <p className="mt-1 break-all font-mono text-sm font-black text-slate-900">
+                                {guestTrackingResult.trackingKey}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-[10px] font-bold uppercase tracking-widest text-emerald-700/70">
+                                {isAr ? 'الرابط' : 'Link'}
+                              </p>
+                              <p className="mt-1 break-all font-mono text-xs text-slate-700">
+                                {guestTrackingResult.trackingUrl}
+                              </p>
+                            </div>
+                            <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800">
+                              {isAr
+                                ? 'احفظ رابط التتبع ده. بدون تحقق بالبريد، Lumos لا تستطيع استعادة وصول التتبع تلقائياً.'
+                                : 'Save this tracking link. Without email verification, Lumos cannot recover this guest tracking access automatically.'}
+                            </p>
+                          </div>
+                        </div>
+                      )}
+
+                      {isTrackingMode && !guestTrackingResult && (
+                        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 mb-6">
+                          <p className="text-sm font-semibold text-amber-800">
+                            {isAr
+                              ? 'البيانات هنا محفوظة محلياً للراحة فقط. افتح بوابة التتبع وأدخل كود التتبع لعرض الطلب أو تعديله.'
+                              : 'This local snapshot is only a convenience. Open the tracking portal and enter the tracking code to view or change the request.'}
+                          </p>
+                        </div>
+                      )}
+
                       {/* ════ ADMIN NOTE SECTION (If exists) ════ */}
                       {currentRequest?.admin_notes && (
                         <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 mb-6">
@@ -2748,36 +2645,43 @@ const PricingModal = ({ open, onOpenChange, initialRequest = null }: PricingModa
 
                       {/* Action Buttons */}
                       <div className="flex flex-wrap gap-3 justify-center">
-                        {isTrackingMode && (
-                          <>
-                            <button
-                              onClick={() => {
-                                clearPendingRequest();
-                                setSavedPendingRequest(null);
-                                setStep('mode');
-                                setMode(null);
-                                setSelectedPkg(null);
-                                setSelectedServices(new Set());
-                                setContact({ name: '', phone: '', email: '', notes: '' });
-                              }}
-                              className="h-10 px-5 rounded-full bg-gradient-to-r from-slate-500 to-slate-600 text-white text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 shadow-md hover:from-slate-600 hover:to-slate-700"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                              {isAr ? 'مسح ومتابعة' : 'Clear & Continue'}
-                            </button>
-                            <button
-                              onClick={() => {
-                                const message = isAr 
-                                  ? `مرحباً، أريد الاستفسار عن طلبي رقم: ${savedPendingRequest?.id?.slice(0, 8)}`
-                                  : `Hello, I want to inquire about my request ID: ${savedPendingRequest?.id?.slice(0, 8)}`;
-                                window.open(`https://wa.me/201277636616?text=${encodeURIComponent(message)}`, '_blank');
-                              }}
-                              className="h-10 px-5 rounded-full bg-[#25D366] text-white text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 shadow-[0_4px_20px_rgba(37,211,102,0.35)] hover:bg-[#20b558] hover:shadow-[0_6px_24px_rgba(37,211,102,0.45)]"
-                            >
-                              <MessageSquare className="w-3.5 h-3.5" />
-                              {isAr ? 'تواصل معنا' : 'Contact Us'}
-                            </button>
-                          </>
+                        {isGuestResult && (
+                          <button
+                            onClick={() => {
+                              setIsCopying(true);
+                              navigator.clipboard.writeText(trackingPortalUrl);
+                              setTimeout(() => setIsCopying(false), 1500);
+                              toast.success(isAr ? 'تم نسخ رابط التتبع' : 'Tracking link copied');
+                            }}
+                            className="h-10 px-5 rounded-full bg-gradient-to-r from-emerald-600 to-teal-600 text-white text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 shadow-md hover:from-emerald-700 hover:to-teal-700"
+                          >
+                            {isCopying ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                            {isAr ? 'نسخ رابط التتبع' : 'Copy tracking link'}
+                          </button>
+                        )}
+
+                        {isGuestResult && (
+                          <button
+                            onClick={() => {
+                              window.location.href = trackingPortalUrl;
+                            }}
+                            className="h-10 px-5 rounded-full bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 shadow-md hover:bg-slate-800"
+                          >
+                            <Receipt className="w-3.5 h-3.5" />
+                            {isAr ? 'فتح التتبع' : 'Track request'}
+                          </button>
+                        )}
+
+                        {isGuestResult && (
+                          <button
+                            onClick={() => {
+                              window.location.href = '/client-signup';
+                            }}
+                            className="h-10 px-5 rounded-full bg-white text-slate-700 border border-slate-200 text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 shadow-sm hover:bg-slate-50"
+                          >
+                            <User className="w-3.5 h-3.5" />
+                            {isAr ? 'إنشاء حساب' : 'Create account'}
+                          </button>
                         )}
                         
                         {canEdit && (
@@ -2789,17 +2693,7 @@ const PricingModal = ({ open, onOpenChange, initialRequest = null }: PricingModa
                             {isAr ? `تعديل الطلب (${remainingEdits}/3)` : `Edit (${remainingEdits}/3 left)`}
                           </button>
                         )}
-                        
-                        {canDelete && (
-                          <button
-                            onClick={() => setShowDeleteWarning(true)}
-                            className="h-10 px-5 rounded-full bg-gradient-to-r from-slate-700 to-slate-800 text-white text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 shadow-md hover:from-slate-800 hover:to-slate-900"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                            {isAr ? 'حذف نهائي' : 'Delete Forever'}
-                          </button>
-                        )}
-                        
+
                         {canCancel && (
                           <button
                             onClick={handleCancelRequest}
@@ -2809,67 +2703,25 @@ const PricingModal = ({ open, onOpenChange, initialRequest = null }: PricingModa
                             {isAr ? 'إلغاء الطلب' : 'Cancel Request'}
                           </button>
                         )}
+
+                        <button
+                          onClick={() => {
+                            const message = invoiceNumber
+                              ? (isAr
+                                ? `مرحباً، أريد الاستفسار عن طلب رقم ${invoiceNumber}`
+                                : `Hello, I want to ask about request ${invoiceNumber}`)
+                              : (isAr ? 'مرحباً، أريد الاستفسار عن طلبي.' : 'Hello, I want to ask about my request.');
+                            window.open(`https://wa.me/201277636616?text=${encodeURIComponent(message)}`, '_blank');
+                          }}
+                          className="h-10 px-5 rounded-full bg-[#25D366] text-white text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 shadow-[0_4px_20px_rgba(37,211,102,0.35)] hover:bg-[#20b558]"
+                        >
+                          <MessageSquare className="w-3.5 h-3.5" />
+                          {isAr ? 'تواصل مع Lumos' : 'Contact Lumos'}
+                        </button>
                       </div>
                     </motion.div>
                   );
                 })()}
-
-                {/* ── Delete Warning Dialog ── */}
-                {showDeleteWarning && (
-                  <motion.div
-                    initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                    className="absolute inset-0 z-[100] flex items-center justify-center p-4"
-                  >
-                    <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-[2px]" onClick={() => setShowDeleteWarning(false)} />
-                    <motion.div
-                      initial={{ scale: 0.95, opacity: 0, y: 10 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.95, opacity: 0, y: 10 }}
-                      className="relative w-full max-w-md bg-white rounded-[2rem] p-6 shadow-2xl border border-rose-100 overflow-hidden"
-                    >
-                      <div className="w-14 h-14 rounded-2xl bg-rose-50 flex items-center justify-center mb-4 mx-auto border border-rose-100">
-                        <AlertTriangle className="w-7 h-7 text-rose-500" />
-                      </div>
-                      
-                      <h3 className="text-xl font-black text-center text-slate-800 mb-2">
-                        {isAr ? 'هل أنت متأكد من الحذف؟' : 'Are you sure you want to delete?'}
-                      </h3>
-                      <p className="text-sm text-center text-slate-500 font-medium mb-4">
-                        {isAr ? 'لا يمكن استعادة الطلب بعد الحذف. هذا الإجراء نهائي.' : 'This action cannot be undone. The request will be permanently deleted.'}
-                      </p>
-                      
-                      <div className="mb-4">
-                        <label className="text-xs font-bold text-slate-500 uppercase tracking-widest block mb-2">
-                          {isAr ? 'سبب الحذف (اختياري)' : 'Delete reason (optional)'}
-                        </label>
-                        <textarea
-                          value={deleteReason}
-                          onChange={(e) => setDeleteReason(e.target.value)}
-                          placeholder={isAr ? 'أخبرنا причину الحذف...' : 'Tell us why you are deleting...'}
-                          className="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm font-medium focus:outline-none focus:border-rose-300 focus:ring-2 focus:ring-rose-100 resize-none"
-                          rows={2}
-                        />
-                      </div>
-                      
-                      <div className="flex gap-3">
-                        <button
-                          onClick={() => {
-                            setShowDeleteWarning(false);
-                            setDeleteReason('');
-                          }}
-                          className="flex-1 h-11 rounded-full bg-slate-100 text-slate-600 text-[10px] font-black uppercase tracking-widest transition-all hover:bg-slate-200"
-                        >
-                          {isAr ? 'إلغاء' : 'Cancel'}
-                        </button>
-                        <button
-                          onClick={handlePermanentDelete}
-                          className="flex-1 h-11 rounded-full bg-gradient-to-r from-rose-500 to-red-500 text-white text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 shadow-md hover:from-rose-600 hover:to-red-600"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                          {isAr ? 'نعم، احذف' : 'Yes, Delete'}
-                        </button>
-                      </div>
-                    </motion.div>
-                  </motion.div>
-                )}
 
                 {/* ── Easter Egg Popup Overlay ── */}
                 {showEasterEggModal && (

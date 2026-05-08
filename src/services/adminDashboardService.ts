@@ -11,7 +11,7 @@ import { createClientNotification } from './notificationService';
  * UUID columns).
  */
 const ALLOWED_STATUSES: ReadonlyArray<PricingRequest['status']> = [
-  'new', 'reviewing', 'approved', 'converted', 'rejected',
+  'new', 'reviewing', 'approved', 'converted', 'rejected', 'cancelled',
 ];
 const ALLOWED_PRIORITIES: ReadonlyArray<PricingRequest['priority']> = [
   'low', 'medium', 'high', 'urgent',

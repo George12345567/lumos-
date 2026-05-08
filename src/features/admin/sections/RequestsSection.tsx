@@ -67,6 +67,38 @@ const PRIORITY_CFG: Record<
   urgent: { tone: 'rose', en: 'Urgent', ar: 'عاجل' },
 };
 
+/**
+ * Resolve a human-readable display name for a request. Order of fallback:
+ *   1. guest_name (contact snapshot, populated for both guest and logged-in submits)
+ *   2. company_name (contact snapshot)
+ *   3. linked client (if client_id is set) — covers legacy rows that were saved
+ *      before the modal started persisting the snapshot
+ *   4. invoice_number (so the card never reads as "Unnamed" when it has an invoice)
+ *   5. null → caller renders the localized "Unnamed" placeholder
+ */
+function resolveRequestDisplayName(request: PricingRequest, clients: Client[]): string | null {
+  const direct = (request.guest_name || request.company_name || '').trim();
+  if (direct) return direct;
+  if (request.client_id) {
+    const linked = clients.find((c) => c.id === request.client_id);
+    if (linked) {
+      const linkedName = (
+        linked.company_name ||
+        linked.full_contact_name ||
+        linked.username ||
+        linked.email ||
+        ''
+      ).trim();
+      if (linkedName) return linkedName;
+    }
+  }
+  return null;
+}
+
+function isLoggedInClientRequest(request: PricingRequest): boolean {
+  return Boolean(request.client_id);
+}
+
 export function RequestsSection({
   requests,
   clients,
@@ -107,13 +139,15 @@ export function RequestsSection({
       if (filter === 'urgent' && r.priority !== 'urgent') return false;
       if (filter !== 'all' && filter !== 'urgent' && r.status !== filter) return false;
       if (!term) return true;
+      const linked = r.client_id ? clients.find((c) => c.id === r.client_id) : null;
       const haystack = [
         r.invoice_number, r.guest_name, r.guest_email, r.guest_phone,
-        r.company_name, r.package_name,
+        r.company_name, r.package_name, r.applied_promo_code,
+        linked?.company_name, linked?.username, linked?.email, linked?.full_contact_name,
       ].filter(Boolean).join(' ').toLowerCase();
       return haystack.includes(term);
     });
-  }, [requests, filter, search]);
+  }, [requests, clients, filter, search]);
 
   return (
     <div className="space-y-6">
@@ -168,6 +202,7 @@ export function RequestsSection({
             <RequestCard
               key={r.id}
               request={r}
+              clients={clients}
               teamMembers={teamMembers}
               isAr={isAr}
               onOpen={() => setSelected(r)}
@@ -223,9 +258,10 @@ function FilterChip({
 }
 
 function RequestCard({
-  request, teamMembers, isAr, onOpen, onUpdateStatus, canEdit, onOpenClient,
+  request, clients, teamMembers, isAr, onOpen, onUpdateStatus, canEdit, onOpenClient,
 }: {
   request: PricingRequest;
+  clients: Client[];
   teamMembers: TeamMember[];
   isAr: boolean;
   onOpen: () => void;
@@ -238,6 +274,15 @@ function RequestCard({
   const pCfg = PRIORITY_CFG[request.priority];
   const assigned = teamMembers.find((m) => m.id === request.assigned_to);
   const cleanPhone = (request.guest_phone || '').replace(/[^\d+]/g, '');
+  const displayName = resolveRequestDisplayName(request, clients);
+  const isClientRequest = isLoggedInClientRequest(request);
+  const linkedClient = request.client_id ? clients.find((c) => c.id === request.client_id) : null;
+  const promoCode = (request.applied_promo_code || '').trim();
+  const discountAmount = (() => {
+    const breakdown = request.discount_breakdown;
+    if (!breakdown) return 0;
+    return (breakdown.base_discount || 0) + (breakdown.promo_discount || 0) + (breakdown.reward_discount || 0);
+  })();
 
   return (
     <SoftCard className="p-5 flex flex-col gap-3" as="article">
@@ -254,9 +299,14 @@ function RequestCard({
           <SoftBadge tone={sCfg.tone}>{isAr ? sCfg.ar : sCfg.en}</SoftBadge>
         </div>
         <div>
-          <p className="text-[15px] font-bold text-foreground truncate">
-            {request.guest_name || request.company_name || t('بدون اسم', 'Unnamed')}
-          </p>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <p className="text-[15px] font-bold text-foreground truncate">
+              {displayName || t('بدون اسم', 'Unnamed')}
+            </p>
+            <SoftBadge tone={isClientRequest ? 'emerald' : 'slate'}>
+              {isClientRequest ? t('عميل', 'Client') : t('زائر', 'Guest')}
+            </SoftBadge>
+          </div>
           <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
             {request.company_name && request.guest_name ? request.company_name : ''}
             {request.package_name ? ` · ${request.package_name}` : request.request_type ? ` · ${request.request_type}` : ''}
@@ -270,6 +320,23 @@ function RequestCard({
           </span>
           <SoftBadge tone={pCfg.tone} icon={Flag}>{isAr ? pCfg.ar : pCfg.en}</SoftBadge>
         </div>
+        {(promoCode || discountAmount > 0) ? (
+          <div className="text-[11px] text-emerald-700 dark:text-emerald-400 inline-flex items-center gap-1.5 truncate">
+            {promoCode ? (
+              <span className="font-mono font-bold tracking-wider">{promoCode}</span>
+            ) : null}
+            {discountAmount > 0 ? (
+              <span className="tabular-nums">
+                {t('خصم', 'Discount')}: −{new Intl.NumberFormat(isAr ? 'ar' : 'en').format(discountAmount)} {request.price_currency || 'EGP'}
+              </span>
+            ) : null}
+          </div>
+        ) : null}
+        {linkedClient && !request.guest_name && !request.company_name ? (
+          <p className="text-[10px] text-slate-400 truncate">
+            {t('من ملف', 'From profile')}: {linkedClient.email || linkedClient.username}
+          </p>
+        ) : null}
         <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
           <span className="inline-flex items-center gap-1 truncate">
             <Calendar className="w-3 h-3" />
@@ -460,11 +527,13 @@ function RequestEditDrawer({
     }
   };
 
+  const drawerTitle = resolveRequestDisplayName(request, clients) || t('طلب', 'Request');
+
   return (
     <AdminDrawer
       open={!!request}
       onOpenChange={(o) => !o && onClose()}
-      title={request.guest_name || request.company_name || t('طلب', 'Request')}
+      title={drawerTitle}
       subtitle={request.invoice_number || request.package_name || request.request_type}
       badge={<SoftBadge tone={sCfg.tone}>{isAr ? sCfg.ar : sCfg.en}</SoftBadge>}
       width="xl"

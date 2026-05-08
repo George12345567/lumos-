@@ -2,6 +2,10 @@ import { supabase } from '@/lib/supabaseClient';
 import type { PricingRequest, PricingRequestItem, DiscountBreakdown } from '@/types/dashboard';
 import { logAuditChange } from './auditService';
 import { createNotification } from './notificationService';
+import {
+  createGuestPricingRequest,
+  type GuestTrackedRequest,
+} from './guestTrackingService';
 
 interface SubmitPricingRequestParams {
   requestId?: string | null;
@@ -14,27 +18,107 @@ interface SubmitPricingRequestParams {
   estimatedTotal: number;
   priceCurrency: string;
   requestNotes?: string;
+  /**
+   * Contact snapshot persisted on the request row (guest_name/email/phone).
+   * Populate this for BOTH guest and logged-in flows so the admin dashboard
+   * never falls back to "Unnamed" — the modal owns building the snapshot
+   * from the auth client profile when the user is signed in.
+   */
   guestContact?: {
     name: string;
     phone: string;
     email?: string;
   };
+  /** Company/brand name snapshot — written to pricing_requests.company_name. */
+  companyName?: string;
   locationUrl?: string;
   discountBreakdown?: DiscountBreakdown;
   appliedPromoCode?: string;
 }
 
-export const submitPricingRequest = async (data: SubmitPricingRequestParams): Promise<{ success: boolean; id?: string; error?: string }> => {
+export const submitPricingRequest = async (
+  data: SubmitPricingRequestParams,
+): Promise<{
+  success: boolean;
+  id?: string;
+  invoiceNumber?: string | null;
+  trackingKey?: string;
+  guestRequest?: GuestTrackedRequest;
+  request?: PricingRequest;
+  error?: string;
+}> => {
   try {
-    const { requestId, clientId, requestType, packageId, packageName, selectedServices, estimatedSubtotal, estimatedTotal, priceCurrency, requestNotes, guestContact, locationUrl, discountBreakdown, appliedPromoCode } = data;
+    const { requestId, clientId, requestType, packageId, packageName, selectedServices, estimatedSubtotal, estimatedTotal, priceCurrency, requestNotes, guestContact, companyName, locationUrl, discountBreakdown, appliedPromoCode } = data;
 
     const now = new Date().toISOString();
+
+    const normalizedEmail = guestContact?.email ? guestContact.email.trim().toLowerCase() : null;
+    const normalizedPhone = guestContact?.phone ? guestContact.phone.trim() : null;
+    const normalizedName = guestContact?.name ? guestContact.name.trim() : null;
+    const normalizedCompany = companyName ? companyName.trim() : null;
+    const normalizedPromo = appliedPromoCode ? appliedPromoCode.trim().toUpperCase() : null;
+
+    if (!clientId) {
+      if (requestId) {
+        return {
+          success: false,
+          error: 'guest_updates_require_tracking_portal',
+        };
+      }
+
+      if (!guestContact?.name || !guestContact?.phone) {
+        return {
+          success: false,
+          error: 'missing_guest_contact',
+        };
+      }
+
+      const guestResult = await createGuestPricingRequest({
+        request_type: requestType,
+        package_id: packageId || null,
+        package_name: packageName,
+        selected_services: selectedServices,
+        estimated_subtotal: estimatedSubtotal,
+        estimated_total: estimatedTotal,
+        price_currency: priceCurrency,
+        request_notes: requestNotes || null,
+        guest_contact: {
+          name: normalizedName || guestContact.name,
+          phone: normalizedPhone || guestContact.phone,
+          email: normalizedEmail,
+        },
+        company_name: normalizedCompany,
+        location_url: locationUrl || null,
+        discount_breakdown: discountBreakdown || {
+          base_discount: 0,
+          promo_discount: 0,
+          reward_discount: 0,
+          total_discount_percent: 0,
+        },
+        applied_promo_code: normalizedPromo,
+      });
+
+      if (!guestResult.success || !guestResult.request) {
+        return {
+          success: false,
+          error: guestResult.error || 'guest_request_failed',
+        };
+      }
+
+      return {
+        success: true,
+        invoiceNumber: guestResult.request.invoice_number,
+        trackingKey: guestResult.trackingKey,
+        guestRequest: guestResult.request,
+      };
+    }
 
     const requestData = {
       client_id: clientId || null,
       request_type: requestType,
       status: 'new',
       priority: 'medium',
+      request_source: clientId ? 'authenticated_pricing_modal' : 'guest_pricing_modal',
       package_id: packageId,
       package_name: packageName,
       selected_services: selectedServices,
@@ -42,10 +126,11 @@ export const submitPricingRequest = async (data: SubmitPricingRequestParams): Pr
       estimated_total: estimatedTotal,
       price_currency: priceCurrency,
       discount_breakdown: discountBreakdown || { base_discount: 0, promo_discount: 0, reward_discount: 0, total_discount_percent: 0 },
-      applied_promo_code: appliedPromoCode || null,
-      guest_name: guestContact?.name || null,
-      guest_phone: guestContact?.phone || null,
-      guest_email: guestContact?.email || null,
+      applied_promo_code: normalizedPromo,
+      guest_name: normalizedName,
+      guest_phone: normalizedPhone,
+      guest_email: normalizedEmail,
+      company_name: normalizedCompany,
       request_notes: requestNotes || null,
       location_url: locationUrl || null,
       status_history: [{ status: 'new', changed_at: now, changed_by: null, note: 'Request submitted' }],
@@ -121,7 +206,12 @@ export const submitPricingRequest = async (data: SubmitPricingRequestParams): Pr
       }
     }
 
-    return { success: true, id: result.id };
+    return {
+      success: true,
+      id: result.id,
+      invoiceNumber: result.invoice_number || null,
+      request: result as PricingRequest,
+    };
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     console.error('Error submitting pricing request:', error);
@@ -237,6 +327,12 @@ export const updatePricingRequestStatus = async (
           titleAr: 'تم تحويل الطلب لأوردر',
           message: 'Your pricing request has been converted to an active order.',
           messageAr: 'تم تحويل طلب التسعير الخاص بك إلى أوردر نشط.'
+        },
+        cancelled: {
+          title: 'Request Cancelled',
+          titleAr: 'تم إلغاء الطلب',
+          message: 'Your pricing request has been cancelled.',
+          messageAr: 'تم إلغاء طلب التسعير الخاص بك.'
         }
       };
 
@@ -346,9 +442,32 @@ export const deletePricingRequest = async (
   deletedById?: string
 ): Promise<{ success: boolean; error?: string }> => {
   try {
+    const { data: current, error: fetchError } = await supabase
+      .from('pricing_requests')
+      .select('status, status_history')
+      .eq('id', id)
+      .single();
+
+    if (fetchError) throw fetchError;
+
+    const now = new Date().toISOString();
+    const historyEntry = {
+      status: 'cancelled',
+      changed_at: now,
+      changed_by: deletedById || null,
+      note: 'Request cancelled instead of permanently deleted'
+    };
+
     const { error: deleteError } = await supabase
       .from('pricing_requests')
-      .delete()
+      .update({
+        status: 'cancelled',
+        delete_reason: 'Admin cancelled request; permanent delete is disabled',
+        status_history: current.status_history
+          ? [...current.status_history, historyEntry]
+          : [historyEntry],
+        updated_at: now,
+      })
       .eq('id', id);
 
     if (deleteError) throw deleteError;
@@ -358,11 +477,11 @@ export const deletePricingRequest = async (
       entityId: id,
       changedBy: deletedById || null,
       changedByType: deletedById ? 'team_member' : 'system',
-      action: 'deleted',
-      oldValues: null,
-      newValues: null,
-      changeSummary: 'Pricing request deleted',
-      changeSummaryAr: 'تم حذف طلب التسعير'
+      action: 'updated',
+      oldValues: { status: current.status },
+      newValues: { status: 'cancelled' },
+      changeSummary: 'Pricing request cancelled; permanent delete disabled',
+      changeSummaryAr: 'تم إلغاء طلب التسعير بدون حذف نهائي'
     });
 
     return { success: true };

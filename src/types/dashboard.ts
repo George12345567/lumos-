@@ -75,7 +75,7 @@ export interface PricingRequest {
     invoice_number?: string | null;
     client_id?: string | null;
     request_type: 'package' | 'custom';
-    status: 'new' | 'reviewing' | 'approved' | 'converted' | 'rejected';
+    status: 'new' | 'reviewing' | 'approved' | 'converted' | 'rejected' | 'cancelled';
     priority: 'low' | 'medium' | 'high' | 'urgent';
     assigned_to: string | null;
     request_source?: string;
@@ -104,6 +104,11 @@ export interface PricingRequest {
     reviewed_at?: string | null;
     edit_count: number;
     delete_reason?: string | null;
+    guest_tracking_hash?: string | null;
+    guest_tracking_created_at?: string | null;
+    guest_tracking_last_used_at?: string | null;
+    guest_tracking_revoked_at?: string | null;
+    guest_last_accessed_at?: string | null;
     assigned_to_name?: string;
     assigned_to_role?: string;
 }
