@@ -22,6 +22,7 @@ const PROFILE_PREVIEW_ENABLED = authConfig.isDev || authConfig.enableProfilePrev
 const Index = lazy(() => import("./pages/Index"));
 const MobileDemoPage = lazy(() => import("./pages/MobileDemoPage"));
 const ServicePage = lazy(() => import("./pages/ServicePage"));
+const TrackRequestPage = lazy(() => import("./pages/TrackRequestPage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
 const SignUpPage = lazy(() => import("./pages/SignUpPage"));
@@ -61,6 +62,7 @@ const App = () => {
                     <Route path="/" element={<Index />} />
                     <Route path="/demo" element={<MobileDemoPage />} />
                     <Route path="/services/:slug" element={<ServicePage />} />
+                    <Route path="/track-request" element={<TrackRequestPage />} />
                     <Route path="/client-signup" element={<GuestRoute><SignUpPage /></GuestRoute>} />
                     <Route path="/client-login" element={<GuestRoute><LogInPage /></GuestRoute>} />
                     <Route path="/forgot-password" element={<GuestRoute><ForgotPasswordPage /></GuestRoute>} />

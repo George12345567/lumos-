@@ -48,13 +48,14 @@ interface RequestsSectionProps {
 
 const STATUS_CFG: Record<
   PricingRequest['status'],
-  { tone: 'sky' | 'amber' | 'emerald' | 'violet' | 'rose'; en: string; ar: string }
+  { tone: 'sky' | 'amber' | 'emerald' | 'violet' | 'rose' | 'slate'; en: string; ar: string }
 > = {
   new: { tone: 'sky', en: 'New', ar: 'جديد' },
   reviewing: { tone: 'amber', en: 'Reviewing', ar: 'قيد المراجعة' },
   approved: { tone: 'emerald', en: 'Approved', ar: 'معتمد' },
   converted: { tone: 'violet', en: 'Converted', ar: 'محوّل' },
   rejected: { tone: 'rose', en: 'Rejected', ar: 'مرفوض' },
+  cancelled: { tone: 'slate', en: 'Cancelled', ar: 'ملغي' },
 };
 
 const PRIORITY_CFG: Record<
@@ -123,7 +124,7 @@ export function RequestsSection({
 
   const counts = useMemo(() => {
     const byStatus: Record<PricingRequest['status'], number> = {
-      new: 0, reviewing: 0, approved: 0, converted: 0, rejected: 0,
+      new: 0, reviewing: 0, approved: 0, converted: 0, rejected: 0, cancelled: 0,
     };
     let urgent = 0;
     for (const r of requests) {
@@ -162,7 +163,7 @@ export function RequestsSection({
       <SoftCard className="p-3">
         <div className="flex flex-wrap items-center gap-2">
           <FilterChip label={t('الكل', 'All')} count={counts.all} active={filter === 'all'} onClick={() => setFilter('all')} />
-          {(['new', 'reviewing', 'approved', 'converted', 'rejected'] as const).map((s) => (
+          {(['new', 'reviewing', 'approved', 'converted', 'rejected', 'cancelled'] as const).map((s) => (
             <FilterChip
               key={s}
               label={isAr ? STATUS_CFG[s].ar : STATUS_CFG[s].en}
@@ -306,6 +307,12 @@ function RequestCard({
             <SoftBadge tone={isClientRequest ? 'emerald' : 'slate'}>
               {isClientRequest ? t('عميل', 'Client') : t('زائر', 'Guest')}
             </SoftBadge>
+            {!isClientRequest && request.guest_tracking_hash ? (
+              <SoftBadge tone="emerald">{t('تتبع مفعّل', 'Tracking enabled')}</SoftBadge>
+            ) : null}
+            {request.status === 'cancelled' ? (
+              <SoftBadge tone="rose">{t('ملغي من الزائر/العميل', 'Cancelled')}</SoftBadge>
+            ) : null}
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
             {request.company_name && request.guest_name ? request.company_name : ''}
@@ -350,6 +357,11 @@ function RequestCard({
             <span className="text-slate-400">{t('غير مُعيّن', 'Unassigned')}</span>
           )}
         </div>
+        {request.guest_last_accessed_at ? (
+          <p className="text-[10px] text-slate-400">
+            {t('آخر دخول للزائر', 'Last guest access')}: {new Date(request.guest_last_accessed_at).toLocaleString(isAr ? 'ar' : 'en')}
+          </p>
+        ) : null}
       </button>
 
       <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-emerald-900/5 dark:border-white/5">
@@ -391,7 +403,7 @@ function RequestCard({
           onChange={(e) => void onUpdateStatus(request.id, e.target.value as PricingRequest['status'])}
           className="ml-auto text-[11px] rounded-full px-2 h-8 bg-white ring-1 ring-slate-200 focus:outline-none focus:ring-emerald-300 disabled:opacity-50"
         >
-          {(['new', 'reviewing', 'approved', 'converted', 'rejected'] as PricingRequest['status'][]).map((s) => (
+          {(['new', 'reviewing', 'approved', 'converted', 'rejected', 'cancelled'] as PricingRequest['status'][]).map((s) => (
             <option key={s} value={s}>{isAr ? STATUS_CFG[s].ar : STATUS_CFG[s].en}</option>
           ))}
         </select>
@@ -477,7 +489,7 @@ function RequestEditDrawer({
   useEffect(() => {
     setForm(fromRequest(request));
     setTab('edit');
-  }, [request?.id]);
+  }, [request]);
 
   if (!request) return null;
   const sCfg = STATUS_CFG[request.status];
@@ -750,12 +762,17 @@ function RequestEditDrawer({
               <SoftButton variant="ghost" size="sm" onClick={() => void onUpdateStatus(request.id, 'rejected')} disabled={!canEdit}>
                 <XCircle className="w-3.5 h-3.5" /> {t('رفض', 'Reject')}
               </SoftButton>
+              <SoftButton variant="ghost" size="sm" onClick={() => void onUpdateStatus(request.id, 'cancelled')} disabled={!canEdit || request.status === 'cancelled'}>
+                <XCircle className="w-3.5 h-3.5" /> {t('إلغاء', 'Cancel')}
+              </SoftButton>
             </div>
             <div className="pt-3 border-t border-emerald-900/5 grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
               <Field label={t('المُنشئ', 'Source')}>{request.request_source || '—'}</Field>
               <Field label={t('عُدّل', 'Edited')}>{request.edit_count || 0} {t('مرة', 'times')}</Field>
               <Field label={t('تاريخ المراجعة', 'Reviewed at')}>{request.reviewed_at ? new Date(request.reviewed_at).toLocaleString(isAr ? 'ar' : 'en') : '—'}</Field>
               <Field label={t('طلب محوّل', 'Converted order')}>{request.converted_order_id || '—'}</Field>
+              <Field label={t('تتبع الزائر', 'Guest tracking')}>{request.guest_tracking_hash ? t('مفعّل', 'Enabled') : '—'}</Field>
+              <Field label={t('آخر دخول للزائر', 'Last guest access')}>{request.guest_last_accessed_at ? new Date(request.guest_last_accessed_at).toLocaleString(isAr ? 'ar' : 'en') : '—'}</Field>
             </div>
           </SoftCard>
         )}
@@ -797,22 +814,22 @@ function RequestEditDrawer({
 
         {tab === 'danger' && (
           <SoftCard className="p-5 ring-1 ring-rose-100 bg-rose-50/30">
-            <p className="text-sm font-semibold text-rose-800 mb-1">{t('حذف الطلب', 'Delete request')}</p>
+            <p className="text-sm font-semibold text-rose-800 mb-1">{t('إلغاء الطلب', 'Cancel request')}</p>
             <p className="text-xs text-rose-700 mb-4">
-              {t('هذا الإجراء لا يمكن التراجع عنه.', 'This cannot be undone.')}
+              {t('لن يتم حذف الطلب نهائياً. سيتم وضعه كملغي مع الاحتفاظ بالسجل.', 'The request will not be permanently deleted. It will be marked cancelled and kept in history.')}
             </p>
             <SoftButton
               variant="danger"
               size="sm"
               onClick={() => {
-                if (window.confirm(t('متأكد من الحذف؟', 'Confirm delete?'))) {
+                if (window.confirm(t('متأكد من إلغاء الطلب؟', 'Confirm cancellation?'))) {
                   void onDelete(request.id);
                   onClose();
                 }
               }}
               disabled={!canDelete}
             >
-              <Trash2 className="w-3.5 h-3.5" /> {t('حذف نهائي', 'Delete permanently')}
+              <Trash2 className="w-3.5 h-3.5" /> {t('إلغاء بدون حذف', 'Cancel without deleting')}
             </SoftButton>
           </SoftCard>
         )}

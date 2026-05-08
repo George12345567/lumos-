@@ -34,6 +34,7 @@ export function StatisticsSection({
       approved: 0,
       converted: 0,
       rejected: 0,
+      cancelled: 0,
     };
     for (const r of pricingRequests) map[r.status] = (map[r.status] || 0) + 1;
     return map;

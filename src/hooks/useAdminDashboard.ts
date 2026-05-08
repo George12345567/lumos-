@@ -227,10 +227,12 @@ export const useAdminDashboard = () => {
     const deletePricingRequest = useCallback(async (id: string) => {
         try {
             await adminDeletePricingRequest(id);
-            toast.success('Pricing request deleted');
-            setPricingRequests(prev => prev.filter(request => request.id !== id));
+            toast.success('Pricing request cancelled');
+            setPricingRequests(prev => prev.map(request => request.id === id
+                ? { ...request, status: 'cancelled' as PricingRequest['status'] }
+                : request));
         } catch {
-            toast.error('Failed to delete pricing request');
+            toast.error('Failed to cancel pricing request');
         }
     }, []);
 

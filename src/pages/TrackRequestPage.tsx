@@ -77,7 +77,7 @@ export default function TrackRequestPage() {
   const { isArabic } = useLanguage();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const t = (ar: string, en: string) => (isArabic ? ar : en);
+  const t = useCallback((ar: string, en: string) => (isArabic ? ar : en), [isArabic]);
   const locale = isArabic ? 'ar' : 'en';
 
   const [form, setForm] = useState<FormState>(() => ({
@@ -131,7 +131,7 @@ export default function TrackRequestPage() {
     if (searchParams.get('invoice') && searchParams.get('key')) {
       void verify();
     }
-  }, []);
+  }, [searchParams, verify]);
 
   const saveChanges = async () => {
     if (!request || !edit || readOnly) return;

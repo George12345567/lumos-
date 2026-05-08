@@ -1936,6 +1936,15 @@ const PricingModal = ({ open, onOpenChange, initialRequest = null }: PricingModa
                             
                             <div className="mt-3 flex flex-wrap gap-2">
                               <button
+                                onClick={() => {
+                                  window.location.href = '/client-login';
+                                }}
+                                className="h-9 px-4 rounded-full bg-white text-slate-700 border border-amber-200 text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 hover:bg-amber-50"
+                              >
+                                <User className="w-3.5 h-3.5" />
+                                {isAr ? 'تسجيل الدخول' : 'Sign in'}
+                              </button>
+                              <button
                                 onClick={() => window.open('/track-request', '_blank')}
                                 className="h-9 px-4 rounded-full bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 hover:bg-slate-800"
                               >

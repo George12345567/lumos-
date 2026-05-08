@@ -285,7 +285,7 @@ begin
     v_selected_services,
     v_estimated_subtotal,
     v_estimated_total,
-    upper(nullif(btrim(coalesce(p_request->>'price_currency', 'EGP')), '')),
+    coalesce(upper(nullif(btrim(coalesce(p_request->>'price_currency', 'EGP')), '')), 'EGP'),
     v_discount_breakdown,
     nullif(upper(btrim(coalesce(p_request->>'applied_promo_code', ''))), ''),
     v_guest_name,

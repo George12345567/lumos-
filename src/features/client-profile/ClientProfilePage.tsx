@@ -1744,6 +1744,7 @@ const REQUEST_STATUS_LABELS: Record<PricingRequest['status'], { en: string; ar: 
   approved: { en: 'Approved', ar: 'معتمد', tone: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-200' },
   converted: { en: 'Converted', ar: 'محوّل', tone: 'bg-violet-100 text-violet-800 dark:bg-violet-500/15 dark:text-violet-200' },
   rejected: { en: 'Needs revision', ar: 'يحتاج تعديل', tone: 'bg-rose-100 text-rose-800 dark:bg-rose-500/15 dark:text-rose-200' },
+  cancelled: { en: 'Cancelled', ar: 'ملغي', tone: 'bg-slate-100 text-slate-800 dark:bg-slate-500/15 dark:text-slate-200' },
 };
 
 function ClientRequestsPanel({

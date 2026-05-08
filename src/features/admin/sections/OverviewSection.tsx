@@ -360,6 +360,7 @@ function RequestStatusBadge({ status, isAr }: { status: PricingRequest['status']
     approved: { tone: 'emerald', en: 'Approved', ar: 'معتمد' },
     converted: { tone: 'violet', en: 'Converted', ar: 'محوّل' },
     rejected: { tone: 'rose', en: 'Rejected', ar: 'مرفوض' },
+    cancelled: { tone: 'slate', en: 'Cancelled', ar: 'ملغي' },
   };
   const cfg = map[status];
   return <SoftBadge tone={cfg.tone}>{isAr ? cfg.ar : cfg.en}</SoftBadge>;

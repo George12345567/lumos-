@@ -84,6 +84,16 @@ const statusConfig: Record<PricingRequest['status'], {
         text: 'text-rose-400',
         ring: 'ring-rose-500/30'
     },
+    cancelled: {
+        labelAr: 'ملغي',
+        labelEn: 'Cancelled',
+        gradient: 'from-slate-400 to-slate-500',
+        bg: 'bg-slate-500/10',
+        border: 'border-slate-500/30',
+        iconBg: 'bg-slate-500/20 text-slate-400',
+        text: 'text-slate-400',
+        ring: 'ring-slate-500/30'
+    },
 };
 
 const priorityConfig: Record<Priority, { labelAr: string; labelEn: string; color: string; bg: string }> = {
@@ -117,6 +127,7 @@ export const PricingRequestsManager = memo(({ requests, onUpdateStatus, onUpdate
         approved: requests.filter(r => r.status === 'approved').length,
         converted: requests.filter(r => r.status === 'converted').length,
         rejected: requests.filter(r => r.status === 'rejected').length,
+        cancelled: requests.filter(r => r.status === 'cancelled').length,
     }), [requests]);
 
     const pipelineStats = useMemo(() => {
@@ -532,6 +543,14 @@ export const PricingRequestsManager = memo(({ requests, onUpdateStatus, onUpdate
                                             {isArabic ? 'رفض' : 'Reject'}
                                         </button>
                                     )}
+                                    {selectedRequest.status !== 'cancelled' && (
+                                        <button
+                                            onClick={() => { onUpdateStatus(selectedRequest, 'cancelled'); setSelectedRequest(null); }}
+                                            className="px-3 py-1.5 rounded-lg text-xs font-bold border border-slate-500/30 bg-slate-500/10 text-slate-400 hover:bg-slate-500/20"
+                                        >
+                                            {isArabic ? 'إلغاء' : 'Cancel'}
+                                        </button>
+                                    )}
                                 </div>
                             </div>
 
@@ -541,7 +560,7 @@ export const PricingRequestsManager = memo(({ requests, onUpdateStatus, onUpdate
                                     className="px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 border border-rose-500/30 bg-rose-500/10 text-rose-400 hover:bg-rose-500/20"
                                 >
                                     <Trash2 className="w-4 h-4" />
-                                    {isArabic ? 'حذف' : 'Delete'}
+                                    {isArabic ? 'إلغاء بدون حذف' : 'Cancel without deleting'}
                                 </button>
                                 <div className="flex gap-2">
                                     <button
