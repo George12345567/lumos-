@@ -1,18 +1,10 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { getNotifications, markNotificationAsRead } from '@/services/notificationService';
-
-export interface ClientNotification {
-  id: string;
-  message: string;
-  messageAr?: string;
-  type: 'info' | 'milestone' | 'alert' | 'update';
-  created_at: string;
-  is_read: boolean;
-}
+import type { Notification } from '@/types/dashboard';
 
 export function useNotifications(clientId: string | undefined) {
-  const [notifications, setNotifications] = useState<ClientNotification[]>([]);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -25,7 +17,7 @@ export function useNotifications(clientId: string | undefined) {
     setError(null);
     try {
       const data = await getNotifications(clientId, true, 20);
-      setNotifications(data as ClientNotification[]);
+      setNotifications(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load notifications');
     } finally {
@@ -48,7 +40,7 @@ export function useNotifications(clientId: string | undefined) {
         .on('postgres_changes',
           { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${clientId}` },
           (payload) => {
-            setNotifications((prev) => [payload.new as ClientNotification, ...prev]);
+            setNotifications((prev) => [payload.new as Notification, ...prev]);
           })
         .subscribe();
     } catch {

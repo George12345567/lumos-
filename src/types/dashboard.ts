@@ -240,20 +240,55 @@ export interface TeamMember {
     updated_at?: string;
 }
 
+export type NotificationType =
+    | 'message'
+    | 'file'
+    | 'identity'
+    | 'project'
+    | 'request'
+    | 'account'
+    | 'security'
+    | 'system'
+    | 'pricing_request_new'
+    | 'pricing_request_status_changed'
+    | 'pricing_request_assigned'
+    | 'pricing_request_approved'
+    | 'pricing_request_rejected'
+    | 'pricing_request_converted'
+    | 'pricing_request_follow_up'
+    | 'general';
+
+export type NotificationEntityType =
+    | 'client_message'
+    | 'client_asset'
+    | 'client_identity'
+    | 'pricing_request'
+    | 'order'
+    | 'client'
+    | 'team_member'
+    | 'discount_code'
+    | string;
+
 export interface Notification {
     id: string;
     user_id: string;
-    user_type: 'client' | 'team_member';
-    type: 'pricing_request_new' | 'pricing_request_status_changed' | 'pricing_request_assigned' | 'pricing_request_approved' | 'pricing_request_rejected' | 'pricing_request_converted' | 'pricing_request_follow_up' | 'general';
+    user_type: 'client' | 'team_member' | 'admin';
+    recipient_user_id?: string | null;
+    client_id?: string | null;
+    actor_id?: string | null;
+    actor_name?: string | null;
+    type: NotificationType;
     title: string;
-    title_ar: string;
+    title_ar?: string | null;
     message: string;
-    message_ar: string;
-    action_type?: string;
-    action_id?: string;
-    action_url?: string;
+    message_ar?: string | null;
+    entity_type?: NotificationEntityType | null;
+    entity_id?: string | null;
+    action_type?: string | null;
+    action_id?: string | null;
+    action_url?: string | null;
     is_read: boolean;
-    read_at?: string;
+    read_at?: string | null;
     priority?: 'low' | 'normal' | 'high' | 'urgent';
     created_at: string;
 }

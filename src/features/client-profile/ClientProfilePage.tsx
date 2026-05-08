@@ -574,7 +574,7 @@ export default function ClientProfilePage() {
     reload: reloadIdentity,
   } = useClientIdentity(client?.id);
   const { orders, loading: ordersLoading, error: ordersError, refetch: refetchOrders } = useOrders(client?.id);
-  const { notifications, markAsRead, refetch: refetchNotifications } = useNotifications(client?.id);
+  const { notifications } = useNotifications(client?.id);
 
   const [tab, setTab] = useState<ProfileTab>(() => normalizeProfileTab(searchParams.get('tab')) ?? 'overview');
   const [editorOpen, setEditorOpen] = useState(false);
@@ -792,7 +792,6 @@ export default function ClientProfilePage() {
   const sharedAssets = assets.filter((asset) => !asset.is_identity_asset);
   const completion = getProfileCompletion(profile, client, Boolean(avatarUrl));
   const recentActivity = getActivityItems(orders, messages, sharedAssets, notifications);
-  const unreadNotifications = notifications.filter((notification) => !notification.is_read).length;
   const packageName = cleanText(client.package_name || profile.package_name);
 
   return (
@@ -810,12 +809,8 @@ export default function ClientProfilePage() {
             displayName={displayName}
             avatarUrl={avatarUrl}
             initialsText={initials(displayName)}
-            notifications={notifications}
-            unreadNotifications={unreadNotifications}
             isArabic={isArabic}
             theme={theme}
-            onMarkNotificationRead={markAsRead}
-            onRefreshNotifications={refetchNotifications}
             onSignOut={handleSignOut}
             onToggleTheme={toggleTheme}
           />
@@ -1058,28 +1053,19 @@ function TopBar({
   displayName,
   avatarUrl,
   initialsText,
-  notifications,
-  unreadNotifications,
   isArabic,
   theme,
-  onMarkNotificationRead,
-  onRefreshNotifications,
   onSignOut,
   onToggleTheme,
 }: {
   displayName: string;
   avatarUrl: string | null;
   initialsText: string;
-  notifications: Notification[];
-  unreadNotifications: number;
   isArabic: boolean;
   theme: 'dark' | 'light';
-  onMarkNotificationRead: (id: string) => Promise<boolean>;
-  onRefreshNotifications: () => Promise<void>;
   onSignOut: () => Promise<void>;
   onToggleTheme: () => void;
 }) {
-  const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
 
   return (
@@ -1099,71 +1085,6 @@ function TopBar({
         >
           {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
         </button>
-
-        <div className="relative">
-          <button
-            type="button"
-            onClick={() => setNotificationsOpen((open) => !open)}
-            className="relative flex h-11 w-11 items-center justify-center rounded-full border border-border bg-card text-foreground transition hover:bg-muted"
-            aria-label={isArabic ? 'الإشعارات' : 'Notifications'}
-          >
-            <Bell className="h-4 w-4" />
-            {unreadNotifications > 0 && (
-              <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-[color:var(--profile-accent)]" />
-            )}
-          </button>
-
-          {notificationsOpen && (
-            <div className="absolute right-0 top-12 z-30 w-80 max-w-[calc(100vw-2rem)] rounded-3xl border border-border bg-card p-3 shadow-xl">
-              <div className="flex items-center justify-between px-2 py-1">
-                <p className="text-sm font-semibold text-card-foreground">
-                  {isArabic ? 'الإشعارات' : 'Notifications'}
-                </p>
-                <button
-                  type="button"
-                  onClick={() => void onRefreshNotifications()}
-                  className="rounded-full p-2 text-muted-foreground transition hover:bg-muted hover:text-foreground"
-                  aria-label={isArabic ? 'تحديث الإشعارات' : 'Refresh notifications'}
-                >
-                  <RefreshCw className="h-4 w-4" />
-                </button>
-              </div>
-              <div className="mt-2 max-h-80 space-y-1 overflow-y-auto">
-                {notifications.length === 0 ? (
-                  <p className="px-2 py-6 text-center text-sm text-muted-foreground">
-                    {isArabic ? 'لا توجد إشعارات حالياً.' : 'No notifications yet.'}
-                  </p>
-                ) : (
-                  notifications.slice(0, 6).map((notification) => (
-                    <button
-                      key={notification.id}
-                      type="button"
-                      onClick={() => void onMarkNotificationRead(notification.id)}
-                      className="w-full rounded-2xl px-3 py-2 text-left transition hover:bg-muted"
-                    >
-                      <div className="flex items-start gap-2">
-                        <span
-                          className={cn(
-                            'mt-1 h-2 w-2 rounded-full',
-                            notification.is_read ? 'bg-muted-foreground/30' : 'bg-[color:var(--profile-accent)]',
-                          )}
-                        />
-                        <span className="min-w-0 flex-1">
-                          <span className="block truncate text-sm font-medium text-card-foreground">
-                            {isArabic ? notification.title_ar || notification.title : notification.title}
-                          </span>
-                          <span className="mt-1 line-clamp-2 block text-xs text-muted-foreground">
-                            {isArabic ? notification.message_ar || notification.message : notification.message}
-                          </span>
-                        </span>
-                      </div>
-                    </button>
-                  ))
-                )}
-              </div>
-            </div>
-          )}
-        </div>
 
         <div className="relative">
           <button

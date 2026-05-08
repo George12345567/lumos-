@@ -171,6 +171,12 @@ export const profileService = {
   getAvatarUrl: async (path?: string | null): Promise<string | null> => {
     const trimmed = (path ?? '').trim();
     if (!trimmed) return null;
+    // Reject local/ephemeral URLs that cannot be displayed outside the uploading session
+    if (/^(blob:|file:)/i.test(trimmed)) return null;
+    // Reject http://localhost – invalid outside the browser that set it
+    if (/^https?:\/\/localhost/i.test(trimmed)) return null;
+    // Any other absolute http(s) URL stored in the DB is a legacy signed URL;
+    // it will expire and cannot be re-signed here, so treat as no-avatar.
     if (/^https?:\/\//i.test(trimmed)) return null;
     if (trimmed.startsWith('/')) return trimmed;
     try {

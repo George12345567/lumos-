@@ -1,7 +1,8 @@
-import { Search, RefreshCw, Bell, Sun, Moon, Menu } from 'lucide-react';
+import { Search, RefreshCw, Sun, Moon, Menu } from 'lucide-react';
 import { useLanguage } from '@/context/LanguageContext';
 import { useAppearance } from '@/context/AppearanceContext';
 import { cn } from '@/lib/utils';
+import NotificationCenter from '@/components/notifications/NotificationCenter';
 import { useAdminRole } from '../hooks/useAdminPermission';
 import { ROLE_LABELS } from '../permissions';
 import { SoftBadge, SoftButton } from './primitives';
@@ -10,7 +11,6 @@ interface AdminTopbarProps {
   name: string;
   email?: string;
   avatarUrl?: string;
-  unread: number;
   onRefresh: () => void;
   onSearchChange: (value: string) => void;
   searchValue: string;
@@ -21,7 +21,6 @@ export function AdminTopbar({
   name,
   email,
   avatarUrl,
-  unread,
   onRefresh,
   onSearchChange,
   searchValue,
@@ -86,18 +85,7 @@ export function AdminTopbar({
             {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
           </button>
 
-          <button
-            type="button"
-            className="relative w-10 h-10 rounded-full bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-white/10 flex items-center justify-center text-slate-600 dark:text-slate-300"
-            title={isAr ? 'الإشعارات' : 'Notifications'}
-          >
-            <Bell className="w-4 h-4" />
-            {unread > 0 ? (
-              <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-rose-500 text-white text-[10px] font-bold inline-flex items-center justify-center tabular-nums">
-                {unread > 99 ? '99+' : unread}
-              </span>
-            ) : null}
-          </button>
+          <NotificationCenter scope="admin" />
 
           <div className="flex items-center gap-2 pl-2">
             <SoftBadge tone="emerald">

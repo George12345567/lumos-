@@ -1,6 +1,7 @@
 import { supabase } from '@/lib/supabaseClient';
 import type { DashboardStats, PricingRequest, Contact, Order, Client, TeamMember, SavedDesign } from '@/types/dashboard';
 import { updatePricingRequestStatus, convertPricingRequestToOrder, deletePricingRequest } from './pricingRequestService';
+import { createClientNotification } from './notificationService';
 
 /**
  * Whitelist of `pricing_requests` columns the dashboard is allowed to update,
@@ -287,6 +288,11 @@ export const adminDashboardService = {
   ): Promise<{ success: boolean; error?: string }> => {
     try {
       const sanitized = sanitizePricingRequestUpdate(updates);
+      const { data: current } = await supabase
+        .from('pricing_requests')
+        .select('status, client_id')
+        .eq('id', requestId)
+        .maybeSingle();
       const { error } = await supabase
         .from('pricing_requests')
         .update({
@@ -296,6 +302,23 @@ export const adminDashboardService = {
         .eq('id', requestId);
 
       if (error) throw error;
+
+      const nextStatus = sanitized.status as PricingRequest['status'] | undefined;
+      const notifyClientId = (sanitized.client_id as string | null | undefined) || current?.client_id;
+      if (nextStatus && notifyClientId && nextStatus !== current?.status) {
+        await createClientNotification({
+          clientId: notifyClientId,
+          type: 'request',
+          title: 'Pricing request updated',
+          titleAr: 'تم تحديث طلب التسعير',
+          message: `Your pricing request status changed to ${nextStatus}.`,
+          messageAr: 'تم تغيير حالة طلب التسعير الخاص بك.',
+          entityType: 'pricing_request',
+          entityId: requestId,
+          actionUrl: '/profile',
+          priority: nextStatus === 'rejected' ? 'high' : 'normal',
+        });
+      }
 
       return { success: true };
     } catch (error: unknown) {

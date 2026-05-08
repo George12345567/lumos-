@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import { useLanguage } from '@/context/LanguageContext';
 import type { Client, PricingRequest, TeamMember } from '@/types/dashboard';
+import { profileService } from '@/services/profileService';
 import { useAdminPermission } from '../hooks/useAdminPermission';
 import {
   EmptyState,
@@ -215,6 +216,55 @@ export function ClientsSection({
   );
 }
 
+/**
+ * Resolves a private storage path to a fresh signed URL and renders the avatar.
+ * Falls back to colored initials if the path is absent, invalid, or the signed
+ * URL cannot be generated (e.g. RLS blocks access). Never renders a broken image.
+ */
+function ClientAvatar({
+  path,
+  initial,
+  textSize = 'text-lg',
+}: {
+  path?: string | null;
+  initial: string;
+  textSize?: string;
+}) {
+  const [src, setSrc] = useState<string | null>(null);
+  const [imgError, setImgError] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    setSrc(null);
+    setImgError(false);
+    void profileService.getAvatarUrl(path).then((url) => {
+      if (!cancelled) setSrc(url);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [path]);
+
+  if (!src || imgError) {
+    return (
+      <span
+        className={`w-full h-full rounded-xl bg-gradient-to-br from-emerald-400 to-teal-500 text-white font-bold ${textSize} flex items-center justify-center`}
+      >
+        {initial}
+      </span>
+    );
+  }
+
+  return (
+    <img
+      src={src}
+      alt=""
+      className="w-full h-full rounded-xl object-cover"
+      onError={() => setImgError(true)}
+    />
+  );
+}
+
 function ClientCard({
   client, isAr, requestCount, onOpen,
 }: { client: Client; isAr: boolean; requestCount: number; onOpen: () => void }) {
@@ -230,11 +280,7 @@ function ClientCard({
         <div className="px-5 pb-5 -mt-8">
           <div className="flex items-end justify-between gap-3">
             <span className="w-14 h-14 rounded-2xl bg-white p-1 shadow-sm">
-              {client.avatar_url ? (
-                <img src={client.avatar_url} alt="" className="w-full h-full rounded-xl object-cover" />
-              ) : (
-                <span className="w-full h-full rounded-xl bg-gradient-to-br from-emerald-400 to-teal-500 text-white font-bold text-lg flex items-center justify-center">{initial}</span>
-              )}
+              <ClientAvatar path={client.avatar_url} initial={initial} />
             </span>
             <SoftBadge tone={tone as 'emerald' | 'amber' | 'slate' | 'sky'}>
               {{
@@ -368,13 +414,11 @@ function ClientDetailDrawer({
         <div className="h-24 w-full" style={{ background: client.cover_gradient || 'linear-gradient(135deg, #34d399, #14b8a6)' }} />
         <div className="px-5 pb-5 -mt-10 flex items-end gap-4">
           <span className="w-20 h-20 rounded-2xl bg-white p-1 shadow-sm">
-            {client.avatar_url ? (
-              <img src={client.avatar_url} alt="" className="w-full h-full rounded-xl object-cover" />
-            ) : (
-              <span className="w-full h-full rounded-xl bg-gradient-to-br from-emerald-400 to-teal-500 text-white font-bold text-2xl flex items-center justify-center">
-                {(client.company_name || client.username || '?').slice(0, 1).toUpperCase()}
-              </span>
-            )}
+            <ClientAvatar
+              path={client.avatar_url}
+              initial={(client.company_name || client.username || '?').slice(0, 1).toUpperCase()}
+              textSize="text-2xl"
+            />
           </span>
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 flex-wrap">

@@ -42,6 +42,7 @@ import {
 } from "lucide-react";
 import PricingModal from "@/components/pricing/PricingModal";
 import FloatingDock from "@/components/layout/FloatingDock";
+import NotificationCenter from "@/components/notifications/NotificationCenter";
 import { useAuthActions, useAuthState } from "@/context/AuthContext";
 import { useAppearance } from "@/context/AppearanceContext";
 import { profileService } from "@/services/profileService";
@@ -437,6 +438,10 @@ const EnhancedNavbar = () => {
                   {/* ── Right side: Get Started CTA ── */}
                   <div className="flex items-center gap-2" ref={getStartedRef}>
                     {/* "How To Use" navigation guide is intentionally not rendered. */}
+
+                    {isAuthenticated && (isAdmin || client) && (
+                      <NotificationCenter scope={isAdmin ? "admin" : "client"} />
+                    )}
 
                     {isAuthenticated && client && !isAdmin && (
                       <DropdownMenu>

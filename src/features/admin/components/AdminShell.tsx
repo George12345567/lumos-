@@ -1,5 +1,5 @@
-import { useCallback, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuthActions, useSessionEmail, useClient } from '@/context/AuthContext';
 import { useLanguage } from '@/context/LanguageContext';
 import { useAdminDashboard } from '@/hooks/useAdminDashboard';
@@ -28,6 +28,7 @@ import { toast } from 'sonner';
 
 export function AdminShell() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { logout } = useAuthActions();
   const sessionEmail = useSessionEmail();
   const profile = useClient();
@@ -55,6 +56,38 @@ export function AdminShell() {
   const role = useAdminRole();
   const canManageTeam = useAdminPermission('team', 'create');
   const canManagePermissions = useAdminPermission('team', 'manage_permissions');
+
+  useEffect(() => {
+    const validSections: AdminSection[] = [
+      'overview',
+      'requests',
+      'clients',
+      'projects',
+      'contacts',
+      'messages',
+      'files',
+      'team',
+      'discounts',
+      'audit',
+      'statistics',
+      'settings',
+    ];
+    const sectionParam = searchParams.get('section') as AdminSection | null;
+    if (sectionParam && validSections.includes(sectionParam)) {
+      setSection(sectionParam);
+    }
+
+    const clientParam = searchParams.get('client');
+    if (clientParam) {
+      if (sectionParam === 'messages') {
+        setSelectedConversationId(clientParam);
+      } else if (sectionParam === 'files') {
+        setFilesPreselect(clientParam);
+      } else {
+        setSelectedClientId(clientParam);
+      }
+    }
+  }, [searchParams]);
 
   const clientsById = useMemo(() => {
     const m = new Map<string, Client>();
@@ -181,7 +214,6 @@ export function AdminShell() {
             name={displayName}
             email={sessionEmail || undefined}
             avatarUrl={profile?.avatar_url || undefined}
-            unread={stats.unread}
             onRefresh={() => void dashboard.refresh()}
             searchValue={search}
             onSearchChange={setSearch}
