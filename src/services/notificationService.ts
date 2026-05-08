@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabaseClient';
 import type { Notification, NotificationEntityType, NotificationType } from '@/types/dashboard';
+import { sendTelegramNotificationForNotification } from '@/services/telegramIntegrationService';
 
 type NotificationPriority = 'low' | 'normal' | 'high' | 'urgent';
 type NotificationUserType = 'client' | 'team_member' | 'admin';
@@ -162,7 +163,10 @@ export const createNotification = async (
 
     if (result.error) throw result.error;
 
-    return { success: true, id: (result.data as Notification).id };
+    const notification = result.data as Notification;
+    void sendTelegramNotificationForNotification(notification);
+
+    return { success: true, id: notification.id };
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     console.error('Error creating notification:', error);

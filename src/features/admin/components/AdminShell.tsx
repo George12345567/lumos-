@@ -23,8 +23,11 @@ import type { Client } from '@/types/dashboard';
 import AddClientModal from '@/components/admin/AddClientModal';
 import { ClientEditDrawer } from './ClientEditDrawer';
 import { LinkClientToTeamModal, permissionsForRole } from './LinkClientToTeamModal';
-import { useAdminPermission, useAdminRole } from '../hooks/useAdminPermission';
+import { useAdminPermission, useAdminRole, useCanAccessResource } from '../hooks/useAdminPermission';
+import { useAdminAccess } from '../context/AdminAccessContext';
+import { SIDEBAR_ITEMS } from '../constants/sidebar';
 import { toast } from 'sonner';
+import { LoadingFallback } from '@/components/shared';
 
 export function AdminShell() {
   const navigate = useNavigate();
@@ -33,6 +36,7 @@ export function AdminShell() {
   const sessionEmail = useSessionEmail();
   const profile = useClient();
   const { isArabic } = useLanguage();
+  const access = useAdminAccess();
 
   const dashboard = useAdminDashboard();
   const {
@@ -57,8 +61,7 @@ export function AdminShell() {
   const canManageTeam = useAdminPermission('team', 'create');
   const canManagePermissions = useAdminPermission('team', 'manage_permissions');
 
-  useEffect(() => {
-    const validSections: AdminSection[] = [
+  const validSections = useMemo<AdminSection[]>(() => [
       'overview',
       'requests',
       'clients',
@@ -71,7 +74,16 @@ export function AdminShell() {
       'audit',
       'statistics',
       'settings',
-    ];
+    ], []);
+
+  const allowedSections = useMemo(() => {
+    return validSections.filter((item) => {
+      const resource = SIDEBAR_ITEMS.find((sidebarItem) => sidebarItem.id === item)?.resource;
+      return resource ? access.canAccessResource(resource) : false;
+    });
+  }, [access, validSections]);
+
+  useEffect(() => {
     const sectionParam = searchParams.get('section') as AdminSection | null;
     if (sectionParam && validSections.includes(sectionParam)) {
       setSection(sectionParam);
@@ -87,7 +99,14 @@ export function AdminShell() {
         setSelectedClientId(clientParam);
       }
     }
-  }, [searchParams]);
+  }, [searchParams, validSections]);
+
+  useEffect(() => {
+    if (access.loading || allowedSections.length === 0) return;
+    if (!allowedSections.includes(section)) {
+      setSection(allowedSections[0]);
+    }
+  }, [access.loading, allowedSections, section]);
 
   const clientsById = useMemo(() => {
     const m = new Map<string, Client>();
@@ -96,10 +115,11 @@ export function AdminShell() {
   }, [dashboard.clients]);
 
   const displayName = useMemo(() => {
+    if (access.teamMember?.name) return access.teamMember.name;
     if (profile?.username) return profile.username;
     if (sessionEmail) return sessionEmail.split('@')[0];
     return 'Admin';
-  }, [profile, sessionEmail]);
+  }, [access.teamMember?.name, profile, sessionEmail]);
 
   const stats = useMemo(() => {
     const activeClients = dashboard.clients.filter((c) => (c.status || 'active') === 'active').length;
@@ -144,13 +164,6 @@ export function AdminShell() {
     await dashboard.convertPricingRequest(r);
   }, [dashboard]);
 
-  const handleUpdateOrderStatus = useCallback(
-    async (id: string, status: Parameters<typeof dashboard.updateOrderStatus>[1]) => {
-      await dashboard.updateOrderStatus(id, status);
-    },
-    [dashboard],
-  );
-
   const openClientFromRequest = useCallback((clientId: string) => {
     setSelectedClientId(clientId);
     setSection('clients');
@@ -192,6 +205,10 @@ export function AdminShell() {
   const defaultPermissionsForLink = useMemo(() => permissionsForRole('manager'), []);
   void defaultPermissionsForLink;
   void role;
+
+  if (access.loading) {
+    return <LoadingFallback />;
+  }
 
   return (
     <div className="min-h-screen bg-[#f4f9f6] dark:bg-slate-950 text-slate-900 dark:text-slate-100">
@@ -243,11 +260,13 @@ export function AdminShell() {
               <RequestsSection
                 requests={dashboard.pricingRequests}
                 clients={dashboard.clients}
+                projects={dashboard.projects}
                 teamMembers={teamMembers}
                 loading={dashboard.loading}
                 onUpdateStatus={dashboard.updatePricingRequestStatus}
                 onConvert={handleConvert}
-                onDelete={dashboard.deletePricingRequest}
+                onCancel={dashboard.cancelPricingRequest}
+                onDeletePermanent={dashboard.deletePricingRequest}
                 onAfterEdit={() => void dashboard.refresh()}
                 onOpenClient={openClientFromRequest}
               />
@@ -274,9 +293,12 @@ export function AdminShell() {
 
             {section === 'projects' && (
               <ProjectsSection
-                orders={dashboard.orders}
+                projects={dashboard.projects}
+                clients={dashboard.clients}
+                teamMembers={teamMembers}
                 loading={dashboard.loading}
-                onUpdateStatus={handleUpdateOrderStatus}
+                onRefresh={dashboard.refresh}
+                onOpenMessages={openConversationFromClient}
               />
             )}
 
@@ -382,19 +404,31 @@ export function AdminShell() {
 function MobileNav({ active, onChange }: { active: AdminSection; onChange: (s: AdminSection) => void }) {
   const { language } = useLanguage();
   const isAr = language === 'ar';
+  const canDashboard = useCanAccessResource('dashboard');
+  const canRequests = useCanAccessResource('requests');
+  const canClients = useCanAccessResource('clients');
+  const canProjects = useCanAccessResource('projects');
+  const canContacts = useCanAccessResource('contacts');
+  const canMessages = useCanAccessResource('messages');
+  const canFiles = useCanAccessResource('files');
+  const canTeam = useCanAccessResource('team');
+  const canDiscounts = useCanAccessResource('discounts');
+  const canAudit = useCanAccessResource('audit_logs');
+  const canStatistics = useCanAccessResource('statistics');
+  const canSettings = useCanAccessResource('settings');
   const items: Array<{ id: AdminSection; en: string; ar: string }> = [
-    { id: 'overview', en: 'Overview', ar: 'نظرة' },
-    { id: 'requests', en: 'Requests', ar: 'طلبات' },
-    { id: 'clients', en: 'Clients', ar: 'عملاء' },
-    { id: 'projects', en: 'Projects', ar: 'مشاريع' },
-    { id: 'contacts', en: 'Contacts', ar: 'اتصالات' },
-    { id: 'messages', en: 'Messages', ar: 'رسائل' },
-    { id: 'files', en: 'Files', ar: 'ملفات' },
-    { id: 'team', en: 'Team', ar: 'فريق' },
-    { id: 'discounts', en: 'Discounts', ar: 'خصومات' },
-    { id: 'audit', en: 'Audit', ar: 'سجل' },
-    { id: 'statistics', en: 'Stats', ar: 'إحصاء' },
-    { id: 'settings', en: 'Settings', ar: 'إعدادات' },
+    ...(canDashboard ? [{ id: 'overview' as const, en: 'Overview', ar: 'نظرة' }] : []),
+    ...(canRequests ? [{ id: 'requests' as const, en: 'Requests', ar: 'طلبات' }] : []),
+    ...(canClients ? [{ id: 'clients' as const, en: 'Clients', ar: 'عملاء' }] : []),
+    ...(canProjects ? [{ id: 'projects' as const, en: 'Projects', ar: 'مشاريع' }] : []),
+    ...(canContacts ? [{ id: 'contacts' as const, en: 'Contacts', ar: 'اتصالات' }] : []),
+    ...(canMessages ? [{ id: 'messages' as const, en: 'Messages', ar: 'رسائل' }] : []),
+    ...(canFiles ? [{ id: 'files' as const, en: 'Files', ar: 'ملفات' }] : []),
+    ...(canTeam ? [{ id: 'team' as const, en: 'Team', ar: 'فريق' }] : []),
+    ...(canDiscounts ? [{ id: 'discounts' as const, en: 'Discounts', ar: 'خصومات' }] : []),
+    ...(canAudit ? [{ id: 'audit' as const, en: 'Audit', ar: 'سجل' }] : []),
+    ...(canStatistics ? [{ id: 'statistics' as const, en: 'Stats', ar: 'إحصاء' }] : []),
+    ...(canSettings ? [{ id: 'settings' as const, en: 'Settings', ar: 'إعدادات' }] : []),
   ];
   return (
     <nav className="lg:hidden -mx-4 sm:-mx-6 px-4 sm:px-6 overflow-x-auto">

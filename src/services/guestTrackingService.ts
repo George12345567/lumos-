@@ -75,6 +75,48 @@ export function buildGuestTrackingUrl(invoiceNumber: string, trackingKey?: strin
   return `${window.location.origin}/track-request?${params.toString()}`;
 }
 
+export function parseTrackingInput(input: string): {
+  invoiceNumber?: string;
+  trackingKey?: string;
+  missingKey: boolean;
+  isLink: boolean;
+} {
+  const value = input.trim();
+  if (!value) return { missingKey: false, isLink: false };
+
+  const readParams = (params: URLSearchParams, isLink: boolean) => {
+    const invoiceNumber = params.get('invoice')?.trim() || undefined;
+    const trackingKey = params.get('key')?.trim() || undefined;
+    return {
+      invoiceNumber,
+      trackingKey,
+      missingKey: isLink && !trackingKey,
+      isLink,
+    };
+  };
+
+  if (/^https?:\/\//i.test(value)) {
+    try {
+      const parsed = new URL(value);
+      return readParams(parsed.searchParams, true);
+    } catch {
+      return { missingKey: true, isLink: true };
+    }
+  }
+
+  if (value.includes('key=')) {
+    const query = value.includes('?') ? value.slice(value.indexOf('?') + 1) : value;
+    const cleanQuery = query.split('#')[0];
+    return readParams(new URLSearchParams(cleanQuery), true);
+  }
+
+  return {
+    trackingKey: value,
+    missingKey: false,
+    isLink: false,
+  };
+}
+
 function normalizeRpcError(error?: string | null) {
   if (!error) return 'guest_tracking_failed';
   return error;

@@ -155,6 +155,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (session) {
           setHasSession(true);
           setSessionEmail((session.user?.email ?? null) || null);
+          setProfileLoading(true);
           // Profile fetch happens in parallel; failure does not affect auth state.
           void refreshProfileWithRetry();
         } else {
@@ -182,6 +183,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (session) {
         setHasSession(true);
         setSessionEmail((session.user?.email ?? null) || null);
+        setProfileLoading(true);
         void refreshProfileWithRetry();
       } else {
         setHasSession(false);

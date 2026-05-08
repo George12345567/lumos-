@@ -38,7 +38,12 @@ export function useClientProfile() {
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    if (!client?.id) return;
+    if (!client?.id) {
+      setProfile(null);
+      setError(null);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError(null);
     try {

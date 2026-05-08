@@ -21,7 +21,7 @@ import {
 import { useCurrency } from '@/hooks/useCurrency';
 import { useAuthState } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabaseClient';
-import { validateDiscountCode, DiscountCode } from '@/services/discountService';
+import { validateDiscountCode, type DiscountCode } from '@/services/discountService';
 import { submitContactForm } from '@/services/submissionService';
 import { submitPricingRequest } from '@/services/pricingRequestService';
 import {
@@ -347,6 +347,7 @@ const PricingModal = ({ open, onOpenChange, initialRequest = null }: PricingModa
   const [promoCode, setPromoCode] = useState('');
   const [isCheckingPromo, setIsCheckingPromo] = useState(false);
   const [promoError, setPromoError] = useState('');
+  const [promoSuccess, setPromoSuccess] = useState('');
   const [appliedPromo, setAppliedPromo] = useState<DiscountCode | null>(null);
 
   /* ── Launch Deal & Easter Egg States ── */
@@ -446,6 +447,7 @@ const PricingModal = ({ open, onOpenChange, initialRequest = null }: PricingModa
         setPromoCode('');
         setAppliedPromo(null);
         setPromoError('');
+        setPromoSuccess('');
         setDuplicateCheck({ isLoading: false, found: false, error: null });
         setGuestTrackingResult(null);
       }
@@ -608,18 +610,32 @@ const PricingModal = ({ open, onOpenChange, initialRequest = null }: PricingModa
 
   /* ── Validate Promo Code ── */
   const handleApplyPromo = async () => {
-    if (!promoCode.trim()) return;
+    const normalizedCode = promoCode.trim();
+    if (!normalizedCode) {
+      setPromoError('Enter a discount code.');
+      setPromoSuccess('');
+      return;
+    }
     setIsCheckingPromo(true);
     setPromoError('');
+    setPromoSuccess('');
 
-    const res = await validateDiscountCode(promoCode);
+    const res = await validateDiscountCode(normalizedCode, {
+      subtotal: totals.subtotal,
+      packageId: selectedPkg,
+      selectedServices: totals.items.map((item) => ({ id: item.id, category: item.category })),
+      serviceCategories: totals.items.map((item) => item.category),
+    });
     setIsCheckingPromo(false);
 
     if (res.success && res.data) {
       setAppliedPromo(res.data);
+      setPromoCode(res.data.code);
       setPromoError('');
+      setPromoSuccess('Discount applied.');
     } else {
       setAppliedPromo(null);
+      setPromoSuccess('');
       setPromoError(res.error || (isAr ? 'كود الخصم غير صحيح' : 'Invalid promo code'));
     }
   };
@@ -628,6 +644,7 @@ const PricingModal = ({ open, onOpenChange, initialRequest = null }: PricingModa
     setAppliedPromo(null);
     setPromoCode('');
     setPromoError('');
+    setPromoSuccess('');
   };
 
   /* ── Price display ── */
@@ -2335,7 +2352,10 @@ const PricingModal = ({ open, onOpenChange, initialRequest = null }: PricingModa
                             </div>
                           )}
                           {promoError && (
-                            <p className="text-red-500 text-[10px] font-medium mt-2">⚠ {promoError}</p>
+                            <p className="text-red-500 text-[10px] font-medium mt-2">{promoError}</p>
+                          )}
+                          {promoSuccess && !promoError && (
+                            <p className="text-emerald-600 text-[10px] font-medium mt-2">{promoSuccess}</p>
                           )}
                         </div>
 

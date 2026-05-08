@@ -1,7 +1,20 @@
 import { supabase } from '@/lib/supabaseClient';
 import type { DashboardStats, PricingRequest, Contact, Order, Client, TeamMember, SavedDesign } from '@/types/dashboard';
-import { updatePricingRequestStatus, convertPricingRequestToOrder, deletePricingRequest } from './pricingRequestService';
+import { createProjectFromPricingRequest, fetchAdminProjects } from './projectService';
+import {
+  cancelPricingRequest,
+  deletePricingRequest,
+  updatePricingRequestStatus,
+} from './pricingRequestService';
 import { createClientNotification } from './notificationService';
+
+const ROOT_OWNER_EMAIL = 'georgehelal87@gmail.com';
+
+const normalizeEmail = (email?: string | null) =>
+  String(email ?? '').trim().toLowerCase();
+
+const hideRootOwnerOnly = (client: Client) =>
+  normalizeEmail(client.email) !== ROOT_OWNER_EMAIL;
 
 /**
  * Whitelist of `pricing_requests` columns the dashboard is allowed to update,
@@ -18,7 +31,7 @@ const ALLOWED_PRIORITIES: ReadonlyArray<PricingRequest['priority']> = [
 ];
 
 /** UUID columns: empty string must become null. */
-const UUID_FIELDS = new Set<keyof PricingRequest>(['client_id', 'assigned_to', 'package_id', 'converted_order_id']);
+const UUID_FIELDS = new Set<keyof PricingRequest>(['client_id', 'assigned_to', 'package_id', 'converted_order_id', 'converted_project_id']);
 /** Free-text columns where empty string should fold into null. */
 const NULLABLE_TEXT_FIELDS = new Set<keyof PricingRequest>([
   'invoice_number', 'package_name', 'guest_name', 'guest_email', 'guest_phone',
@@ -33,7 +46,7 @@ const UPDATABLE_FIELDS = new Set<keyof PricingRequest>([
   'selected_services', 'estimated_subtotal', 'estimated_total', 'price_currency',
   'discount_breakdown', 'applied_promo_code', 'guest_name', 'guest_phone', 'guest_email',
   'company_name', 'client_id', 'client_snapshot', 'request_notes', 'admin_notes',
-  'status_history', 'follow_up_actions', 'converted_order_id', 'request_source',
+  'status_history', 'follow_up_actions', 'converted_order_id', 'converted_project_id', 'request_source',
   'location_url', 'reviewed_at',
 ]);
 
@@ -73,6 +86,22 @@ export function sanitizePricingRequestUpdate(updates: Partial<PricingRequest>): 
   return out;
 }
 
+async function fetchExternalClients(limit = 50): Promise<Client[]> {
+  try {
+    const { data, error } = await supabase
+      .from('clients')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(limit);
+
+    if (error) throw error;
+    return ((data as Client[]) || []).filter(hideRootOwnerOnly);
+  } catch (error) {
+    console.error('Error getting external clients:', error);
+    return [];
+  }
+}
+
 export const fetchAdminDashboardSnapshot = async () => {
   try {
     const [
@@ -80,18 +109,21 @@ export const fetchAdminDashboardSnapshot = async () => {
       contactsData,
       pricingRequestsData,
       clientsData,
+      projectsData,
     ] = await Promise.all([
       supabase.from('orders').select('*').order('created_at', { ascending: false }).limit(50),
       supabase.from('contacts').select('*').order('created_at', { ascending: false }).limit(50),
       supabase.from('pricing_requests').select('*').order('created_at', { ascending: false }).limit(50),
-      supabase.from('clients').select('*').order('created_at', { ascending: false }).limit(50),
+      fetchExternalClients(50),
+      fetchAdminProjects(),
     ]);
 
     return {
       orders: (ordersData.data || []),
       contacts: (contactsData.data || []),
       pricingRequests: (pricingRequestsData.data || []),
-      clients: (clientsData.data || []),
+      clients: clientsData,
+      projects: projectsData,
       designs: [],
       clientUpdates: [],
       unreadMessages: (contactsData.data || []).filter((c: Contact) => c.status === 'new').length + 
@@ -104,6 +136,7 @@ export const fetchAdminDashboardSnapshot = async () => {
       contacts: [],
       pricingRequests: [],
       clients: [],
+      projects: [],
       designs: [],
       clientUpdates: [],
       unreadMessages: 0
@@ -165,19 +198,7 @@ export const adminDashboardService = {
   },
 
   getRecentClients: async (limit: number = 10): Promise<Client[]> => {
-    try {
-      const { data, error } = await supabase
-        .from('clients')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(limit);
-
-      if (error) throw error;
-      return (data as Client[]) || [];
-    } catch (error) {
-      console.error('Error getting recent clients:', error);
-      return [];
-    }
+    return fetchExternalClients(limit);
   },
 
   getRecentOrders: async (limit: number = 10): Promise<Order[]> => {
@@ -400,7 +421,7 @@ export const adminDashboardService = {
       ]);
 
       return {
-        clients: (clientsRes.data as Client[]) || [],
+        clients: ((clientsRes.data as Client[]) || []).filter(hideRootOwnerOnly),
         pricingRequests: (requestsRes.data as PricingRequest[]) || [],
         orders: (ordersRes.data as Order[]) || [],
         contacts: (contactsRes.data as Contact[]) || [],
@@ -415,13 +436,27 @@ export const adminDashboardService = {
     return updatePricingRequestStatus(id, status, undefined, adminNotes);
   },
 
-  adminConvertPricingRequest: async (request: PricingRequest): Promise<{ success: boolean; error?: string }> => {
-    const result = await convertPricingRequestToOrder(request.id);
-    return { success: result.success, error: result.error };
+  adminConvertPricingRequest: async (request: PricingRequest): Promise<{ success: boolean; projectId?: string; error?: string }> => {
+    const result = await createProjectFromPricingRequest(request.id);
+    if (!result.success) {
+      console.error('[adminDashboardService.adminConvertPricingRequest] Conversion failed', {
+        error: result.error,
+        requestId: request.id,
+        pricingRequestId: request.id,
+        invoiceNumber: request.invoice_number,
+        convertedProjectId: request.converted_project_id,
+        status: request.status,
+      });
+    }
+    return { success: result.success, projectId: result.projectId, error: result.error };
   },
 
   adminDeletePricingRequest: async (id: string): Promise<{ success: boolean; error?: string }> => {
     return deletePricingRequest(id);
+  },
+
+  adminCancelPricingRequest: async (id: string): Promise<{ success: boolean; error?: string }> => {
+    return cancelPricingRequest(id);
   },
 
   adminDeleteContact: async (id: string): Promise<{ success: boolean; error?: string }> => {
@@ -509,6 +544,7 @@ export const adminDashboardService = {
 export const adminUpdatePricingRequestStatus = adminDashboardService.adminUpdatePricingRequestStatus;
 export const adminConvertPricingRequest = adminDashboardService.adminConvertPricingRequest;
 export const adminDeletePricingRequest = adminDashboardService.adminDeletePricingRequest;
+export const adminCancelPricingRequest = adminDashboardService.adminCancelPricingRequest;
 export const adminDeleteContact = adminDashboardService.adminDeleteContact;
 export const adminUpdateContactStatus = adminDashboardService.adminUpdateContactStatus;
 export const adminDeleteOrder = adminDashboardService.adminDeleteOrder;

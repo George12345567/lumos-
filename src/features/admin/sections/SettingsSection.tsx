@@ -13,6 +13,7 @@ import {
 import { useLanguage } from '@/context/LanguageContext';
 import { useAppearance } from '@/context/AppearanceContext';
 import { useSessionEmail } from '@/context/AuthContext';
+import { TelegramNotificationSettings } from '@/components/notifications/TelegramNotificationSettings';
 import { useAdminRole } from '../hooks/useAdminPermission';
 import { ROLE_LABELS } from '../permissions';
 import { SectionHeader, SoftBadge, SoftButton, SoftCard } from '../components/primitives';
@@ -160,7 +161,7 @@ export function SettingsSection({ smartIndicators }: SettingsSectionProps) {
           )}
 
           {tab === 'notifications' && (
-            <SoftCard className="p-6 space-y-3">
+            <SoftCard className="p-6 space-y-4">
               <Toggle
                 label={t('بريد عند طلبات جديدة', 'Email on new requests')}
                 checked={draft.notify_email_on_request}
@@ -187,6 +188,9 @@ export function SettingsSection({ smartIndicators }: SettingsSectionProps) {
                   'Note: actual email delivery requires a configured Supabase Edge Function.',
                 )}
               </p>
+              <div className="border-t border-emerald-900/5 pt-4">
+                <TelegramNotificationSettings isArabic={isAr} />
+              </div>
             </SoftCard>
           )}
 

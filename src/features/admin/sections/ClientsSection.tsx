@@ -63,6 +63,8 @@ interface ClientsSectionProps {
 }
 
 type ClientFilter = 'all' | 'active' | 'pending' | 'invited' | 'archived';
+const ROOT_OWNER_EMAIL = 'georgehelal87@gmail.com';
+const normalizeEmail = (email?: string | null) => String(email ?? '').trim().toLowerCase();
 
 export function ClientsSection({
   clients,
@@ -99,6 +101,7 @@ export function ClientsSection({
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
     return clients.filter((c) => {
+      if (normalizeEmail(c.email) === ROOT_OWNER_EMAIL) return false;
       if (filter !== 'all') {
         const status = (c.status || 'active').toLowerCase();
         if (filter === 'active' && status !== 'active') return false;

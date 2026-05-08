@@ -1,4 +1,5 @@
 import { AdminShell } from '@/features/admin/components/AdminShell';
+import { AdminAccessProvider } from '@/features/admin/context/AdminAccessContext';
 
 /**
  * /lumos-admin entrypoint.
@@ -9,5 +10,9 @@ import { AdminShell } from '@/features/admin/components/AdminShell';
  * admin gating. Real authorisation belongs to Supabase RLS, not this UI.
  */
 export default function AdminDashboard() {
-  return <AdminShell />;
+  return (
+    <AdminAccessProvider>
+      <AdminShell />
+    </AdminAccessProvider>
+  );
 }

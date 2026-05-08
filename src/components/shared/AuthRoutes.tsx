@@ -1,7 +1,7 @@
 import { Navigate, useLocation } from "react-router-dom";
+import { useEffect, useState } from "react";
 import {
   useIsAuthenticated,
-  useIsAdmin,
   useAuthLoading,
   useAuthConfigured,
   useClient,
@@ -9,6 +9,7 @@ import {
 } from "@/context/AuthContext";
 import { ROUTES } from "@/lib/constants";
 import { LoadingFallback } from "@/components/shared";
+import { resolveAdminAccess } from "@/services/adminAccessService";
 
 /**
  * Build a safe internal redirect target. Only relative paths starting with "/"
@@ -104,12 +105,41 @@ function AccessDenied() {
  */
 export function AdminRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useIsAuthenticated();
-  const isAdmin = useIsAdmin();
   const loading = useAuthLoading();
   const authConfigured = useAuthConfigured();
   const location = useLocation();
+  const [checkingAccess, setCheckingAccess] = useState(false);
+  const [allowed, setAllowed] = useState<boolean | null>(null);
 
-  if (loading) {
+  useEffect(() => {
+    let cancelled = false;
+    setAllowed(null);
+
+    if (loading || !authConfigured || !isAuthenticated) {
+      setCheckingAccess(false);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    setCheckingAccess(true);
+    void resolveAdminAccess()
+      .then((access) => {
+        if (!cancelled) setAllowed(access.allowed);
+      })
+      .catch(() => {
+        if (!cancelled) setAllowed(false);
+      })
+      .finally(() => {
+        if (!cancelled) setCheckingAccess(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [authConfigured, isAuthenticated, loading]);
+
+  if (loading || checkingAccess || (isAuthenticated && allowed === null)) {
     return <LoadingFallback />;
   }
 
@@ -121,7 +151,7 @@ export function AdminRoute({ children }: { children: React.ReactNode }) {
     return <Navigate to={buildLoginRedirect(location.pathname, location.search)} replace />;
   }
 
-  if (!isAdmin) {
+  if (!allowed) {
     return <AccessDenied />;
   }
 

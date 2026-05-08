@@ -1,5 +1,5 @@
 import { PACKAGES, SERVICES, CATEGORIES, getAllServices, Service, InvoiceItem } from '@/data/pricing';
-import { DiscountCode } from '@/services/discountService';
+import type { DiscountCode } from '@/services/discountService';
 
 // ── Types ─────────────────────────────────────────────────────────────
 
@@ -198,9 +198,15 @@ export function calculatePricing(inputs: PricingEngineInputs): PricingEngineOutp
     } else if (appliedPromo.discount_type === 'fixed') {
       promoDiscountValue = appliedPromo.discount_value;
     }
+    if (appliedPromo.max_discount && promoDiscountValue > appliedPromo.max_discount) {
+      promoDiscountValue = appliedPromo.max_discount;
+    }
+    const remainingBeforePromo = Math.max(0, subtotal - totalCashDiscountValue);
+    promoDiscountValue = Math.min(Math.max(0, promoDiscountValue), remainingBeforePromo);
     totalCashDiscountValue += promoDiscountValue;
   }
 
+  totalCashDiscountValue = Math.min(Math.max(0, totalCashDiscountValue), Math.max(0, subtotal));
   const finalTotal = Math.max(0, subtotal - totalCashDiscountValue);
 
   return {

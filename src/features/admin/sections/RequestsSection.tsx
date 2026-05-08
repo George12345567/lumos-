@@ -21,6 +21,7 @@ import {
 import { toast } from 'sonner';
 import { useLanguage } from '@/context/LanguageContext';
 import type { Client, PricingRequest, TeamMember } from '@/types/dashboard';
+import type { Project } from '@/services/projectService';
 import { useAdminPermission } from '../hooks/useAdminPermission';
 import {
   EmptyState,
@@ -38,11 +39,13 @@ type StatusFilter = 'all' | PricingRequest['status'] | 'urgent';
 interface RequestsSectionProps {
   requests: PricingRequest[];
   clients: Client[];
+  projects: Project[];
   teamMembers: TeamMember[];
   loading: boolean;
   onUpdateStatus: (id: string, status: PricingRequest['status']) => void | Promise<void>;
   onConvert: (request: PricingRequest) => void | Promise<void>;
-  onDelete: (id: string) => void | Promise<void>;
+  onCancel: (id: string) => boolean | Promise<boolean>;
+  onDeletePermanent: (id: string) => boolean | Promise<boolean>;
   onAfterEdit?: () => void;
   onOpenClient?: (clientId: string) => void;
 }
@@ -104,11 +107,13 @@ function isLoggedInClientRequest(request: PricingRequest): boolean {
 export function RequestsSection({
   requests,
   clients,
+  projects,
   teamMembers,
   loading,
   onUpdateStatus,
   onConvert,
-  onDelete,
+  onCancel,
+  onDeletePermanent,
   onAfterEdit,
   onOpenClient,
 }: RequestsSectionProps) {
@@ -122,6 +127,11 @@ export function RequestsSection({
   const canEdit = useAdminPermission('requests', 'edit');
   const canAssign = useAdminPermission('requests', 'assign');
   const canDelete = useAdminPermission('requests', 'delete');
+
+  useEffect(() => {
+    if (!selected?.id) return;
+    setSelected(requests.find((request) => request.id === selected.id) || null);
+  }, [requests, selected?.id]);
 
   const counts = useMemo(() => {
     const byStatus: Record<PricingRequest['status'], number> = {
@@ -150,6 +160,14 @@ export function RequestsSection({
       return haystack.includes(term);
     });
   }, [requests, clients, filter, search]);
+
+  const projectByRequestId = useMemo(() => {
+    const map = new Map<string, Project>();
+    for (const project of projects) {
+      if (project.pricing_request_id) map.set(project.pricing_request_id, project);
+    }
+    return map;
+  }, [projects]);
 
   return (
     <div className="space-y-6">
@@ -200,19 +218,26 @@ export function RequestsSection({
         />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {filtered.map((r) => (
-            <RequestCard
-              key={r.id}
-              request={r}
-              clients={clients}
-              teamMembers={teamMembers}
-              isAr={isAr}
-              onOpen={() => setSelected(r)}
-              onUpdateStatus={onUpdateStatus}
-              canEdit={canEdit}
-              onOpenClient={onOpenClient}
-            />
-          ))}
+          {filtered.map((r) => {
+            const linkedProject = projectByRequestId.get(r.id) ?? null;
+            const projectAlreadyCreated = Boolean(r.converted_project_id && linkedProject?.id === r.converted_project_id);
+            const projectNeedsRepair = Boolean((r.converted_project_id || r.status === 'converted') && !projectAlreadyCreated);
+            return (
+              <RequestCard
+                key={r.id}
+                request={r}
+                clients={clients}
+                teamMembers={teamMembers}
+                isAr={isAr}
+                onOpen={() => setSelected(r)}
+                onUpdateStatus={onUpdateStatus}
+                canEdit={canEdit}
+                onOpenClient={onOpenClient}
+                projectAlreadyCreated={projectAlreadyCreated}
+                projectNeedsRepair={projectNeedsRepair}
+              />
+            );
+          })}
         </div>
       )}
 
@@ -223,7 +248,8 @@ export function RequestsSection({
         onClose={() => setSelected(null)}
         onUpdateStatus={onUpdateStatus}
         onConvert={onConvert}
-        onDelete={onDelete}
+        onCancel={onCancel}
+        onDeletePermanent={onDeletePermanent}
         onAfterEdit={onAfterEdit}
         canEdit={canEdit}
         canAssign={canAssign}
@@ -234,6 +260,16 @@ export function RequestsSection({
             setSelected(null);
           }
         }}
+        existingProject={
+          selected?.converted_project_id && projectByRequestId.get(selected.id)?.id === selected.converted_project_id
+            ? projectByRequestId.get(selected.id) ?? null
+            : null
+        }
+        projectNeedsRepair={Boolean(
+          selected &&
+            (selected.converted_project_id || selected.status === 'converted') &&
+            !(selected.converted_project_id && projectByRequestId.get(selected.id)?.id === selected.converted_project_id),
+        )}
       />
     </div>
   );
@@ -260,7 +296,7 @@ function FilterChip({
 }
 
 function RequestCard({
-  request, clients, teamMembers, isAr, onOpen, onUpdateStatus, canEdit, onOpenClient,
+  request, clients, teamMembers, isAr, onOpen, onUpdateStatus, canEdit, onOpenClient, projectAlreadyCreated, projectNeedsRepair,
 }: {
   request: PricingRequest;
   clients: Client[];
@@ -270,6 +306,8 @@ function RequestCard({
   onUpdateStatus: (id: string, s: PricingRequest['status']) => void | Promise<void>;
   canEdit: boolean;
   onOpenClient?: (id: string) => void;
+  projectAlreadyCreated?: boolean;
+  projectNeedsRepair?: boolean;
 }) {
   const t = (ar: string, en: string) => (isAr ? ar : en);
   const sCfg = STATUS_CFG[request.status];
@@ -313,6 +351,12 @@ function RequestCard({
             ) : null}
             {request.status === 'cancelled' ? (
               <SoftBadge tone="rose">{t('ملغي من الزائر/العميل', 'Cancelled')}</SoftBadge>
+            ) : null}
+            {projectAlreadyCreated ? (
+              <SoftBadge tone="violet">{t('مشروع موجود', 'Project created')}</SoftBadge>
+            ) : null}
+            {projectNeedsRepair ? (
+              <SoftBadge tone="amber">{t('يحتاج إصلاح المشروع', 'Project repair needed')}</SoftBadge>
             ) : null}
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
@@ -460,12 +504,15 @@ function RequestEditDrawer({
   onClose,
   onUpdateStatus,
   onConvert,
-  onDelete,
+  onCancel,
+  onDeletePermanent,
   onAfterEdit,
   canEdit,
   canAssign,
   canDelete,
   onOpenClient,
+  existingProject,
+  projectNeedsRepair,
 }: {
   request: PricingRequest | null;
   clients: Client[];
@@ -473,12 +520,15 @@ function RequestEditDrawer({
   onClose: () => void;
   onUpdateStatus: (id: string, s: PricingRequest['status']) => void | Promise<void>;
   onConvert: (r: PricingRequest) => void | Promise<void>;
-  onDelete: (id: string) => void | Promise<void>;
+  onCancel: (id: string) => boolean | Promise<boolean>;
+  onDeletePermanent: (id: string) => boolean | Promise<boolean>;
   onAfterEdit?: () => void;
   canEdit: boolean;
   canAssign: boolean;
   canDelete: boolean;
   onOpenClient: (id: string) => void;
+  existingProject: Project | null;
+  projectNeedsRepair: boolean;
 }) {
   const { language } = useLanguage();
   const isAr = language === 'ar';
@@ -486,16 +536,21 @@ function RequestEditDrawer({
   const [tab, setTab] = useState<'edit' | 'pricing' | 'workflow' | 'history' | 'advanced' | 'danger'>('edit');
   const [form, setForm] = useState<EditState>(fromRequest(request));
   const [saving, setSaving] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState('');
 
   useEffect(() => {
     setForm(fromRequest(request));
     setTab('edit');
+    setDeleteConfirm('');
   }, [request]);
 
   if (!request) return null;
   const sCfg = STATUS_CFG[request.status];
   const linkedClient = clients.find((c) => c.id === form.client_id);
   const cleanPhone = (form.guest_phone || '').replace(/[^\d+]/g, '');
+  const projectAlreadyCreated = Boolean(existingProject);
+  const canCreateProject =
+    (request.status === 'approved' || request.status === 'converted') && !projectAlreadyCreated;
 
   const tabs: Array<{ id: typeof tab; en: string; ar: string }> = [
     { id: 'edit', en: 'Edit', ar: 'تعديل' },
@@ -757,8 +812,25 @@ function RequestEditDrawer({
             />
             <p className="text-xs font-bold uppercase text-emerald-700">{t('إجراءات سريعة', 'Quick actions')}</p>
             <div className="flex flex-wrap gap-2">
-              <SoftButton variant="primary" size="sm" onClick={() => void onConvert(request)} disabled={!canAssign || request.status === 'converted'}>
-                <ArrowRightLeft className="w-3.5 h-3.5" /> {t('تحويل إلى مشروع', 'Convert to project')}
+              <SoftButton
+                variant="primary"
+                size="sm"
+                onClick={() => void onConvert(request)}
+                disabled={!canAssign || !canCreateProject}
+                title={
+                  projectAlreadyCreated
+                    ? t('تم إنشاء مشروع لهذا الطلب بالفعل.', 'Project already created for this request.')
+                    : request.status !== 'approved' && request.status !== 'converted'
+                      ? t('اعتمد الطلب أولاً قبل إنشاء المشروع.', 'Approve the request before creating a project.')
+                      : undefined
+                }
+              >
+                <ArrowRightLeft className="w-3.5 h-3.5" />
+                {projectAlreadyCreated
+                  ? t('تم إنشاء المشروع', 'Project already created')
+                  : projectNeedsRepair
+                    ? t('إصلاح / إنشاء المشروع', 'Repair / Create project')
+                  : t('إنشاء مشروع من الطلب', 'Create Project from Request')}
               </SoftButton>
               <SoftButton variant="soft" size="sm" onClick={() => void onUpdateStatus(request.id, 'approved')} disabled={!canEdit || request.status === 'approved'}>
                 <CheckCircle2 className="w-3.5 h-3.5" /> {t('اعتماد', 'Approve')}
@@ -777,7 +849,9 @@ function RequestEditDrawer({
               <Field label={t('المُنشئ', 'Source')}>{request.request_source || '—'}</Field>
               <Field label={t('عُدّل', 'Edited')}>{request.edit_count || 0} {t('مرة', 'times')}</Field>
               <Field label={t('تاريخ المراجعة', 'Reviewed at')}>{request.reviewed_at ? new Date(request.reviewed_at).toLocaleString(isAr ? 'ar' : 'en') : '—'}</Field>
-              <Field label={t('طلب محوّل', 'Converted order')}>{request.converted_order_id || '—'}</Field>
+              <Field label={t('المشروع المحوّل', 'Converted project')}>
+                {existingProject?.id || (projectNeedsRepair ? t('رابط غير صالح - يحتاج إصلاح', 'Invalid link - repair needed') : '—')}
+              </Field>
               <Field label={t('تتبع الزائر', 'Guest tracking')}>{request.guest_tracking_hash ? t('مفعّل', 'Enabled') : '—'}</Field>
               <Field label={t('آخر دخول للزائر', 'Last guest access')}>{request.guest_last_accessed_at ? new Date(request.guest_last_accessed_at).toLocaleString(isAr ? 'ar' : 'en') : '—'}</Field>
             </div>
@@ -820,25 +894,75 @@ function RequestEditDrawer({
         )}
 
         {tab === 'danger' && (
-          <SoftCard className="p-5 ring-1 ring-rose-100 bg-rose-50/30">
-            <p className="text-sm font-semibold text-rose-800 mb-1">{t('إلغاء الطلب', 'Cancel request')}</p>
-            <p className="text-xs text-rose-700 mb-4">
-              {t('لن يتم حذف الطلب نهائياً. سيتم وضعه كملغي مع الاحتفاظ بالسجل.', 'The request will not be permanently deleted. It will be marked cancelled and kept in history.')}
-            </p>
-            <SoftButton
-              variant="danger"
-              size="sm"
-              onClick={() => {
-                if (window.confirm(t('متأكد من إلغاء الطلب؟', 'Confirm cancellation?'))) {
-                  void onDelete(request.id);
-                  onClose();
-                }
-              }}
-              disabled={!canDelete}
-            >
-              <Trash2 className="w-3.5 h-3.5" /> {t('إلغاء بدون حذف', 'Cancel without deleting')}
-            </SoftButton>
-          </SoftCard>
+          <div className="space-y-4">
+            <SoftCard className="p-5 ring-1 ring-amber-100 bg-amber-50/30">
+              <p className="text-sm font-semibold text-amber-900 mb-1">{t('إلغاء الطلب', 'Cancel request')}</p>
+              <p className="text-xs text-amber-800 mb-4">
+                {t('إجراء تشغيلي آمن. سيبقى الطلب في قاعدة البيانات والسجل.', 'Safe operational cancellation. The request will remain in the database and history.')}
+              </p>
+              <SoftButton
+                variant="soft"
+                size="sm"
+                onClick={async () => {
+                  if (!window.confirm(t('إلغاء الطلب؟ سيبقى في السجل.', 'Cancel this request? It will remain in history.'))) return;
+                  setSaving(true);
+                  try {
+                    await onCancel(request.id);
+                  } finally {
+                    setSaving(false);
+                  }
+                }}
+                disabled={!canEdit || saving || request.status === 'cancelled'}
+              >
+                <XCircle className="w-3.5 h-3.5" /> {t('إلغاء الطلب', 'Cancel request')}
+              </SoftButton>
+            </SoftCard>
+
+            <SoftCard className="p-5 ring-1 ring-rose-100 bg-rose-50/30">
+              <p className="text-sm font-semibold text-rose-900 mb-1">{t('حذف نهائي', 'Delete permanently')}</p>
+              <p className="text-xs text-rose-800 mb-3">
+                {t(
+                  'إجراء نهائي للمالك/الأدمن فقط. لن يتم حذف الطلب من الواجهة إلا بعد نجاح الحذف من قاعدة البيانات.',
+                  'Irreversible owner/admin action. The request is removed from the UI only after the database confirms deletion.',
+                )}
+              </p>
+              <label className="block mb-3">
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-rose-700 mb-1 block">
+                  {t('اكتب رقم الفاتورة للتأكيد', 'Type invoice number to confirm')}
+                </span>
+                <input
+                  value={deleteConfirm}
+                  onChange={(event) => setDeleteConfirm(event.target.value)}
+                  placeholder={request.invoice_number || request.id}
+                  className="w-full rounded-2xl border border-rose-200 bg-white px-3 h-10 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-rose-200"
+                />
+              </label>
+              <SoftButton
+                variant="danger"
+                size="sm"
+                onClick={async () => {
+                  const expected = request.invoice_number || request.id;
+                  if (deleteConfirm.trim() !== expected) return;
+                  if (!window.confirm(t('حذف هذا الطلب نهائياً؟ لا يمكن التراجع.', 'Permanently delete this request? This cannot be undone.'))) return;
+                  setSaving(true);
+                  try {
+                    const deleted = await onDeletePermanent(request.id);
+                    if (deleted) onClose();
+                  } finally {
+                    setSaving(false);
+                  }
+                }}
+                disabled={!canDelete || saving || deleteConfirm.trim() !== (request.invoice_number || request.id)}
+              >
+                <Trash2 className="w-3.5 h-3.5" /> {t('حذف نهائي', 'Delete permanently')}
+              </SoftButton>
+              {!canDelete ? (
+                <p className="mt-3 text-xs font-semibold text-rose-700">
+                  {t('الحذف النهائي متاح للمالك/الأدمن فقط.', 'Permanent delete is available to owner/admin only.')}
+                </p>
+              ) : null}
+            </SoftCard>
+          </div>
         )}
       </div>
     </AdminDrawer>

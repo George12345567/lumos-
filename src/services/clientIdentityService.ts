@@ -8,6 +8,9 @@ export type IdentityAssetCategory =
   | 'logo_light'
   | 'logo_dark'
   | 'brand_guide'
+  | 'color_palette'
+  | 'typography'
+  | 'social_media_kit'
   | 'social_avatar'
   | 'social_cover'
   | 'icon'
@@ -70,6 +73,14 @@ export interface ClientIdentityAsset {
   sort_order?: number | null;
   is_downloadable?: boolean | null;
   visibility?: IdentityAssetVisibility | string | null;
+  project_id?: string | null;
+  project_service_id?: string | null;
+  is_deliverable?: boolean | null;
+  deliverable_status?: string | null;
+  published_to_identity?: boolean | null;
+  published_to_identity_at?: string | null;
+  identity_publish_on_delivery?: boolean | null;
+  client_visible?: boolean | null;
   created_at?: string | null;
   uploaded_at?: string | null;
 }
@@ -87,6 +98,9 @@ export const IDENTITY_ASSET_CATEGORIES: Array<{ value: IdentityAssetCategory; la
   { value: 'logo_light', label: 'Light Background Logo', labelAr: 'شعار للخلفية الفاتحة' },
   { value: 'logo_dark', label: 'Dark Background Logo', labelAr: 'شعار للخلفية الداكنة' },
   { value: 'brand_guide', label: 'Brand Guide', labelAr: 'دليل الهوية' },
+  { value: 'color_palette', label: 'Color Palette', labelAr: 'لوحة الألوان' },
+  { value: 'typography', label: 'Typography', labelAr: 'الخطوط' },
+  { value: 'social_media_kit', label: 'Social Media Kit', labelAr: 'حزمة السوشيال ميديا' },
   { value: 'social_avatar', label: 'Social Avatar', labelAr: 'صورة اجتماعية' },
   { value: 'social_cover', label: 'Social Cover', labelAr: 'غلاف اجتماعي' },
   { value: 'icon', label: 'Icon', labelAr: 'أيقونة' },

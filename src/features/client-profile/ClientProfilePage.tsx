@@ -88,11 +88,20 @@ import {
 import { getAssetDownloadUrl, type PortalAsset, type PortalMessage } from '@/services/clientPortalService';
 import { profileService, type ProfileData } from '@/services/profileService';
 import type { Order } from '@/services/orderService';
+import {
+  getProjectAssetSignedUrl,
+  type Project,
+  type ProjectDeliverable,
+  type ProjectService,
+  type ProjectServiceStatus,
+} from '@/services/projectService';
 import type { Notification } from '@/types/dashboard';
+import { TelegramNotificationSettings } from '@/components/notifications/TelegramNotificationSettings';
 import { useClientProfile } from './hooks/useClientProfile';
 import { useClientIdentity } from './hooks/useClientIdentity';
 import { useNotifications } from './hooks/useNotifications';
 import { useOrders } from './hooks/useOrders';
+import { useClientProjects } from './hooks/useClientProjects';
 import { useClientPricingRequests } from './hooks/useClientPricingRequests';
 import { usePortalData } from './hooks/usePortalData';
 import { useProfileMutation } from './hooks/useProfileMutation';
@@ -393,6 +402,90 @@ function getReadableStatus(status?: string | null) {
     .join(' ');
 }
 
+const CLIENT_PROJECT_STATUS: Record<Project['status'], { en: string; ar: string; className: string }> = {
+  active: { en: 'Active', ar: 'نشط', className: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-200' },
+  paused: { en: 'Paused', ar: 'متوقف', className: 'bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-200' },
+  completed: { en: 'Completed', ar: 'مكتمل', className: 'bg-sky-100 text-sky-800 dark:bg-sky-500/15 dark:text-sky-200' },
+  cancelled: { en: 'Cancelled', ar: 'ملغي', className: 'bg-slate-100 text-slate-800 dark:bg-slate-500/15 dark:text-slate-200' },
+};
+
+const CLIENT_SERVICE_STATUS: Record<ProjectServiceStatus, { en: string; ar: string; className: string }> = {
+  not_started: { en: 'Not started', ar: 'لم يبدأ', className: 'bg-slate-100 text-slate-700 dark:bg-slate-500/15 dark:text-slate-200' },
+  in_progress: { en: 'In progress', ar: 'قيد التنفيذ', className: 'bg-sky-100 text-sky-800 dark:bg-sky-500/15 dark:text-sky-200' },
+  review: { en: 'Under review', ar: 'قيد المراجعة', className: 'bg-violet-100 text-violet-800 dark:bg-violet-500/15 dark:text-violet-200' },
+  changes_requested: { en: 'Changes requested', ar: 'تعديلات مطلوبة', className: 'bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-200' },
+  completed: { en: 'Completed', ar: 'مكتمل', className: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-200' },
+  delivered: { en: 'Delivered', ar: 'مسلّم', className: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-200' },
+};
+
+function localizedStatus(
+  status: ProjectServiceStatus,
+  isArabic: boolean,
+) {
+  const config = CLIENT_SERVICE_STATUS[status] ?? CLIENT_SERVICE_STATUS.not_started;
+  return isArabic ? config.ar : config.en;
+}
+
+function getProjectDisplayName(project: Project) {
+  return cleanText(project.project_name) || cleanText(project.package_name) || 'Lumos project';
+}
+
+function getActiveProjectService(project: Project): ProjectService | null {
+  return project.services.find((service) => ['in_progress', 'review', 'changes_requested'].includes(service.status))
+    ?? project.services.find((service) => !['completed', 'delivered'].includes(service.status))
+    ?? project.services[0]
+    ?? null;
+}
+
+function getProjectNextStep(project: Project, isArabic: boolean) {
+  const activeService = getActiveProjectService(project);
+
+  if (!activeService) {
+    return project.client_notes || (isArabic ? 'سيضيف فريق لوموس الخدمات قريباً.' : 'Lumos will add project services soon.');
+  }
+
+  if (activeService.status === 'changes_requested') {
+    return isArabic ? 'راجِع ملاحظات التعديلات مع فريق لوموس.' : 'Review requested changes with the Lumos team.';
+  }
+
+  if (activeService.status === 'review') {
+    return isArabic ? 'هذه الخدمة قيد المراجعة النهائية.' : 'This service is in final review.';
+  }
+
+  if (activeService.status === 'delivered') {
+    const next = project.services.find((service) => !['completed', 'delivered'].includes(service.status));
+    return next
+      ? (isArabic ? `الخطوة التالية: ${next.service_name}` : `Next up: ${next.service_name}`)
+      : (isArabic ? 'كل التسليمات جاهزة للتحميل.' : 'All deliverables are ready to download.');
+  }
+
+  if (activeService.status === 'not_started') {
+    return isArabic ? `نستعد لبدء ${activeService.service_name}.` : `Preparing to start ${activeService.service_name}.`;
+  }
+
+  return isArabic ? `نعمل الآن على ${activeService.service_name}.` : `We are working on ${activeService.service_name}.`;
+}
+
+function getProjectDeliverables(project: Project) {
+  const byId = new Map<string, ProjectDeliverable>();
+
+  project.deliverables.forEach((asset) => {
+    byId.set(asset.id, asset);
+  });
+
+  project.services.forEach((service) => {
+    service.deliverables?.forEach((asset) => {
+      byId.set(asset.id, asset);
+    });
+  });
+
+  return Array.from(byId.values()).sort((a, b) => {
+    const ad = a.created_at || a.uploaded_at || '';
+    const bd = b.created_at || b.uploaded_at || '';
+    return bd.localeCompare(ad);
+  });
+}
+
 function getFileName(asset: PortalAsset) {
   return cleanText(asset.file_name) || cleanText(asset.name) || cleanText(asset.asset_url?.split('/').pop()) || cleanText(asset.file_url?.split('/').pop()) || 'Shared file';
 }
@@ -413,16 +506,16 @@ function formatFileSize(size?: number | null) {
 }
 
 function getActivityItems(
-  orders: Order[],
+  projects: Project[],
   messages: PortalMessage[],
   assets: PortalAsset[],
   notifications: Notification[],
 ): ActivityItem[] {
-  const fromOrders = orders.slice(0, 4).map((order) => ({
-    id: `project-${order.id}`,
-    label: `Project ${getReadableStatus(order.status).toLowerCase()}`,
-    detail: getProjectTitle(order),
-    createdAt: order.updated_at || order.created_at,
+  const fromProjects = projects.slice(0, 4).map((project) => ({
+    id: `project-${project.id}`,
+    label: `Project ${getReadableStatus(project.status).toLowerCase()}`,
+    detail: getProjectDisplayName(project),
+    createdAt: project.updated_at || project.created_at,
     icon: 'project' as const,
   }));
 
@@ -450,7 +543,7 @@ function getActivityItems(
     icon: 'notification' as const,
   }));
 
-  return [...fromNotifications, ...fromMessages, ...fromAssets, ...fromOrders]
+  return [...fromNotifications, ...fromMessages, ...fromAssets, ...fromProjects]
     .sort((a, b) => new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime())
     .slice(0, 5);
 }
@@ -577,7 +670,12 @@ export default function ClientProfilePage() {
     error: identityError,
     reload: reloadIdentity,
   } = useClientIdentity(client?.id);
-  const { orders, loading: ordersLoading, error: ordersError, refetch: refetchOrders } = useOrders(client?.id);
+  const {
+    projects,
+    loading: projectsLoading,
+    error: projectsError,
+    refetch: refetchProjects,
+  } = useClientProjects(client?.id);
   const {
     requests: clientRequests,
     loading: requestsLoading,
@@ -586,7 +684,7 @@ export default function ClientProfilePage() {
   } = useClientPricingRequests(client?.id);
   const { notifications } = useNotifications(client?.id);
 
-  const [tab, setTab] = useState<ProfileTab>(() => normalizeProfileTab(searchParams.get('tab')) ?? 'overview');
+  const tab = normalizeProfileTab(searchParams.get('tab')) ?? 'overview';
   const [editorOpen, setEditorOpen] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [coverUrl, setCoverUrl] = useState<string | null>(null);
@@ -638,14 +736,8 @@ export default function ClientProfilePage() {
     navigate('/client-login', { replace: true });
   }, [logout, navigate]);
 
-  useEffect(() => {
-    const nextTab = normalizeProfileTab(searchParams.get('tab'));
-    if (nextTab && nextTab !== tab) setTab(nextTab);
-  }, [searchParams, tab]);
-
   const handleTabChange = useCallback(
     (nextTab: ProfileTab) => {
-      setTab(nextTab);
       setSearchParams((current) => {
         const next = new URLSearchParams(current);
         if (nextTab === 'overview') {
@@ -722,14 +814,13 @@ export default function ClientProfilePage() {
     [client, saveProfilePatch],
   );
 
-  const loadingProfile = authLoading || (isAuthenticated && (profileLoading || loading) && !client);
+  const loadingProfile =
+    authLoading ||
+    (isAuthenticated && !client && !profileError) ||
+    (isAuthenticated && Boolean(client) && !profile && (profileLoading || loading));
 
   if (loadingProfile) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-background text-foreground">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" aria-label="Loading profile" />
-      </div>
-    );
+    return <ProfilePageSkeleton isArabic={isArabic} />;
   }
 
   if (isAuthenticated && (!client || !profile)) {
@@ -789,19 +880,19 @@ export default function ClientProfilePage() {
   const displayName = getDisplayName(profile, client);
   const username = cleanText(client.username) || cleanText(profile.username);
   const tagline = getClientTagline(profile, client);
-  const activeProjects = orders.filter((order) => {
-    const status = (order.status ?? '').toLowerCase();
-    return !['completed', 'cancelled', 'refunded'].includes(status);
+  const activeProjects = projects.filter((project) => {
+    const status = (project.status ?? '').toLowerCase();
+    return !['completed', 'cancelled'].includes(status);
   }).length;
   const unreadMessages = messages.filter((message) => message.sender !== 'client' && message.is_read === false).length;
   const profileProgress = typeof client.progress === 'number' ? client.progress : profile.progress ?? 0;
-  const nextDelivery = orders
-    .map(getProjectDelivery)
+  const nextDelivery = projects
+    .map((project) => project.expected_delivery_at || '')
     .filter(Boolean)
     .sort()[0];
   const sharedAssets = assets.filter((asset) => !asset.is_identity_asset);
   const completion = getProfileCompletion(profile, client, Boolean(avatarUrl));
-  const recentActivity = getActivityItems(orders, messages, sharedAssets, notifications);
+  const recentActivity = getActivityItems(projects, messages, sharedAssets, notifications);
   const packageName = cleanText(client.package_name || profile.package_name);
 
   return (
@@ -882,11 +973,11 @@ export default function ClientProfilePage() {
 
           {tab === 'projects' && (
             <ProjectsTab
-              orders={orders}
-              loading={ordersLoading}
-              error={ordersError}
+              projects={projects}
+              loading={projectsLoading}
+              error={projectsError}
               isArabic={isArabic}
-              onRefresh={refetchOrders}
+              onRefresh={refetchProjects}
               pricingRequests={clientRequests}
               requestsLoading={requestsLoading}
               requestsError={requestsError}
@@ -1060,6 +1151,46 @@ function MobileNav({
         </button>
       </div>
     </nav>
+  );
+}
+
+function ProfilePageSkeleton({ isArabic }: { isArabic: boolean }) {
+  return (
+    <div className="min-h-screen bg-background text-foreground" dir={isArabic ? 'rtl' : 'ltr'}>
+      <EnhancedNavbar />
+      <div className="mx-auto grid w-full max-w-7xl gap-5 px-4 pb-44 pt-24 sm:px-6 lg:grid-cols-[240px_minmax(0,1fr)] lg:pb-28 lg:pt-28">
+        <aside className="hidden lg:block">
+          <div className="sticky top-24 h-[calc(100vh-7rem)] rounded-2xl border border-border bg-card p-3 shadow-sm">
+            <div className="h-5 w-20 animate-pulse rounded-full bg-muted" />
+            <div className="mt-3 h-7 w-32 animate-pulse rounded-full bg-muted" />
+            <div className="mt-6 space-y-2">
+              {Array.from({ length: 6 }).map((_, index) => (
+                <div key={index} className="h-11 animate-pulse rounded-xl bg-muted" />
+              ))}
+            </div>
+          </div>
+        </aside>
+        <main className="min-w-0 space-y-5">
+          <div className="rounded-2xl border border-border bg-card px-4 py-3 shadow-sm">
+            <div className="h-4 w-28 animate-pulse rounded-full bg-muted" />
+            <div className="mt-3 h-7 w-56 animate-pulse rounded-full bg-muted" />
+          </div>
+          <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
+            <div className="h-32 animate-pulse bg-muted" />
+            <div className="p-5">
+              <div className="h-16 w-16 animate-pulse rounded-2xl bg-muted" />
+              <div className="mt-4 h-7 w-64 animate-pulse rounded-full bg-muted" />
+              <div className="mt-3 h-4 w-80 max-w-full animate-pulse rounded-full bg-muted" />
+            </div>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-3">
+            {Array.from({ length: 3 }).map((_, index) => (
+              <div key={index} className="h-28 animate-pulse rounded-2xl border border-border bg-card shadow-sm" />
+            ))}
+          </div>
+        </main>
+      </div>
+    </div>
   );
 }
 
@@ -1611,7 +1742,7 @@ function OverviewTab({
 }
 
 function ProjectsTab({
-  orders,
+  projects,
   loading,
   error,
   isArabic,
@@ -1621,7 +1752,7 @@ function ProjectsTab({
   requestsError,
   onRefreshRequests,
 }: {
-  orders: Order[];
+  projects: Project[];
   loading: boolean;
   error: string | null;
   isArabic: boolean;
@@ -1631,7 +1762,11 @@ function ProjectsTab({
   requestsError: string | null;
   onRefreshRequests: () => Promise<void>;
 }) {
-  const [expanded, setExpanded] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const selectedProject = useMemo(
+    () => selectedId ? projects.find((project) => project.id === selectedId) ?? null : null,
+    [projects, selectedId],
+  );
 
   return (
     <section className="space-y-8">
@@ -1644,98 +1779,491 @@ function ProjectsTab({
       />
 
       <div className="space-y-5">
-      <SectionHeader
-        title={isArabic ? 'المشاريع' : 'Projects'}
-        description={isArabic ? 'طلباتك الحالية تظهر كمشاريع داخل البوابة.' : 'Orders are shown as client projects inside the portal.'}
-        action={
-          <RefreshButton label={isArabic ? 'تحديث' : 'Refresh'} onClick={onRefresh} />
-        }
-      />
+        <SectionHeader
+          title={isArabic ? 'المشاريع' : 'Projects'}
+          description={isArabic ? 'تابع تقدم المشروع والتسليمات التالية من مساحة عمل لوموس.' : 'Follow project progress, delivered items, and next steps from the Lumos workroom.'}
+          action={
+            <RefreshButton label={isArabic ? 'تحديث' : 'Refresh'} loading={loading} onClick={onRefresh} />
+          }
+        />
 
-      {error && <InlineError message={error} />}
+        {error && <InlineError message={error} />}
 
-      {loading ? (
-        <SkeletonGrid count={3} />
-      ) : orders.length === 0 ? (
-        <EmptyState icon={FolderOpen} text={isArabic ? 'ستظهر مشاريعك هنا بمجرد أن يبدأ لوموس العمل معك.' : 'Your projects will appear here once Lumos starts working with you.'} />
-      ) : (
-        <div className="grid gap-4">
-          {orders.map((order) => {
-            const progress = getProjectProgress(order);
-            const open = expanded === order.id;
-
-            return (
-              <Card key={order.id} className="p-4 sm:p-5">
-                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <h3 className="text-xl font-semibold text-card-foreground">{getProjectTitle(order)}</h3>
-                      <StatusBadge status={order.status} />
-                    </div>
-                    <p className="mt-2 text-sm text-muted-foreground">
-                      {order.package_name || (isArabic ? 'باقة غير محددة' : 'Package not specified')}
-                    </p>
-                    {order.notes && <p className="mt-4 text-sm leading-6 text-muted-foreground">{order.notes}</p>}
-                  </div>
-
-                  <div className="grid min-w-48 gap-3 text-sm text-muted-foreground sm:grid-cols-2 lg:grid-cols-1">
-                    <span className="inline-flex items-center gap-2">
-                      <CalendarDays className="h-4 w-4" />
-                      {getProjectDelivery(order) ? formatDate(getProjectDelivery(order)) : isArabic ? 'تسليم غير محدد' : 'Delivery not scheduled'}
-                    </span>
-                    <span className="inline-flex items-center gap-2">
-                      <Clock3 className="h-4 w-4" />
-                      {formatDate(order.created_at)}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="mt-5">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">{isArabic ? 'التقدم' : 'Progress'}</span>
-                    <span className="font-semibold text-card-foreground">{progress}%</span>
-                  </div>
-                  <div className="mt-2 h-2 rounded-full bg-muted">
-                    <div className="h-2 rounded-full bg-[color:var(--profile-accent)]" style={{ width: `${progress}%` }} />
-                  </div>
-                </div>
-
-                {open && (
-                  <div className="mt-5 rounded-2xl bg-muted/50 p-4">
-                    <p className="text-sm font-medium text-card-foreground">{isArabic ? 'الخدمات' : 'Services'}</p>
-                    {order.selected_services?.length ? (
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        {order.selected_services.map((service, index) => (
-                          <span key={`${service.name}-${index}`} className="rounded-full bg-card px-3 py-1 text-xs font-medium text-card-foreground">
-                            {service.name}
-                          </span>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="mt-2 text-sm text-muted-foreground">
-                        {isArabic ? 'لا يوجد ملخص خدمات متاح.' : 'No services summary is available.'}
-                      </p>
-                    )}
-                    {order.admin_notes && (
-                      <p className="mt-4 text-sm leading-6 text-muted-foreground">{order.admin_notes}</p>
-                    )}
-                  </div>
-                )}
-
-                <button
-                  type="button"
-                  onClick={() => setExpanded(open ? null : order.id)}
-                  className="mt-5 rounded-full border border-border px-4 py-2 text-sm font-semibold text-foreground transition hover:bg-muted"
-                >
-                  {open ? (isArabic ? 'إخفاء التفاصيل' : 'Hide Details') : isArabic ? 'عرض التفاصيل' : 'View Details'}
-                </button>
-              </Card>
-            );
-          })}
-        </div>
-      )}
+        {loading ? (
+          <SkeletonGrid count={3} />
+        ) : projects.length === 0 ? (
+          <EmptyState
+            icon={FolderOpen}
+            text={isArabic
+              ? 'ستظهر مشاريعك هنا بمجرد أن يحوّل لوموس طلبك المعتمد إلى مشروع فعلي.'
+              : 'Your projects will appear here once Lumos converts your approved request into a real project.'}
+          />
+        ) : (
+          <div className="grid gap-4 xl:grid-cols-2">
+            {projects.map((project) => (
+              <ProjectClientCard
+                key={project.id}
+                project={project}
+                isArabic={isArabic}
+                onOpen={() => setSelectedId(project.id)}
+              />
+            ))}
+          </div>
+        )}
       </div>
+
+      <ProjectDetailsDialog
+        project={selectedProject}
+        isArabic={isArabic}
+        onOpenChange={(open) => {
+          if (!open) setSelectedId(null);
+        }}
+      />
     </section>
+  );
+}
+
+function ProjectClientCard({
+  project,
+  isArabic,
+  onOpen,
+}: {
+  project: Project;
+  isArabic: boolean;
+  onOpen: () => void;
+}) {
+  const activeService = getActiveProjectService(project);
+  const status = CLIENT_PROJECT_STATUS[project.status] ?? CLIENT_PROJECT_STATUS.active;
+  const deliverables = getProjectDeliverables(project);
+  const nextStep = getProjectNextStep(project, isArabic);
+
+  return (
+    <Card className="p-5">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="truncate text-xl font-semibold text-card-foreground">{getProjectDisplayName(project)}</h3>
+            <span className={`rounded-full px-3 py-1 text-xs font-semibold ${status.className}`}>
+              {isArabic ? status.ar : status.en}
+            </span>
+          </div>
+          <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+            {project.invoice_number ? (
+              <span className="inline-flex items-center gap-1 font-mono font-semibold text-card-foreground">
+                <Hash className="h-3.5 w-3.5" />
+                {project.invoice_number}
+              </span>
+            ) : null}
+            <span>{project.package_name || (isArabic ? 'باقة لوموس' : 'Lumos package')}</span>
+          </div>
+        </div>
+        <div className="shrink-0 rounded-2xl border border-border bg-background px-4 py-3 text-left sm:text-right">
+          <p className="text-xs text-muted-foreground">{isArabic ? 'التقدم' : 'Progress'}</p>
+          <p className="mt-1 text-2xl font-semibold text-card-foreground">{project.progress || 0}%</p>
+        </div>
+      </div>
+
+      <ProjectProgressBar progress={project.progress || 0} className="mt-4" />
+
+      <div className="mt-5 grid gap-3 sm:grid-cols-2">
+        <ProjectInfoPill
+          icon={CalendarDays}
+          label={isArabic ? 'التسليم المتوقع' : 'Expected delivery'}
+          value={project.expected_delivery_at ? formatDate(project.expected_delivery_at) : isArabic ? 'غير محدد بعد' : 'Not scheduled yet'}
+        />
+        <ProjectInfoPill
+          icon={CheckCircle2}
+          label={isArabic ? 'الخدمات المختارة' : 'Selected services'}
+          value={`${project.services.length}`}
+        />
+        <ProjectInfoPill
+          icon={Clock3}
+          label={isArabic ? 'الخدمة الحالية' : 'Active service'}
+          value={activeService?.service_name || (isArabic ? 'سيتم تحديدها قريباً' : 'To be scheduled')}
+        />
+        <ProjectInfoPill
+          icon={Download}
+          label={isArabic ? 'التسليمات' : 'Deliverables'}
+          value={`${deliverables.length}`}
+        />
+      </div>
+
+      <div className="mt-5 rounded-2xl border border-border bg-muted/30 p-4">
+        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          {isArabic ? 'الخطوة التالية' : 'Next step'}
+        </p>
+        <p className="mt-2 text-sm leading-6 text-card-foreground">{nextStep}</p>
+      </div>
+
+      <button
+        type="button"
+        onClick={onOpen}
+        className="mt-5 inline-flex items-center justify-center gap-2 rounded-full bg-foreground px-4 py-2.5 text-sm font-semibold text-background transition hover:opacity-90"
+      >
+        <FolderOpen className="h-4 w-4" />
+        {isArabic ? 'عرض المشروع' : 'View Project'}
+      </button>
+    </Card>
+  );
+}
+
+function ProjectDetailsDialog({
+  project,
+  isArabic,
+  onOpenChange,
+}: {
+  project: Project | null;
+  isArabic: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  if (!project) return null;
+
+  const activeService = getActiveProjectService(project);
+  const deliverables = getProjectDeliverables(project);
+  const nextStep = getProjectNextStep(project, isArabic);
+  const currentPhase = activeService
+    ? `${activeService.service_name} · ${localizedStatus(activeService.status, isArabic)}`
+    : isArabic ? 'قيد الجدولة' : 'Scheduling';
+
+  return (
+    <Dialog open={!!project} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[92vh] max-w-5xl overflow-y-auto rounded-3xl">
+        <DialogHeader>
+          <DialogTitle>{getProjectDisplayName(project)}</DialogTitle>
+          <DialogDescription>
+            {project.invoice_number
+              ? `${isArabic ? 'رقم الفاتورة' : 'Invoice'} ${project.invoice_number}`
+              : isArabic ? 'مساحة مشروع لوموس' : 'Lumos project workspace'}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-5">
+          <Card className="p-5">
+            <div className="grid gap-5 lg:grid-cols-[1fr_280px]">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-[color:var(--profile-accent)]">
+                  {isArabic ? 'نظرة عامة' : 'Overview'}
+                </p>
+                <p className="mt-3 text-sm leading-7 text-muted-foreground">
+                  {project.client_notes || (isArabic
+                    ? 'سيضيف فريق لوموس ملخص المشروع هنا مع تقدم العمل.'
+                    : 'Lumos will add a project summary here as the work progresses.')}
+                </p>
+                <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                  <ProjectInfoPill icon={FolderOpen} label={isArabic ? 'الباقة' : 'Package'} value={project.package_name || '—'} />
+                  <ProjectInfoPill icon={Hash} label={isArabic ? 'رقم الفاتورة' : 'Invoice'} value={project.invoice_number || '—'} />
+                  <ProjectInfoPill icon={Clock3} label={isArabic ? 'تاريخ البدء' : 'Start date'} value={formatDate(project.started_at || project.created_at)} />
+                  <ProjectInfoPill icon={CalendarDays} label={isArabic ? 'التسليم المتوقع' : 'Expected delivery'} value={project.expected_delivery_at ? formatDate(project.expected_delivery_at) : '—'} />
+                  <ProjectInfoPill icon={CheckCircle2} label={isArabic ? 'المرحلة الحالية' : 'Current phase'} value={currentPhase} />
+                  <ProjectInfoPill icon={MessageSquare} label={isArabic ? 'الخطوة التالية' : 'Next step'} value={nextStep} />
+                </div>
+              </div>
+              <div className="rounded-2xl border border-border bg-muted/30 p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  {isArabic ? 'إجمالي التقدم' : 'Total progress'}
+                </p>
+                <p className="mt-3 text-4xl font-semibold text-card-foreground">{project.progress || 0}%</p>
+                <ProjectProgressBar progress={project.progress || 0} className="mt-4" />
+                <ProjectJourneyTimeline project={project} isArabic={isArabic} />
+              </div>
+            </div>
+          </Card>
+
+          <ClientActionCenter project={project} isArabic={isArabic} />
+
+          <Card className="p-5">
+            <SectionHeader
+              title={isArabic ? 'تقدم الخدمات' : 'Services Progress'}
+              description={isArabic ? 'كل خدمة مختارة تظهر كمحطة واضحة في المشروع.' : 'Each selected service appears as a clear milestone.'}
+            />
+            <div className="mt-5 grid gap-3">
+              {project.services.length === 0 ? (
+                <EmptyState
+                  icon={CheckCircle2}
+                  compact
+                  text={isArabic ? 'ستظهر الخدمات هنا بمجرد إعداد المشروع.' : 'Services will appear here once the project is prepared.'}
+                />
+              ) : (
+                project.services.map((service) => (
+                  <ProjectServiceClientCard key={service.id} service={service} isArabic={isArabic} />
+                ))
+              )}
+            </div>
+          </Card>
+
+          <Card className="p-5">
+            <SectionHeader
+              title={isArabic ? 'مركز التحميل' : 'Download Center'}
+              description={isArabic ? 'كل التسليمات المرئية للعميل من هذا المشروع.' : 'All client-visible deliverables from this project.'}
+            />
+            <div className="mt-5 space-y-3">
+              {deliverables.length === 0 ? (
+                <EmptyState
+                  icon={Download}
+                  compact
+                  text={isArabic
+                    ? 'ستظهر التسليمات هنا بمجرد أن ينشرها فريق لوموس.'
+                    : 'Your deliverables will appear here once Lumos publishes them.'}
+                />
+              ) : (
+                deliverables.map((asset) => (
+                  <ProjectDeliverableRow key={asset.id} asset={asset} isArabic={isArabic} />
+                ))
+              )}
+            </div>
+          </Card>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function ProjectInfoPill({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: typeof FolderOpen;
+  label: string;
+  value: ReactNode;
+}) {
+  return (
+    <div className="rounded-2xl border border-border bg-background p-3">
+      <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        <Icon className="h-3.5 w-3.5" />
+        {label}
+      </p>
+      <div className="mt-2 break-words text-sm font-semibold text-card-foreground">{value || '—'}</div>
+    </div>
+  );
+}
+
+function ProjectProgressBar({ progress, className }: { progress: number; className?: string }) {
+  const safeProgress = Math.max(0, Math.min(100, progress || 0));
+  return (
+    <div className={cn('h-2 rounded-full bg-muted', className)}>
+      <div
+        className="h-2 rounded-full bg-[color:var(--profile-accent)] transition-all"
+        style={{ width: `${safeProgress}%` }}
+      />
+    </div>
+  );
+}
+
+function ProjectJourneyTimeline({ project, isArabic }: { project: Project; isArabic: boolean }) {
+  const hasIdentity = project.services.some((service) => /logo|brand|identity|color|typography|social|guide/i.test(`${service.service_name} ${service.description || ''}`));
+  const hasReview = project.services.some((service) => ['review', 'completed', 'delivered'].includes(service.status));
+  const hasDelivery = project.services.some((service) => service.status === 'delivered');
+  const complete = project.status === 'completed' || (project.services.length > 0 && project.services.every((service) => service.status === 'delivered'));
+  const items = [
+    { label: isArabic ? 'استلام الطلب' : 'Request received', done: true },
+    { label: isArabic ? 'بدء المشروع' : 'Project started', done: Boolean(project.started_at || project.created_at) },
+    { label: isArabic ? 'تصميم الهوية' : 'Identity design', done: hasIdentity && project.services.some((service) => service.progress > 0) },
+    { label: isArabic ? 'المراجعة' : 'Review', done: hasReview },
+    { label: isArabic ? 'التسليم' : 'Delivery', done: hasDelivery },
+    { label: isArabic ? 'مكتمل' : 'Completed', done: complete },
+  ];
+
+  return (
+    <ol className="mt-5 space-y-3">
+      {items.map((item) => (
+        <li key={item.label} className="flex items-center gap-2 text-xs">
+          <span className={cn('h-2.5 w-2.5 rounded-full', item.done ? 'bg-[color:var(--profile-accent)]' : 'bg-muted-foreground/25')} />
+          <span className={item.done ? 'font-semibold text-card-foreground' : 'text-muted-foreground'}>{item.label}</span>
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+function ClientActionCenter({ project, isArabic }: { project: Project; isArabic: boolean }) {
+  const activeService = getActiveProjectService(project);
+  const delivered = getProjectDeliverables(project).filter((asset) => asset.deliverable_status === 'delivered');
+  const needsReview = activeService?.status === 'review' || activeService?.status === 'changes_requested';
+
+  return (
+    <Card className="p-5">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-sm font-semibold text-card-foreground">{isArabic ? 'مركز الإجراءات' : 'Client Action Center'}</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {needsReview
+              ? (isArabic ? 'لديك عنصر جاهز للمراجعة. استخدم الرسائل لإرسال ملاحظاتك.' : 'You have an item ready for review. Use Messages to send feedback.')
+              : delivered.length > 0
+                ? (isArabic ? 'بعض التسليمات جاهزة للتحميل الآن.' : 'Some deliverables are ready to download now.')
+                : (isArabic ? 'لا يوجد إجراء مطلوب منك الآن.' : 'No action is needed from you right now.')}
+          </p>
+        </div>
+        <span className="rounded-full bg-[color:var(--profile-accent)]/10 px-3 py-1 text-xs font-semibold text-[color:var(--profile-accent)]">
+          {delivered.length > 0
+            ? (isArabic ? 'جاهز للتحميل' : 'Ready to download')
+            : activeService?.status === 'in_progress'
+              ? (isArabic ? 'نعمل عليه الآن' : 'We are working on this now')
+              : (isArabic ? 'قيد المتابعة' : 'In progress')}
+        </span>
+      </div>
+    </Card>
+  );
+}
+
+function ProjectServiceClientCard({ service, isArabic }: { service: ProjectService; isArabic: boolean }) {
+  const status = CLIENT_SERVICE_STATUS[service.status] ?? CLIENT_SERVICE_STATUS.not_started;
+  const deliverables = service.deliverables ?? [];
+  const delivered = service.status === 'delivered';
+
+  return (
+    <div className="rounded-2xl border border-border bg-background p-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <h4 className="text-base font-semibold text-card-foreground">{service.service_name}</h4>
+            <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${status.className}`}>
+              {isArabic ? status.ar : status.en}
+            </span>
+          </div>
+          <p className="mt-2 text-sm leading-6 text-muted-foreground">
+            {service.description || (service.status === 'not_started'
+              ? (isArabic ? 'سنبدأ هذه الخدمة في الوقت المناسب ضمن خطة المشروع.' : 'This service will start at the right moment in the project plan.')
+              : service.status === 'in_progress'
+                ? (isArabic ? 'نعمل على هذه الخدمة الآن.' : 'We are working on this now.')
+                : delivered
+                  ? (isArabic ? 'تم تسليم هذه الخدمة.' : 'This service has been delivered.')
+                  : (isArabic ? 'سيتم تحديث هذه الخدمة قريباً.' : 'This service will be updated soon.'))}
+          </p>
+          {service.client_visible_notes ? (
+            <p className="mt-3 rounded-2xl bg-muted/60 px-3 py-2 text-sm leading-6 text-card-foreground">{service.client_visible_notes}</p>
+          ) : null}
+        </div>
+        <div className="w-full shrink-0 sm:w-32">
+          <p className="text-right text-sm font-semibold text-card-foreground">{service.progress || 0}%</p>
+          <ProjectProgressBar progress={service.progress || 0} className="mt-2" />
+          <p className="mt-2 text-right text-xs text-muted-foreground">
+            {service.updated_at ? formatDate(service.updated_at) : formatDate(service.created_at)}
+          </p>
+        </div>
+      </div>
+
+      {delivered ? (
+        <div className="mt-4 rounded-2xl border border-[color:var(--profile-accent)]/20 bg-[color:var(--profile-accent)]/5 px-3 py-2 text-sm font-medium text-card-foreground">
+          {isArabic ? `${service.service_name} تم تسليمها.` : `${service.service_name} delivered.`}
+        </div>
+      ) : null}
+
+      {deliverables.length > 0 ? (
+        <div className="mt-4 space-y-2">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            {isArabic ? 'الملفات المسلّمة' : 'Delivered files'}
+          </p>
+          {deliverables.slice(0, 3).map((asset) => (
+            <ProjectDeliverableRow key={asset.id} asset={asset} isArabic={isArabic} compact />
+          ))}
+        </div>
+      ) : (
+        <p className="mt-4 text-sm text-muted-foreground">
+          {service.status === 'in_progress'
+            ? (isArabic ? 'نعمل على هذا الآن.' : 'We are working on this now.')
+            : (isArabic ? 'ستظهر الملفات هنا عند نشرها.' : 'Deliverables will appear here once published.')}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function isProjectImageAsset(asset: ProjectDeliverable) {
+  const explicit = cleanText(asset.file_type).toLowerCase();
+  const source = cleanText(asset.file_name || asset.file_url).toLowerCase();
+  const ext = source.split('?')[0].split('#')[0].split('.').pop() || '';
+  return explicit.startsWith('image/') || ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'avif'].includes(ext);
+}
+
+function ProjectPreviewThumb({ asset }: { asset: ProjectDeliverable }) {
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setPreviewUrl(null);
+
+    if (!isProjectImageAsset(asset)) return () => {
+      cancelled = true;
+    };
+
+    void getProjectAssetSignedUrl(asset, 60 * 10).then((url) => {
+      if (!cancelled) setPreviewUrl(url);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [asset]);
+
+  return (
+    <span className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-[color:var(--profile-accent)]/10 text-[color:var(--profile-accent)]">
+      {previewUrl ? (
+        <img src={previewUrl} alt="" className="h-full w-full object-cover" />
+      ) : isProjectImageAsset(asset) ? (
+        <ImageIcon className="h-5 w-5" />
+      ) : (
+        <FileText className="h-5 w-5" />
+      )}
+    </span>
+  );
+}
+
+function ProjectDeliverableRow({
+  asset,
+  isArabic,
+  compact,
+}: {
+  asset: ProjectDeliverable;
+  isArabic: boolean;
+  compact?: boolean;
+}) {
+  const [busy, setBusy] = useState(false);
+
+  const download = async () => {
+    setBusy(true);
+    try {
+      const url = await getProjectAssetSignedUrl(asset, 60 * 10);
+      if (url) window.open(url, '_blank', 'noopener,noreferrer');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className={cn('flex flex-col gap-3 rounded-2xl border border-border bg-background p-3 sm:flex-row sm:items-center', compact && 'p-2')}>
+      <ProjectPreviewThumb asset={asset} />
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-semibold text-card-foreground">{asset.file_name}</p>
+        <p className="mt-1 text-xs text-muted-foreground">
+          {(asset.file_type || asset.asset_type || asset.file_name?.split('.').pop() || 'file').toUpperCase()}
+          {formatBytes(asset.file_size) ? ` · ${formatBytes(asset.file_size)}` : ''}
+          {asset.created_at || asset.uploaded_at ? ` · ${formatDate(asset.created_at || asset.uploaded_at)}` : ''}
+        </p>
+        {asset.note && !compact ? <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{asset.note}</p> : null}
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-semibold text-muted-foreground">
+          {asset.deliverable_status === 'delivered'
+            ? (isArabic ? 'جاهز للتحميل' : 'Ready to download')
+            : getReadableStatus(asset.deliverable_status)}
+        </span>
+        <button
+          type="button"
+          onClick={() => void download()}
+          disabled={busy}
+          className="inline-flex h-8 items-center gap-1.5 rounded-full bg-foreground px-3 text-xs font-semibold text-background transition hover:opacity-90 disabled:opacity-60"
+        >
+          <Download className="h-3.5 w-3.5" />
+          {isArabic ? 'تحميل' : 'Download'}
+        </button>
+        {asset.published_to_identity ? (
+          <span className="rounded-full bg-[color:var(--profile-accent)]/10 px-2.5 py-1 text-xs font-semibold text-[color:var(--profile-accent)]">
+            {isArabic ? 'في الهوية' : 'In Identity'}
+          </span>
+        ) : null}
+      </div>
+    </div>
   );
 }
 
@@ -2115,9 +2643,13 @@ function IdentityTab({
   const publicNotes = cleanText(identity?.public_notes);
   const usageNotes = cleanText(identity?.usage_notes);
   const brandGuideAssets = getIdentityAssetsByCategory(assets, ['brand_guide']);
+  const paletteAssets = getIdentityAssetsByCategory(assets, ['color_palette']);
+  const typographyAssets = getIdentityAssetsByCategory(assets, ['typography']);
+  const socialIdentityAssets = getIdentityAssetsByCategory(assets, ['social_media_kit', 'social_avatar', 'social_cover']);
   const otherAssets = assets.filter((asset) => {
     const category = cleanText(asset.identity_category);
-    return !logoCategories.includes(category) && category !== 'brand_guide';
+    return !logoCategories.includes(category)
+      && !['brand_guide', 'color_palette', 'typography', 'social_media_kit', 'social_avatar', 'social_cover'].includes(category);
   });
   const hasIdentityData = Boolean(
     identity ||
@@ -2239,6 +2771,13 @@ function IdentityTab({
                   ))}
                 </div>
               )}
+              {paletteAssets.length > 0 ? (
+                <div className="mt-5 space-y-3">
+                  {paletteAssets.map((asset) => (
+                    <IdentityAssetRow key={asset.id} asset={asset} isArabic={isArabic} />
+                  ))}
+                </div>
+              ) : null}
             </Card>
 
             <Card className="p-5 sm:p-6">
@@ -2259,6 +2798,13 @@ function IdentityTab({
                   ))}
                 </div>
               )}
+              {typographyAssets.length > 0 ? (
+                <div className="mt-5 space-y-3">
+                  {typographyAssets.map((asset) => (
+                    <IdentityAssetRow key={asset.id} asset={asset} isArabic={isArabic} />
+                  ))}
+                </div>
+              ) : null}
             </Card>
           </div>
 
@@ -2312,6 +2858,13 @@ function IdentityTab({
                     ))}
                   </div>
                 )}
+                {socialIdentityAssets.length > 0 ? (
+                  <div className="mt-5 space-y-3">
+                    {socialIdentityAssets.map((asset) => (
+                      <IdentityAssetRow key={asset.id} asset={asset} isArabic={isArabic} />
+                    ))}
+                  </div>
+                ) : null}
               </Card>
 
               <Card className="p-5 sm:p-6">
@@ -2724,6 +3277,10 @@ function AccountTab({
                 ? 'لا يوجد سؤال أمان محفوظ لهذا الحساب.'
                 : 'No security question is saved for this account.'}
           </p>
+        </Card>
+
+        <Card className="p-5">
+          <TelegramNotificationSettings clientId={client?.id} isArabic={isArabic} />
         </Card>
 
         <Card className="border-destructive/20 p-5">

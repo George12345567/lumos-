@@ -2,8 +2,10 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { hashPassword } from '@/lib/secretHash';
 import { Order, Contact, Client, ClientUpdate, DashboardStats, SavedDesign, PricingRequest } from '@/types/dashboard';
+import type { Project } from '@/services/projectService';
 import { toast } from 'sonner';
 import {
+    adminCancelPricingRequest,
     adminConvertPricingRequest,
     adminDeleteContact,
     adminDeleteDesign,
@@ -27,6 +29,7 @@ export const useAdminDashboard = () => {
     const [orders, setOrders] = useState<Order[]>([]);
     const [contacts, setContacts] = useState<Contact[]>([]);
     const [pricingRequests, setPricingRequests] = useState<PricingRequest[]>([]);
+    const [projects, setProjects] = useState<Project[]>([]);
     const [clients, setClients] = useState<Client[]>([]);
     const [clientUpdates, setClientUpdates] = useState<ClientUpdate[]>([]);
     const [designs, setDesigns] = useState<SavedDesign[]>([]);
@@ -57,6 +60,7 @@ export const useAdminDashboard = () => {
             const ordersData = (snapshot.orders || []) as Order[];
             const contactsData = (snapshot.contacts || []) as Contact[];
             const pricingRequestsData = (snapshot.pricingRequests || []) as PricingRequest[];
+            const projectsData = (snapshot.projects || []) as Project[];
             const clientsData = (snapshot.clients || []) as Client[];
             const designsData = (snapshot.designs || []) as SavedDesign[];
             const updatesData = (snapshot.clientUpdates || []) as ClientUpdate[];
@@ -65,6 +69,7 @@ export const useAdminDashboard = () => {
             setOrders(ordersData);
             setContacts(contactsData);
             setPricingRequests(pricingRequestsData);
+            setProjects(projectsData);
             setClients(clientsData);
             setClientUpdates(updatesData);
             setDesigns(designsData);
@@ -123,6 +128,12 @@ export const useAdminDashboard = () => {
                 scheduleRefresh();
             })
             .on('postgres_changes', { event: '*', schema: 'public', table: 'pricing_requests' }, () => {
+                scheduleRefresh();
+            })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'projects' }, () => {
+                scheduleRefresh();
+            })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'project_services' }, () => {
                 scheduleRefresh();
             })
             .on('postgres_changes', { event: '*', schema: 'public', table: 'clients' }, () => {
@@ -212,44 +223,67 @@ export const useAdminDashboard = () => {
 
     const updatePricingRequestStatus = useCallback(async (id: string, newStatus: PricingRequest['status']) => {
         try {
-            const payload: Partial<PricingRequest> & { reviewed_at?: string | null } = {
-                status: newStatus,
-                reviewed_at: newStatus === 'new' ? null : new Date().toISOString(),
-            };
-            await adminUpdatePricingRequestStatus(id, payload);
+            await adminUpdatePricingRequestStatus(id, newStatus);
             toast.success(`Pricing request updated to ${newStatus}`);
-            setPricingRequests(prev => prev.map(request => request.id === id ? { ...request, ...payload } : request));
+            setPricingRequests(prev => prev.map(request => request.id === id ? { ...request, status: newStatus } : request));
+            void fetchData();
         } catch {
             toast.error('Failed to update pricing request');
         }
     }, []);
 
-    const deletePricingRequest = useCallback(async (id: string) => {
+    const cancelPricingRequest = useCallback(async (id: string): Promise<boolean> => {
         try {
-            await adminDeletePricingRequest(id);
+            const result = await adminCancelPricingRequest(id);
+            if (!result.success) throw new Error(result.error || 'Cancel failed');
             toast.success('Pricing request cancelled');
-            setPricingRequests(prev => prev.map(request => request.id === id
-                ? { ...request, status: 'cancelled' as PricingRequest['status'] }
-                : request));
-        } catch {
+            await fetchData();
+            return true;
+        } catch (error) {
+            console.error('Failed to cancel pricing request:', error);
             toast.error('Failed to cancel pricing request');
+            return false;
         }
-    }, []);
+    }, [fetchData]);
+
+    const deletePricingRequest = useCallback(async (id: string): Promise<boolean> => {
+        try {
+            const result = await adminDeletePricingRequest(id);
+            if (!result.success) throw new Error(result.error || 'Delete failed');
+            toast.success('Pricing request permanently deleted');
+            setPricingRequests(prev => prev.filter(request => request.id !== id));
+            await fetchData();
+            return true;
+        } catch (error) {
+            console.error('Failed to permanently delete pricing request:', error);
+            toast.error('Failed to permanently delete pricing request');
+            return false;
+        }
+    }, [fetchData]);
 
     const convertPricingRequest = useCallback(async (request: PricingRequest) => {
         try {
             const conversion = await adminConvertPricingRequest(request);
-            toast.success('Pricing request converted to order');
+            if (!conversion.success) throw new Error(conversion.error || 'Project creation failed');
+            toast.success('Project created from pricing request');
             setPricingRequests(prev => prev.map(item => item.id === request.id ? {
                 ...item,
                 status: 'converted',
-                converted_order_id: conversion.orderId,
-                reviewed_at: conversion.reviewedAt,
+                converted_project_id: conversion.projectId,
             } : item));
-            void fetchData();
+            await fetchData();
         } catch (err) {
-            console.error('Failed to convert pricing request:', err);
-            toast.error('Failed to convert pricing request');
+            const message = err instanceof Error ? err.message : String(err ?? 'Unknown conversion error');
+            console.error('[useAdminDashboard.convertPricingRequest] Failed to convert pricing request', {
+                error: err,
+                message,
+                requestId: request.id,
+                pricingRequestId: request.id,
+                invoiceNumber: request.invoice_number,
+                convertedProjectId: request.converted_project_id,
+                status: request.status,
+            });
+            toast.error(`Failed to convert pricing request: ${message}`);
         }
     }, [fetchData]);
 
@@ -352,6 +386,7 @@ export const useAdminDashboard = () => {
 
     return {
         orders,
+        projects,
         contacts,
         pricingRequests,
         clients,
@@ -365,6 +400,7 @@ export const useAdminDashboard = () => {
         updateContactStatus,
         deleteContact,
         updatePricingRequestStatus,
+        cancelPricingRequest,
         deletePricingRequest,
         convertPricingRequest,
         updateDesignStatus,

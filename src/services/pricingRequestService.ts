@@ -269,6 +269,8 @@ export const updatePricingRequestStatus = async (
     const now = new Date().toISOString();
     const historyEntry = {
       status,
+      old_status: current.status,
+      new_status: status,
       changed_at: now,
       changed_by: changedById || null,
       note: note || null
@@ -437,6 +439,30 @@ export const saveAdminNotes = async (
   }
 };
 
+export const cancelPricingRequest = async (
+  id: string,
+  cancelledById?: string
+): Promise<{ success: boolean; error?: string }> => {
+  try {
+    const result = await updatePricingRequestStatus(
+      id,
+      'cancelled',
+      cancelledById,
+      'Admin cancelled request'
+    );
+
+    if (!result.success) {
+      throw new Error(result.error || 'Failed to cancel pricing request');
+    }
+
+    return { success: true };
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    console.error('Error cancelling pricing request:', error);
+    return { success: false, error: errorMessage };
+  }
+};
+
 export const deletePricingRequest = async (
   id: string,
   deletedById?: string
@@ -444,45 +470,34 @@ export const deletePricingRequest = async (
   try {
     const { data: current, error: fetchError } = await supabase
       .from('pricing_requests')
-      .select('status, status_history')
+      .select('invoice_number, status')
       .eq('id', id)
       .single();
 
     if (fetchError) throw fetchError;
 
-    const now = new Date().toISOString();
-    const historyEntry = {
-      status: 'cancelled',
-      changed_at: now,
-      changed_by: deletedById || null,
-      note: 'Request cancelled instead of permanently deleted'
-    };
-
     const { error: deleteError } = await supabase
       .from('pricing_requests')
-      .update({
-        status: 'cancelled',
-        delete_reason: 'Admin cancelled request; permanent delete is disabled',
-        status_history: current.status_history
-          ? [...current.status_history, historyEntry]
-          : [historyEntry],
-        updated_at: now,
-      })
+      .delete()
       .eq('id', id);
 
     if (deleteError) throw deleteError;
 
-    await logAuditChange({
-      entityType: 'pricing_request',
-      entityId: id,
-      changedBy: deletedById || null,
-      changedByType: deletedById ? 'team_member' : 'system',
-      action: 'updated',
-      oldValues: { status: current.status },
-      newValues: { status: 'cancelled' },
-      changeSummary: 'Pricing request cancelled; permanent delete disabled',
-      changeSummaryAr: 'تم إلغاء طلب التسعير بدون حذف نهائي'
-    });
+    try {
+      await logAuditChange({
+        entityType: 'pricing_request',
+        entityId: id,
+        changedBy: deletedById || null,
+        changedByType: deletedById ? 'team_member' : 'system',
+        action: 'deleted',
+        oldValues: current,
+        newValues: null,
+        changeSummary: `Pricing request ${current.invoice_number || id} permanently deleted`,
+        changeSummaryAr: 'تم حذف طلب التسعير نهائياً'
+      });
+    } catch (auditError) {
+      console.warn('Pricing request deleted, but audit logging failed:', auditError);
+    }
 
     return { success: true };
   } catch (error: unknown) {

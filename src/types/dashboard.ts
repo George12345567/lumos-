@@ -97,6 +97,7 @@ export interface PricingRequest {
     status_history?: StatusHistoryEntry[];
     follow_up_actions?: FollowUpAction[];
     converted_order_id?: string | null;
+    converted_project_id?: string | null;
     location_url?: string | null;
     auto_collected_data?: Record<string, unknown> | null;
     created_at: string;
@@ -158,6 +159,8 @@ export interface Client {
     timeline?: string;
     referral_source?: string;
     project_summary?: string;
+    role?: 'client' | 'admin' | 'owner' | string;
+    account_type?: 'client' | 'admin' | 'team' | 'internal' | string;
     created_at: string;
 }
 
@@ -226,7 +229,7 @@ export interface SavedDesign {
 export interface TeamMember {
     id: string;
     name: string;
-    role: 'admin' | 'sales' | 'designer' | 'manager';
+    role: 'owner' | 'admin' | 'sales' | 'designer' | 'manager' | 'support' | 'viewer';
     phone?: string;
     email?: string;
     avatar_url?: string;
@@ -268,6 +271,8 @@ export type NotificationEntityType =
     | 'client_asset'
     | 'client_identity'
     | 'pricing_request'
+    | 'project'
+    | 'project_service'
     | 'order'
     | 'client'
     | 'team_member'
@@ -300,7 +305,7 @@ export interface Notification {
 
 export interface AuditLog {
     id: string;
-    entity_type: 'pricing_request' | 'client' | 'discount_code' | 'team_member' | 'order';
+    entity_type: 'pricing_request' | 'client' | 'discount_code' | 'team_member' | 'order' | 'project' | 'project_service';
     entity_id: string;
     changed_by?: string;
     changed_by_type?: 'team_member' | 'client' | 'system';
@@ -329,6 +334,8 @@ export interface DiscountCode {
     usage_limit?: number;
     usage_count?: number;
     applicable_categories?: string[];
+    applicable_packages?: string[];
+    applicable_services?: string[];
     created_at?: string;
     updated_at?: string;
 }

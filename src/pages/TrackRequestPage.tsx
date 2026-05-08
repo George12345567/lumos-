@@ -26,6 +26,7 @@ import {
   GUEST_DUPLICATE_MESSAGE_AR,
   GUEST_DUPLICATE_MESSAGE_EN,
   guestUpdateRequest,
+  parseTrackingInput,
   type GuestTrackedRequest,
   verifyGuestTracking,
 } from '@/services/guestTrackingService';
@@ -99,14 +100,47 @@ export default function TrackRequestPage() {
     () => buildGuestTrackingUrl(form.invoiceNumber, form.trackingKey),
     [form.invoiceNumber, form.trackingKey],
   );
+  const missingKeyMessage = t(
+    'رابط التتبع ده ناقص كود الدخول. انسخ رابط الدخول الكامل من شاشة نجاح الطلب.',
+    'This tracking link is missing the access code. Please copy the full access link from the success screen.',
+  );
 
   const cleanUrlAfterVerified = useCallback((invoiceNumber: string) => {
     const cleanUrl = `/track-request?invoice=${encodeURIComponent(invoiceNumber)}`;
     window.history.replaceState({}, document.title, cleanUrl);
   }, []);
 
+  const handleAccessInput = useCallback((value: string) => {
+    const parsed = parseTrackingInput(value);
+    if (parsed.missingKey) {
+      setError(missingKeyMessage);
+      setForm((current) => ({
+        ...current,
+        invoiceNumber: parsed.invoiceNumber || current.invoiceNumber,
+        trackingKey: '',
+      }));
+      return;
+    }
+
+    setError(null);
+    setForm((current) => ({
+      ...current,
+      invoiceNumber: parsed.invoiceNumber || current.invoiceNumber,
+      trackingKey: parsed.trackingKey || value,
+    }));
+  }, [missingKeyMessage]);
+
   const verify = useCallback(async (cleanUrl = false) => {
-    if (!form.invoiceNumber.trim() || !form.trackingKey.trim()) {
+    const parsedAccess = parseTrackingInput(form.trackingKey);
+    if (parsedAccess.missingKey) {
+      setError(missingKeyMessage);
+      return;
+    }
+
+    const invoiceNumber = (form.invoiceNumber.trim() || parsedAccess.invoiceNumber || '').trim();
+    const trackingKey = (parsedAccess.trackingKey || form.trackingKey).trim();
+
+    if (!invoiceNumber || !trackingKey) {
       setError(t('أدخل رقم الفاتورة وكود الدخول.', 'Enter your invoice number and access code.'));
       return;
     }
@@ -116,8 +150,8 @@ export default function TrackRequestPage() {
     setRequest(null);
     try {
       const result = await verifyGuestTracking({
-        invoiceNumber: form.invoiceNumber.trim(),
-        trackingKey: form.trackingKey.trim(),
+        invoiceNumber,
+        trackingKey,
       });
 
       if (!result.success || !result.request) {
@@ -130,11 +164,16 @@ export default function TrackRequestPage() {
 
       setRequest(result.request);
       setEdit(buildEditState(result.request));
+      setForm((current) => ({
+        ...current,
+        invoiceNumber: result.request?.invoice_number || invoiceNumber,
+        trackingKey,
+      }));
       if (cleanUrl) cleanUrlAfterVerified(result.request.invoice_number);
     } finally {
       setLoading(false);
     }
-  }, [cleanUrlAfterVerified, form.invoiceNumber, form.trackingKey, t]);
+  }, [cleanUrlAfterVerified, form.invoiceNumber, form.trackingKey, missingKeyMessage, t]);
 
   useEffect(() => {
     if (autoVerifiedRef.current) return;
@@ -247,10 +286,10 @@ export default function TrackRequestPage() {
                 mono
               />
               <TextField
-                label={t('كود الدخول', 'Access Code')}
+                label={t('كود الدخول أو رابط الدخول', 'Access Code or Access Link')}
                 value={form.trackingKey}
-                onChange={(value) => setForm((current) => ({ ...current, trackingKey: value }))}
-                placeholder="LMS-GUEST-..."
+                onChange={handleAccessInput}
+                placeholder={t('الصق كود الدخول أو رابط التتبع الكامل', 'Paste your access code or full tracking link')}
                 icon={Receipt}
                 mono
               />

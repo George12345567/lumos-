@@ -13,12 +13,14 @@ export type AdminRole = 'owner' | 'admin' | 'manager' | 'sales' | 'designer' | '
 
 export type AdminResource =
   | 'dashboard'
+  | 'overview'
   | 'requests'
   | 'clients'
   | 'projects'
   | 'contacts'
   | 'messages'
   | 'files'
+  | 'identity'
   | 'team'
   | 'discounts'
   | 'audit_logs'
@@ -32,6 +34,8 @@ export type AdminAction =
   | 'assign'
   | 'delete'
   | 'archive'
+  | 'upload'
+  | 'download'
   | 'export'
   | 'manage_permissions';
 
