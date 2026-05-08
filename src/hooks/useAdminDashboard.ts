@@ -135,6 +135,9 @@ export const useAdminDashboard = () => {
             .on('postgres_changes', { event: '*', schema: 'public', table: 'client_assets' }, () => {
                 scheduleRefresh();
             })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'client_identity' }, () => {
+                scheduleRefresh();
+            })
             .on('postgres_changes', { event: '*', schema: 'public', table: 'client_messages' }, () => {
                 scheduleRefresh();
             })

@@ -14,16 +14,17 @@ Supabase only redirects users to URLs that have been explicitly allow-listed.
 
 **Dashboard → Authentication → URL Configuration → Redirect URLs**
 
-Add **both** of the following:
+Add **all four** of the following (production + the dev ports the repo
+exposes — `vite.config.ts` uses 8080, with 8082 as a common fallback when
+8080 is taken; 5173 is the Vite default if a contributor changes the
+config locally):
 
 ```
 https://getlumos.studio/invite-onboarding
+http://localhost:8080/invite-onboarding
+http://localhost:8082/invite-onboarding
 http://localhost:5173/invite-onboarding
 ```
-
-If your dev server runs on a different port (e.g. Vite default 5173 vs 8080
-configured in this repo), add that port too — match the URL the developer
-actually opens in their browser.
 
 > Without these entries Supabase will reject the redirect and the user lands
 > on the default site URL with no session — the page will then show

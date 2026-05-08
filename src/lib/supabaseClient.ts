@@ -112,6 +112,9 @@ export const supabase = supabaseUrl && supabaseAnonKey
           getPublicUrl: (_path: string) => ({ data: { publicUrl: '' } }),
         }),
       },
+      functions: {
+        invoke: async () => ({ data: null, error: NOT_CONFIGURED_ERROR }),
+      },
       channel: (_name: string) => makeStubChannel(),
       removeChannel: (_channel: unknown) => {},
     };

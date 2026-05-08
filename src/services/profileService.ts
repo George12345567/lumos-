@@ -4,11 +4,14 @@ export interface ProfileData {
   id: string;
   username: string;
   email?: string;
+  phone?: string;
   company_name?: string;
   phone_number?: string;
   display_name?: string;
   bio?: string;
   tagline?: string;
+  business_tagline?: string;
+  full_contact_name?: string;
   website?: string;
   location?: string;
   timezone?: string;
@@ -24,6 +27,13 @@ export interface ProfileData {
   profile_visibility?: string;
   social_links?: Record<string, string>;
   industry?: string;
+  services_needed?: unknown[];
+  budget_range?: string;
+  timeline?: string;
+  referral_source?: string;
+  project_summary?: string;
+  brand_feel?: string;
+  package_details?: Record<string, unknown> | null;
   role?: string;
   is_verified?: boolean;
   package_name?: string;
@@ -43,6 +53,42 @@ export interface SocialLinks {
   github?: string;
 }
 
+const CLIENT_EDITABLE_PROFILE_FIELDS = new Set<keyof ProfileData>([
+  'avatar_url',
+  'bio',
+  'brand_colors',
+  'brand_feel',
+  'company_name',
+  'cover_gradient',
+  'cover_url',
+  'display_name',
+  'industry',
+  'location',
+  'logo_url',
+  'phone',
+  'phone_number',
+  'profile_visibility',
+  'social_links',
+  'tagline',
+  'theme_accent',
+  'timezone',
+  'website',
+]);
+
+function sanitizeClientProfilePatch(data: Partial<ProfileData>): Partial<ProfileData> {
+  const safePatch: Partial<ProfileData> = {};
+
+  (Object.entries(data) as [keyof ProfileData, ProfileData[keyof ProfileData]][]).forEach(
+    ([key, value]) => {
+      if (value !== undefined && CLIENT_EDITABLE_PROFILE_FIELDS.has(key)) {
+        (safePatch as Record<string, unknown>)[key] = value;
+      }
+    },
+  );
+
+  return safePatch;
+}
+
 export const profileService = {
   getProfile: async (clientId: string): Promise<ProfileData | null> => {
     try {
@@ -59,15 +105,18 @@ export const profileService = {
     }
   },
 
-  updateProfile: async (clientId: string, data: Partial<ProfileData>): Promise<{ success: boolean }> => {
+  updateProfile: async (clientId: string, data: Partial<ProfileData>): Promise<{ success: boolean; error?: string }> => {
     try {
+      const safePatch = sanitizeClientProfilePatch(data);
+      if (Object.keys(safePatch).length === 0) return { success: true };
+
       const { error } = await supabase
         .from('clients')
-        .update(data)
+        .update(safePatch)
         .eq('id', clientId);
-      return { success: !error };
+      return { success: !error, error: error?.message };
     } catch {
-      return { success: false };
+      return { success: false, error: 'profile_update_failed' };
     }
   },
 
@@ -122,7 +171,8 @@ export const profileService = {
   getAvatarUrl: async (path?: string | null): Promise<string | null> => {
     const trimmed = (path ?? '').trim();
     if (!trimmed) return null;
-    if (/^https?:\/\//i.test(trimmed)) return trimmed;
+    if (/^https?:\/\//i.test(trimmed)) return null;
+    if (trimmed.startsWith('/')) return trimmed;
     try {
       const { data, error } = await supabase.storage
         .from('client-assets')

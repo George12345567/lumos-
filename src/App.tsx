@@ -28,6 +28,7 @@ const SignUpPage = lazy(() => import("./pages/SignUpPage"));
 const LogInPage = lazy(() => import("./pages/LogInPage"));
 const ForgotPasswordPage = lazy(() => import("./pages/ForgotPasswordPage"));
 const ResetPasswordPage = lazy(() => import("./pages/ResetPasswordPage"));
+const ChangePasswordPage = lazy(() => import("./pages/ChangePasswordPage"));
 const InviteOnboardingPage = lazy(() => import("./pages/InviteOnboardingPage"));
 
 const ClientProfilePage = lazy(() => import("./features/client-profile/ClientProfilePage"));
@@ -64,6 +65,7 @@ const App = () => {
                     <Route path="/client-login" element={<GuestRoute><LogInPage /></GuestRoute>} />
                     <Route path="/forgot-password" element={<GuestRoute><ForgotPasswordPage /></GuestRoute>} />
                     <Route path="/reset-password" element={<ResetPasswordPage />} />
+                    <Route path="/change-password" element={<ProtectedRoute><ChangePasswordPage /></ProtectedRoute>} />
                     <Route path="/invite-onboarding" element={<InviteOnboardingPage />} />
                     <Route path="/lumos-admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
 

@@ -283,6 +283,10 @@ const FloatingDock = () => {
     // Section navigation lives in the in-page sidebar of /profile, so the
     // floating dock only carries cross-page actions when the user is on the
     // profile route (Home / Plans & Pricing / Sign Out).
+    // On small profile screens the profile's own bottom tab bar owns section
+    // switching, so the dock is intentionally hidden to avoid overlapping
+    // account actions and form controls.
+    if (isClientProfile && isMobile) return null;
 
     const isCompactProfileDock = isClientProfile && isMobile;
     const isCompactActive = isMobile || isCompactProfileDock;

@@ -23,13 +23,38 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { Home, Briefcase, DollarSign, Sparkles, Eye, HelpCircle, MessageSquare, X } from "lucide-react";
+import {
+  Briefcase,
+  ChevronDown,
+  DollarSign,
+  Eye,
+  HelpCircle,
+  Home,
+  Languages,
+  LogOut,
+  MessageSquare,
+  Moon,
+  Settings,
+  Sparkles,
+  Sun,
+  UserCircle,
+  X,
+} from "lucide-react";
 import PricingModal from "@/components/pricing/PricingModal";
 import FloatingDock from "@/components/layout/FloatingDock";
-import { useAuthState } from "@/context/AuthContext";
+import { useAuthActions, useAuthState } from "@/context/AuthContext";
+import { useAppearance } from "@/context/AppearanceContext";
 import { profileService } from "@/services/profileService";
 import type { PricingRequest } from "@/types/dashboard";
 import { useLanguage } from "@/context/LanguageContext";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const EnhancedNavbar = () => {
   const [isScrolled, setIsScrolled] = useState(false);
@@ -51,7 +76,9 @@ const EnhancedNavbar = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { isAuthenticated, isAdmin, client } = useAuthState();
-  const { isArabic, t } = useLanguage();
+  const { logout } = useAuthActions();
+  const { theme, toggleTheme } = useAppearance();
+  const { isArabic, t, toggleLanguage } = useLanguage();
 
   const openPricingModal = useCallback((request: PricingRequest | null = null) => {
     setPricingDraft(request);
@@ -172,7 +199,8 @@ const EnhancedNavbar = () => {
     const loadClientAvatar = async () => {
       const profile = await profileService.getProfile(client.id);
       if (cancelled) return;
-      setClientAvatarUrl(profile?.avatar_url || null);
+      const avatarUrl = await profileService.getAvatarUrl(profile?.avatar_url || client.avatar_url);
+      if (!cancelled) setClientAvatarUrl(avatarUrl);
       if (profile?.display_name?.trim()) {
         setClientDisplayName(profile.display_name);
       }
@@ -252,6 +280,11 @@ const EnhancedNavbar = () => {
       }
     }
   }, [location.pathname, navigate]);
+
+  const handleClientSignOut = useCallback(async () => {
+    await logout();
+    navigate("/client-login", { replace: true });
+  }, [logout, navigate]);
 
   // SVG circle progress for logo ring
   const circumference = 2 * Math.PI * 14;
@@ -406,23 +439,98 @@ const EnhancedNavbar = () => {
                     {/* "How To Use" navigation guide is intentionally not rendered. */}
 
                     {isAuthenticated && client && !isAdmin && (
-                      <button
-                        type="button"
-                        onClick={() => navigate("/profile")}
-                        className="group inline-flex items-center gap-2 rounded-xl border border-white/12 bg-white/[0.06] px-2.5 py-2 text-white/85 transition-all duration-300 hover:bg-white/10 hover:text-white"
-                        title={t("افتح بوابة العميل والملفات والطلبات والتقدم الحالي", "Open your client portal, files, requests, and progress")}
-                      >
-                        <span className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border border-white/12 bg-white/10">
-                          {clientAvatarUrl ? (
-                            <img src={clientAvatarUrl} alt={clientDisplayName || client.username} className="h-full w-full object-cover" />
-                          ) : (
-                            <span className="text-xs font-bold uppercase text-[hsl(150,100%,40%)]">
-                              {(clientDisplayName || client.username).slice(0, 2)}
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button
+                            type="button"
+                            className="group inline-flex h-10 max-w-[188px] items-center gap-2 rounded-full border border-border/70 bg-card/55 py-1 pl-1.5 pr-2.5 text-foreground shadow-[0_10px_28px_rgba(2,6,23,0.08)] backdrop-blur-xl transition-all duration-300 hover:border-border hover:bg-card/80 hover:shadow-[0_14px_32px_rgba(2,6,23,0.12)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--ring))] focus-visible:ring-offset-2 focus-visible:ring-offset-background dark:border-white/10 dark:bg-white/[0.06] dark:hover:bg-white/[0.1]"
+                            aria-label={t("افتح قائمة الحساب", "Open account menu")}
+                            title={t("افتح قائمة الحساب", "Open account menu")}
+                          >
+                            <span className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border bg-background/80 ring-1 ring-black/5 dark:border-white/10 dark:bg-white/10">
+                              {clientAvatarUrl ? (
+                                <img src={clientAvatarUrl} alt={clientDisplayName || client.username} className="h-full w-full object-cover" />
+                              ) : (
+                                <span className="text-[10px] font-bold uppercase text-[hsl(150,100%,40%)]">
+                                  {(clientDisplayName || client.username || "LC").slice(0, 2)}
+                                </span>
+                              )}
                             </span>
-                          )}
-                        </span>
-                        <span className="hidden max-w-[140px] truncate text-sm font-semibold lg:inline">{clientDisplayName || client.username}</span>
-                      </button>
+                            <span className="hidden min-w-0 max-w-[108px] truncate text-xs font-semibold text-foreground md:inline">
+                              {clientDisplayName || client.username}
+                            </span>
+                            <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-180" />
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent
+                          align="end"
+                          sideOffset={10}
+                          className="z-[80] w-64 rounded-2xl border border-border bg-card/95 p-2 text-card-foreground shadow-[0_24px_60px_rgba(2,6,23,0.18)] backdrop-blur-xl dark:bg-slate-950/95"
+                        >
+                          <DropdownMenuLabel className="p-2">
+                            <div className="flex min-w-0 items-center gap-3">
+                              <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border bg-background">
+                                {clientAvatarUrl ? (
+                                  <img src={clientAvatarUrl} alt="" className="h-full w-full object-cover" />
+                                ) : (
+                                  <span className="text-xs font-bold uppercase text-[hsl(150,100%,40%)]">
+                                    {(clientDisplayName || client.username || "LC").slice(0, 2)}
+                                  </span>
+                                )}
+                              </span>
+                              <span className="min-w-0">
+                                <span className="block truncate text-sm font-semibold text-card-foreground">
+                                  {clientDisplayName || client.username}
+                                </span>
+                                <span className="block truncate text-xs font-normal text-muted-foreground">
+                                  @{client.username}
+                                </span>
+                              </span>
+                            </div>
+                          </DropdownMenuLabel>
+                          <DropdownMenuSeparator className="my-1 bg-border" />
+                          <DropdownMenuItem
+                            onSelect={() => navigate("/profile")}
+                            className="cursor-pointer rounded-xl px-3 py-2.5 text-sm text-card-foreground focus:bg-muted focus:text-foreground"
+                          >
+                            <UserCircle className="mr-2 h-4 w-4 text-muted-foreground" />
+                            {t("عرض الملف", "View Profile")}
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onSelect={() => navigate("/profile?tab=account")}
+                            className="cursor-pointer rounded-xl px-3 py-2.5 text-sm text-card-foreground focus:bg-muted focus:text-foreground"
+                          >
+                            <Settings className="mr-2 h-4 w-4 text-muted-foreground" />
+                            {t("إعدادات الحساب", "Account Settings")}
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onSelect={toggleLanguage}
+                            className="cursor-pointer rounded-xl px-3 py-2.5 text-sm text-card-foreground focus:bg-muted focus:text-foreground"
+                          >
+                            <Languages className="mr-2 h-4 w-4 text-muted-foreground" />
+                            {isArabic ? "English" : "العربية"}
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onSelect={toggleTheme}
+                            className="cursor-pointer rounded-xl px-3 py-2.5 text-sm text-card-foreground focus:bg-muted focus:text-foreground"
+                          >
+                            {theme === "dark" ? (
+                              <Sun className="mr-2 h-4 w-4 text-muted-foreground" />
+                            ) : (
+                              <Moon className="mr-2 h-4 w-4 text-muted-foreground" />
+                            )}
+                            {theme === "dark" ? t("الوضع الفاتح", "Light Mode") : t("الوضع الداكن", "Dark Mode")}
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator className="my-1 bg-border" />
+                          <DropdownMenuItem
+                            onSelect={() => void handleClientSignOut()}
+                            className="cursor-pointer rounded-xl px-3 py-2.5 text-sm text-rose-600 focus:bg-rose-50 focus:text-rose-700 dark:text-rose-300 dark:focus:bg-rose-950/40 dark:focus:text-rose-200"
+                          >
+                            <LogOut className="mr-2 h-4 w-4" />
+                            {t("تسجيل الخروج", "Sign out")}
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     )}
 
                     {!isAuthenticated && (

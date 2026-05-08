@@ -5,14 +5,37 @@ export interface PortalMessage {
   client_id: string;
   message: string;
   sender: 'client' | 'team' | string;
+  sender_id?: string | null;
+  sender_name?: string | null;
+  is_read?: boolean | null;
+  attachment_url?: string | null;
+  attachment_name?: string | null;
+  attachment_type?: string | null;
   created_at: string;
 }
 
 export interface PortalAsset {
   id: string;
+  client_id?: string;
   name?: string;
   asset_url?: string;
   asset_type?: string;
+  file_url?: string | null;
+  file_name?: string | null;
+  uploaded_by?: string | null;
+  uploaded_by_type?: string | null;
+  category?: string | null;
+  note?: string | null;
+  file_size?: number | null;
+  storage_path?: string | null;
+  file_type?: string | null;
+  asset_type?: string | null;
+  identity_category?: string | null;
+  is_identity_asset?: boolean | null;
+  sort_order?: number | null;
+  is_downloadable?: boolean | null;
+  visibility?: string | null;
+  uploaded_at?: string | null;
   created_at?: string;
 }
 
@@ -70,4 +93,43 @@ export async function fetchClientPortalSnapshot(clientId: string): Promise<Porta
   }
 }
 
-export const clientPortalService = { sendMessage, getMessages, fetchClientPortalSnapshot };
+function normalizeStoragePath(path?: string | null): string | null {
+  const trimmed = (path ?? '').trim();
+  if (!trimmed || /^https?:\/\//i.test(trimmed)) return null;
+
+  return trimmed
+    .replace(/^\/+/, '')
+    .replace(/^client-assets\//, '');
+}
+
+export function getAssetStoragePath(asset: PortalAsset): string | null {
+  return (
+    normalizeStoragePath(asset.storage_path) ||
+    normalizeStoragePath(asset.file_url) ||
+    normalizeStoragePath(asset.asset_url)
+  );
+}
+
+export async function getAssetDownloadUrl(asset: PortalAsset): Promise<string | null> {
+  const path = getAssetStoragePath(asset);
+  if (!path) return null;
+
+  try {
+    const { data, error } = await supabase.storage
+      .from('client-assets')
+      .createSignedUrl(path, 60 * 10);
+
+    if (error || !data?.signedUrl) return null;
+    return data.signedUrl;
+  } catch {
+    return null;
+  }
+}
+
+export const clientPortalService = {
+  sendMessage,
+  getMessages,
+  fetchClientPortalSnapshot,
+  getAssetStoragePath,
+  getAssetDownloadUrl,
+};

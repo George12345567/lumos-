@@ -1,4 +1,4 @@
--- Lumos Pricing System - Database Tables
+ -- Lumos Pricing System - Database Tables
 -- Run this in Supabase SQL Editor
 
 -- 1. PRICING_REQUESTS TABLE

@@ -1,7 +1,7 @@
-import { LayoutDashboard, FolderOpen, MessageCircle, Settings, Briefcase } from 'lucide-react';
+import { LayoutDashboard, FolderOpen, MessageCircle, Settings, Briefcase, Palette } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
-export type TabId = 'overview' | 'projects' | 'messages' | 'files' | 'account';
+export type TabId = 'overview' | 'projects' | 'messages' | 'files' | 'identity' | 'account';
 
 export interface TabDef {
   id: TabId;
@@ -11,15 +11,16 @@ export interface TabDef {
 }
 
 /**
- * Five primary sections of the simplified premium profile.
- * Brand controls (logo, colors, social) live inside Account → Brand details.
- * Orders are surfaced under "Projects" and saved designs/shared files under "Files".
+ * Primary sections of the simplified premium profile.
+ * Official brand assets live in Identity. Safe editable profile details live
+ * under Account.
  */
 export const TABS: TabDef[] = [
   { id: 'overview', label: 'Overview', labelAr: 'نظرة عامة', icon: LayoutDashboard },
   { id: 'projects', label: 'Projects', labelAr: 'المشاريع', icon: Briefcase },
   { id: 'messages', label: 'Messages', labelAr: 'الرسائل', icon: MessageCircle },
   { id: 'files', label: 'Files', labelAr: 'الملفات', icon: FolderOpen },
+  { id: 'identity', label: 'Identity', labelAr: 'الهوية', icon: Palette },
   { id: 'account', label: 'Account', labelAr: 'الحساب', icon: Settings },
 ];
 
@@ -30,7 +31,9 @@ export const TABS: TabDef[] = [
 export const TAB_ALIASES: Record<string, TabId> = {
   orders: 'projects',
   library: 'files',
-  brand: 'account',
+  brand: 'identity',
+  brandkit: 'identity',
+  identity: 'identity',
   home: 'overview',
 };
 

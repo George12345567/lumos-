@@ -105,6 +105,46 @@ All colors MUST be HSL.
     --border: 0 0% 34%;
     --ring: 52 100% 50%;
   }
+
+  html[data-theme='light'] {
+    color-scheme: light;
+
+    --background: 156 33% 97%;
+    --foreground: 222 47% 11%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+
+    --primary: 162 84% 32%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 164 32% 92%;
+    --secondary-foreground: 166 45% 16%;
+
+    --muted: 160 22% 93%;
+    --muted-foreground: 215 16% 42%;
+
+    --accent: 170 68% 42%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 84% 56%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 160 20% 86%;
+    --input: 160 20% 86%;
+    --ring: 170 68% 42%;
+
+    --glass-bg: 0 0% 100% / 0.78;
+    --glass-border: 162 84% 32% / 0.14;
+    --glow-color: 170 68% 42%;
+  }
+
+  html[data-theme='dark'] {
+    color-scheme: dark;
+  }
 }
 
 /* ═══════════════════════════════════════════════════
@@ -175,7 +215,6 @@ All colors MUST be HSL.
 
   html {
     scroll-behavior: smooth;
-    color-scheme: dark;
     scrollbar-gutter: stable both-edges;
   }
 

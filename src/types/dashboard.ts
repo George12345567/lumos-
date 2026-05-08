@@ -72,6 +72,7 @@ export interface FollowUpAction {
 
 export interface PricingRequest {
     id: string;
+    invoice_number?: string | null;
     client_id?: string | null;
     request_type: 'package' | 'custom';
     status: 'new' | 'reviewing' | 'approved' | 'converted' | 'rejected';
@@ -141,6 +142,9 @@ export interface Client {
     website?: string;
     brand_feel?: string;
     auth_password_pending?: boolean;
+    password_must_change?: boolean;
+    password_updated_by_admin_at?: string;
+    password_updated_by_admin_by?: string | null;
     signup_completed_at?: string;
     signup_source?: string;
     industry?: string;
@@ -227,6 +231,11 @@ export interface TeamMember {
         whatsapp: boolean;
         in_app: boolean;
     };
+    user_id?: string | null;
+    client_id?: string | null;
+    job_title?: string | null;
+    permissions?: Record<string, Record<string, boolean>> | null;
+    last_active_at?: string | null;
     created_at?: string;
     updated_at?: string;
 }

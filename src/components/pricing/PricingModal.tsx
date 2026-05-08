@@ -9,7 +9,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   X, Check, ChevronRight, ShoppingCart,
   ArrowRight, Star, Shield, Layers, Code, Camera,
-  Megaphone, Bot, Settings2, TrendingUp, Lock, ArrowLeft,
+  Megaphone, Settings2, TrendingUp, Lock, ArrowLeft,
   Receipt, Calculator, Package as PackageIcon, MessageSquare,
   User, Phone, Mail, FileText, Sparkles, Zap, Palette, RefreshCw, Save, AlertTriangle, Trash2, Copy, CheckCircle2
 } from 'lucide-react';

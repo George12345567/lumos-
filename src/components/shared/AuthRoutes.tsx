@@ -4,6 +4,8 @@ import {
   useIsAdmin,
   useAuthLoading,
   useAuthConfigured,
+  useClient,
+  useProfileLoading,
 } from "@/context/AuthContext";
 import { ROUTES } from "@/lib/constants";
 import { LoadingFallback } from "@/components/shared";
@@ -31,14 +33,23 @@ function buildLoginRedirect(pathname: string, search: string): string {
 export function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useIsAuthenticated();
   const loading = useAuthLoading();
+  const profileLoading = useProfileLoading();
+  const client = useClient();
   const location = useLocation();
 
-  if (loading) {
+  if (loading || (isAuthenticated && profileLoading && !client)) {
     return <LoadingFallback />;
   }
 
   if (!isAuthenticated) {
     return <Navigate to={buildLoginRedirect(location.pathname, location.search)} replace />;
+  }
+
+  if (
+    client?.password_must_change &&
+    location.pathname !== ROUTES.CHANGE_PASSWORD
+  ) {
+    return <Navigate to={ROUTES.CHANGE_PASSWORD} replace />;
   }
 
   return <>{children}</>;

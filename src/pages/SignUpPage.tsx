@@ -428,6 +428,9 @@ export default function SignUpPage() {
         ...values,
         brandColors,
         avatarMode,
+        avatarFile: uploadedFile,
+        avatarStyle: generatedStyle,
+        avatarPresetUrl: avatarMode === "preset" ? AVATAR_PRESETS[selectedPreset]?.url : undefined,
         avatarSeed: usernameVal || "lumos-default",
       });
       if (result.success) {

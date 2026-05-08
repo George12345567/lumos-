@@ -2,6 +2,76 @@ import { supabase } from '@/lib/supabaseClient';
 import type { DashboardStats, PricingRequest, Contact, Order, Client, TeamMember, SavedDesign } from '@/types/dashboard';
 import { updatePricingRequestStatus, convertPricingRequestToOrder, deletePricingRequest } from './pricingRequestService';
 
+/**
+ * Whitelist of `pricing_requests` columns the dashboard is allowed to update,
+ * paired with normalisation rules. Anything not on this list is dropped to
+ * avoid 400 errors from Supabase / PostgREST when the UI sends fields that
+ * either don't exist or violate type constraints (e.g. empty strings into
+ * UUID columns).
+ */
+const ALLOWED_STATUSES: ReadonlyArray<PricingRequest['status']> = [
+  'new', 'reviewing', 'approved', 'converted', 'rejected',
+];
+const ALLOWED_PRIORITIES: ReadonlyArray<PricingRequest['priority']> = [
+  'low', 'medium', 'high', 'urgent',
+];
+
+/** UUID columns: empty string must become null. */
+const UUID_FIELDS = new Set<keyof PricingRequest>(['client_id', 'assigned_to', 'package_id', 'converted_order_id']);
+/** Free-text columns where empty string should fold into null. */
+const NULLABLE_TEXT_FIELDS = new Set<keyof PricingRequest>([
+  'invoice_number', 'package_name', 'guest_name', 'guest_email', 'guest_phone',
+  'company_name', 'request_notes', 'admin_notes', 'applied_promo_code',
+  'request_source', 'location_url', 'delete_reason',
+]);
+/** Columns that must be sent as numbers. */
+const NUMBER_FIELDS = new Set<keyof PricingRequest>(['estimated_subtotal', 'estimated_total', 'edit_count']);
+/** Columns the UI may set on update. Everything else is dropped. */
+const UPDATABLE_FIELDS = new Set<keyof PricingRequest>([
+  'invoice_number', 'status', 'priority', 'assigned_to', 'package_id', 'package_name',
+  'selected_services', 'estimated_subtotal', 'estimated_total', 'price_currency',
+  'discount_breakdown', 'applied_promo_code', 'guest_name', 'guest_phone', 'guest_email',
+  'company_name', 'client_id', 'client_snapshot', 'request_notes', 'admin_notes',
+  'status_history', 'follow_up_actions', 'converted_order_id', 'request_source',
+  'location_url', 'reviewed_at',
+]);
+
+export function sanitizePricingRequestUpdate(updates: Partial<PricingRequest>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const [key, raw] of Object.entries(updates)) {
+    if (raw === undefined) continue;
+    const k = key as keyof PricingRequest;
+    if (!UPDATABLE_FIELDS.has(k)) continue;
+
+    let value: unknown = raw;
+
+    if (UUID_FIELDS.has(k)) {
+      // Treat empty string and 'null' literal as actual null.
+      if (typeof value === 'string' && value.trim() === '') value = null;
+    }
+    if (NULLABLE_TEXT_FIELDS.has(k)) {
+      if (typeof value === 'string' && value.trim() === '') value = null;
+    }
+    if (NUMBER_FIELDS.has(k)) {
+      const n = Number(value);
+      value = Number.isFinite(n) ? n : 0;
+    }
+    if (k === 'status' && typeof value === 'string') {
+      if (!ALLOWED_STATUSES.includes(value as PricingRequest['status'])) continue;
+    }
+    if (k === 'priority' && typeof value === 'string') {
+      if (!ALLOWED_PRIORITIES.includes(value as PricingRequest['priority'])) continue;
+    }
+    if (k === 'price_currency' && typeof value === 'string') {
+      const trimmed = value.trim().toUpperCase();
+      value = trimmed || 'EGP';
+    }
+
+    out[k] = value;
+  }
+  return out;
+}
+
 export const fetchAdminDashboardSnapshot = async () => {
   try {
     const [
@@ -216,11 +286,12 @@ export const adminDashboardService = {
     updates: Partial<PricingRequest>
   ): Promise<{ success: boolean; error?: string }> => {
     try {
+      const sanitized = sanitizePricingRequestUpdate(updates);
       const { error } = await supabase
         .from('pricing_requests')
         .update({
-          ...updates,
-          updated_at: new Date().toISOString()
+          ...sanitized,
+          updated_at: new Date().toISOString(),
         })
         .eq('id', requestId);
 
@@ -229,7 +300,7 @@ export const adminDashboardService = {
       return { success: true };
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      console.error('Error updating pricing request:', error);
+      console.error('Error updating pricing request:', errorMessage);
       return { success: false, error: errorMessage };
     }
   },
@@ -409,5 +480,17 @@ export const adminDashboardService = {
     }
   },
 };
+
+// Named re-exports so callers can import individual functions (used by
+// `useAdminDashboard`). Keep these aligned with the object methods above.
+export const adminUpdatePricingRequestStatus = adminDashboardService.adminUpdatePricingRequestStatus;
+export const adminConvertPricingRequest = adminDashboardService.adminConvertPricingRequest;
+export const adminDeletePricingRequest = adminDashboardService.adminDeletePricingRequest;
+export const adminDeleteContact = adminDashboardService.adminDeleteContact;
+export const adminUpdateContactStatus = adminDashboardService.adminUpdateContactStatus;
+export const adminDeleteOrder = adminDashboardService.adminDeleteOrder;
+export const adminUpdateOrderStatus = adminDashboardService.adminUpdateOrderStatus;
+export const adminDeleteDesign = adminDashboardService.adminDeleteDesign;
+export const adminUpdateDesignStatus = adminDashboardService.adminUpdateDesignStatus;
 
 export default adminDashboardService;

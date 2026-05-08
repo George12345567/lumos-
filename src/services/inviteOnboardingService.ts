@@ -64,23 +64,27 @@ export async function getExistingClientRow(userId: string): Promise<{
   exists: boolean;
   signupCompletedAt: string | null;
   role: string | null;
+  packageDetails?: Record<string, unknown> | null;
 } | null> {
   if (!isSupabaseConfigured()) return null;
   try {
     const { data, error } = await supabase
       .from("clients")
-      .select("id, role, signup_completed_at")
+      .select("id, role, signup_completed_at, package_details")
       .eq("id", userId)
       .maybeSingle();
     if (error) {
       console.warn("[inviteOnboarding] getExistingClientRow:", error.message);
-      return { exists: false, signupCompletedAt: null, role: null };
+      return { exists: false, signupCompletedAt: null, role: null, packageDetails: null };
     }
-    if (!data) return { exists: false, signupCompletedAt: null, role: null };
+    if (!data) return { exists: false, signupCompletedAt: null, role: null, packageDetails: null };
     return {
       exists: true,
       signupCompletedAt: typeof data.signup_completed_at === "string" ? data.signup_completed_at : null,
       role: typeof data.role === "string" ? data.role : null,
+      packageDetails: data.package_details && typeof data.package_details === "object"
+        ? data.package_details as Record<string, unknown>
+        : null,
     };
   } catch {
     return null;
@@ -141,20 +145,32 @@ export async function completeInviteOnboarding(
   };
 
   const existing = await getExistingClientRow(user.id);
+  const mergedPackageDetails = {
+    ...(existing?.packageDetails ?? {}),
+    signup_profile: {
+      ...((existing?.packageDetails?.signup_profile && typeof existing.packageDetails.signup_profile === "object")
+        ? existing.packageDetails.signup_profile as Record<string, unknown>
+        : {}),
+      ...signupProfile,
+    },
+  };
 
   if (existing?.exists) {
     const updatePayload: Record<string, unknown> = {
       username: input.username,
       email,
       phone: input.phone,
+      phone_number: input.phone,
       company_name: input.companyName.trim(),
+      display_name: input.contactName.trim(),
       full_contact_name: input.contactName.trim(),
       website: websiteValue,
       industry: input.industry || "",
       project_summary: input.projectSummary?.trim() || "",
       auth_password_pending: false,
       signup_completed_at: new Date().toISOString(),
-      package_details: { signup_profile: signupProfile },
+      signup_source: "admin_created",
+      package_details: mergedPackageDetails,
     };
     const { error: updateErr } = await supabase
       .from("clients")
@@ -174,7 +190,9 @@ export async function completeInviteOnboarding(
     username: input.username,
     email,
     phone: input.phone,
+    phone_number: input.phone,
     company_name: input.companyName.trim(),
+    display_name: input.contactName.trim(),
     full_contact_name: input.contactName.trim(),
     website: websiteValue,
     industry: input.industry || "",

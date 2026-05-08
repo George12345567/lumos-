@@ -7,6 +7,21 @@ import { toast } from 'sonner';
 
 export type { PortalMessage, PortalAsset };
 
+function byCreatedAtAsc(a: PortalMessage, b: PortalMessage) {
+  return new Date(a.created_at ?? 0).getTime() - new Date(b.created_at ?? 0).getTime();
+}
+
+function mergeMessages(current: PortalMessage[], incoming: PortalMessage[]) {
+  const byId = new Map<string, PortalMessage>();
+
+  [...current, ...incoming].forEach((message) => {
+    if (!message?.id) return;
+    byId.set(message.id, { ...(byId.get(message.id) ?? {}), ...message });
+  });
+
+  return Array.from(byId.values()).sort(byCreatedAtAsc);
+}
+
 export function usePortalData(clientId: string | undefined) {
   const [messages, setMessages] = useState<PortalMessage[]>([]);
   const [designs, setDesigns] = useState<SavedDesign[]>([]);
@@ -23,7 +38,7 @@ export function usePortalData(clientId: string | undefined) {
         fetchClientPortalSnapshot(clientId),
         fetchDesignsByClient(clientId),
       ]);
-      setMessages((snapshot.messages as unknown as PortalMessage[]) ?? []);
+      setMessages((prev) => mergeMessages(prev, (snapshot.messages as unknown as PortalMessage[]) ?? []));
       setAssets((snapshot.assets as unknown as PortalAsset[]) ?? []);
       setDesigns(designList ?? []);
     } catch (err) {
@@ -34,8 +49,17 @@ export function usePortalData(clientId: string | undefined) {
   }, [clientId]);
 
   useEffect(() => {
+    setMessages([]);
+    setAssets([]);
+    setDesigns([]);
+
+    if (!clientId) {
+      setLoading(false);
+      return;
+    }
+
     void reload();
-  }, [reload]);
+  }, [clientId, reload]);
 
   useEffect(() => {
     if (!clientId) return;
@@ -47,7 +71,7 @@ export function usePortalData(clientId: string | undefined) {
       msgSub = supabase.channel(`profile-msg:${clientId}`)
         .on('postgres_changes',
           { event: 'INSERT', schema: 'public', table: 'client_messages', filter: `client_id=eq.${clientId}` },
-          (payload) => setMessages((prev) => [...prev, payload.new as PortalMessage]))
+          (payload) => setMessages((prev) => mergeMessages(prev, [payload.new as PortalMessage])))
         .subscribe();
       astSub = supabase.channel(`profile-ast:${clientId}`)
         .on('postgres_changes',
@@ -97,7 +121,7 @@ export function usePortalData(clientId: string | undefined) {
   }, []);
 
   const optimisticAddMessage = useCallback((msg: PortalMessage) => {
-    setMessages((prev) => [...prev, msg]);
+    setMessages((prev) => mergeMessages(prev, [msg]));
   }, []);
 
   return { messages, designs, assets, loading, error, reload, deleteDesign, optimisticAddMessage, sendMessage };

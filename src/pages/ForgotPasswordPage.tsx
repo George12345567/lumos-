@@ -88,12 +88,32 @@ function CheckEmailScreen({ email, t, isArabic }: { email: string; t: (a: string
   const [isResending, setIsResending] = useState(false);
 
 const handleResend = useCallback(async () => {
-    if (resendCooldown > 0) return;
+    if (resendCooldown > 0 || isResending) return;
     setIsResending(true);
     try {
       const result = await forgotPasswordSendReset(email);
       if (result.success) {
         toast.success(t("تم إعادة إرسال الإيميل", "Reset email resent"));
+        setResendCooldown(60);
+        let elapsed = 0;
+        const timer = setInterval(() => {
+          elapsed += 1;
+          if (elapsed >= 60) {
+            clearInterval(timer);
+            setResendCooldown(0);
+          } else {
+            setResendCooldown(60 - elapsed);
+          }
+        }, 1000);
+      } else if (result.error === "login.rate_limited") {
+        // Supabase recover endpoint returned 429. Cool the button down for a
+        // full minute so we don't pile on more requests.
+        toast.error(
+          t(
+            "محاولات كثيرة. الرجاء الانتظار بضع دقائق قبل المحاولة مجدداً.",
+            "Too many attempts. Please wait a few minutes before trying again.",
+          ),
+        );
         setResendCooldown(60);
         let elapsed = 0;
         const timer = setInterval(() => {
@@ -111,7 +131,7 @@ const handleResend = useCallback(async () => {
     } finally {
       setIsResending(false);
     }
-  }, [email, resendCooldown, t]);
+  }, [email, resendCooldown, isResending, t]);
 
   return (
     <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.5 }} className="text-center py-6">
@@ -219,6 +239,13 @@ export default function ForgotPasswordPage() {
             "Password reset is not configured. Please contact Lumos support.",
           ),
         );
+      } else if (sendResult.error === "login.rate_limited") {
+        toast.error(
+          t(
+            "محاولات كثيرة. الرجاء الانتظار بضع دقائق قبل المحاولة مجدداً.",
+            "Too many attempts. Please wait a few minutes before trying again.",
+          ),
+        );
       } else {
         toast.error(t("فشل إرسال رابط إعادة التعيين", "Failed to send reset link"));
       }
@@ -241,6 +268,13 @@ export default function ForgotPasswordPage() {
       const sendResult = await forgotPasswordSendReset(userEmail);
       if (sendResult.success) {
         setEmailSent(true);
+      } else if (sendResult.error === "login.rate_limited") {
+        toast.error(
+          t(
+            "محاولات كثيرة. الرجاء الانتظار بضع دقائق قبل المحاولة مجدداً.",
+            "Too many attempts. Please wait a few minutes before trying again.",
+          ),
+        );
       } else {
         toast.error(t("فشل إرسال رابط إعادة التعيين", "Failed to send reset link"));
       }

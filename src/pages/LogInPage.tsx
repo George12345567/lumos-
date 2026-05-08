@@ -31,7 +31,7 @@ import {
 } from "@/components/ui/form";
 import { EnhancedNavbar, Footer } from "@/components/layout";
 import { useLanguage } from "@/context/LanguageContext";
-import { useAuthActions, useIsAuthenticated, useAuthLoading, useAuthConfigured } from "@/context/AuthContext";
+import { useAuthActions, useIsAuthenticated, useAuthLoading, useAuthConfigured, useClient, useProfileLoading } from "@/context/AuthContext";
 import { authService, resolveAuthEmail } from "@/services/authService";
 import { loginSchema, type LoginInput } from "@/lib/validation";
 
@@ -95,6 +95,8 @@ export default function LogInPage() {
   const { login } = useAuthActions();
   const authLoading = useAuthLoading();
   const isAuthenticated = useIsAuthenticated();
+  const client = useClient();
+  const profileLoading = useProfileLoading();
   const authConfigured = useAuthConfigured();
   const { t, isArabic } = useLanguage();
   const navigate = useNavigate();
@@ -106,10 +108,15 @@ export default function LogInPage() {
   );
 
   useEffect(() => {
-    if (!authLoading && isAuthenticated) {
+    if (authLoading || !isAuthenticated) return;
+    if (profileLoading && !client) return;
+
+    if (client?.password_must_change) {
+      navigate(ROUTES.CHANGE_PASSWORD, { replace: true });
+    } else {
       navigate(redirectTo, { replace: true });
     }
-  }, [authLoading, isAuthenticated, navigate, redirectTo]);
+  }, [authLoading, client, isAuthenticated, navigate, profileLoading, redirectTo]);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -148,7 +155,8 @@ export default function LogInPage() {
       const result = await login(data.usernameOrEmail, data.password);
       if (result.success) {
         toast.success(t("تم تسجيل الدخول بنجاح!", "Logged in successfully!"));
-        navigate(redirectTo);
+        const profile = await authService.getClientProfile();
+        navigate(profile?.password_must_change ? ROUTES.CHANGE_PASSWORD : redirectTo);
       } else {
         const errMsg = result.error || "login.failed";
         if (errMsg === "auth.not_configured") {
