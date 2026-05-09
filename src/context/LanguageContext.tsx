@@ -29,10 +29,6 @@ function getInitialLanguage(): AppLanguage {
     return stored;
   }
 
-  if (typeof navigator !== 'undefined' && navigator.language.toLowerCase().startsWith('ar')) {
-    return 'ar';
-  }
-
   return 'en';
 }
 

@@ -1,5 +1,7 @@
 import { supabase } from '@/lib/supabaseClient';
-import type { PricingRequest, PricingRequestItem } from '@/types/dashboard';
+import type { Notification, PricingRequest, PricingRequestItem } from '@/types/dashboard';
+import { createClientNotification } from '@/services/notificationService';
+import { sendTelegramNotificationForNotification } from '@/services/telegramIntegrationService';
 
 export type ProjectStatus = 'active' | 'paused' | 'completed' | 'cancelled';
 export type ProjectPaymentStatus = 'unpaid' | 'partial' | 'paid' | 'refunded';
@@ -57,6 +59,10 @@ export interface ProjectDeliverable {
   published_to_identity_at?: string | null;
   identity_publish_on_delivery?: boolean | null;
   client_visible?: boolean | null;
+  placement_project_hub?: boolean | null;
+  placement_action_center?: boolean | null;
+  placement_files_library?: boolean | null;
+  placement_brand_kit?: boolean | null;
   uploaded_at?: string | null;
   created_at?: string | null;
 }
@@ -74,6 +80,9 @@ export interface Project {
   total_amount?: number | null;
   currency?: string | null;
   started_at?: string | null;
+  project_started_at?: string | null;
+  client_verified_badge?: boolean | null;
+  verified_badge_label?: string | null;
   expected_delivery_at?: string | null;
   completed_at?: string | null;
   assigned_to?: string | null;
@@ -97,6 +106,10 @@ export interface UploadProjectDeliverableInput {
   publishToIdentity?: boolean;
   publishToIdentityOnDelivery?: boolean;
   identityCategory?: string | null;
+  placementProjectHub?: boolean;
+  placementActionCenter?: boolean;
+  placementFilesLibrary?: boolean;
+  placementBrandKit?: boolean;
 }
 
 export interface DeleteProjectResult {
@@ -165,6 +178,49 @@ function logSupabaseError(
     hint: parsed.hint,
     ...meta,
   });
+}
+
+function projectName(project: Pick<Project, 'project_name' | 'package_name'>) {
+  return project.project_name || project.package_name || 'Lumos project';
+}
+
+function projectIsClientStarted(project: Pick<Project, 'status' | 'started_at' | 'project_started_at'>) {
+  return ['active', 'completed'].includes(project.status)
+    && Boolean(project.project_started_at || project.started_at);
+}
+
+async function sendClientTelegramEvent(params: {
+  clientId?: string | null;
+  title: string;
+  message: string;
+  actionUrl?: string | null;
+  priority?: Notification['priority'];
+  type?: Notification['type'];
+  entityType?: Notification['entity_type'];
+  entityId?: string | null;
+}) {
+  if (!params.clientId) return;
+
+  const notification: Notification = {
+    id: params.entityId || `telegram-${Date.now()}`,
+    user_id: params.clientId,
+    user_type: 'client',
+    recipient_user_id: params.clientId,
+    client_id: params.clientId,
+    type: params.type || 'general',
+    title: params.title,
+    message: params.message,
+    entity_type: params.entityType,
+    entity_id: params.entityId || null,
+    action_type: params.entityType || params.type || 'general',
+    action_id: params.entityId || null,
+    action_url: params.actionUrl || null,
+    is_read: false,
+    priority: params.priority || 'normal',
+    created_at: new Date().toISOString(),
+  };
+
+  void sendTelegramNotificationForNotification(notification);
 }
 
 function withServicesAndAssets(
@@ -439,6 +495,9 @@ export async function fetchClientProjects(clientId: string): Promise<Project[]> 
         'status',
         'progress',
         'started_at',
+        'project_started_at',
+        'client_verified_badge',
+        'verified_badge_label',
         'expected_delivery_at',
         'completed_at',
         'client_notes',
@@ -512,6 +571,10 @@ export async function fetchClientProjects(clientId: string): Promise<Project[]> 
           'published_to_identity_at',
           'identity_publish_on_delivery',
           'client_visible',
+          'placement_project_hub',
+          'placement_action_center',
+          'placement_files_library',
+          'placement_brand_kit',
           'uploaded_at',
           'created_at',
         ].join(','))
@@ -631,17 +694,75 @@ export async function updateProject(
     | 'assigned_to'
     | 'admin_notes'
     | 'client_notes'
+    | 'client_verified_badge'
+    | 'project_started_at'
+    | 'verified_badge_label'
   >>,
 ): Promise<{ success: boolean; error?: string }> {
   try {
+    const existing = await fetchProjectById(projectId);
     const payload = Object.fromEntries(
       Object.entries(updates).filter(([, value]) => value !== undefined),
     );
+
+    if (updates.client_verified_badge === true) {
+      const startedCandidate: Project = {
+        ...(existing ?? {
+          id: projectId,
+          status: 'active',
+          payment_status: 'unpaid',
+          progress: 0,
+          created_at: new Date().toISOString(),
+          services: [],
+          deliverables: [],
+        }),
+        ...updates,
+      } as Project;
+
+      if (!projectIsClientStarted(startedCandidate)) {
+        return { success: false, error: 'verified_badge_requires_started_project' };
+      }
+    }
+
     const { error } = await supabase
       .from('projects')
       .update(payload)
       .eq('id', projectId);
     if (error) throw error;
+
+    const updated = await fetchProjectById(projectId);
+    const clientId = updated?.client_id ?? existing?.client_id;
+
+    if (clientId && updates.project_started_at && !existing?.project_started_at) {
+      await createClientNotification({
+        clientId,
+        type: 'project',
+        title: 'Your project has started',
+        titleAr: 'بدأ مشروعك',
+        message: `${projectName(updated ?? existing ?? { project_name: null, package_name: null })} is now active in your Project Hub.`,
+        messageAr: 'أصبح مشروعك نشطاً الآن في مركز المشروع.',
+        entityType: 'project',
+        entityId: projectId,
+        actionUrl: '/profile?tab=projects',
+        priority: 'high',
+      });
+    }
+
+    if (clientId && updates.client_verified_badge === true && existing?.client_verified_badge !== true) {
+      await createClientNotification({
+        clientId,
+        type: 'project',
+        title: 'Verified Lumos Project enabled',
+        titleAr: 'تم تفعيل شارة مشروع لوموس الموثق',
+        message: `${projectName(updated ?? existing ?? { project_name: null, package_name: null })} now has an official Lumos project badge.`,
+        messageAr: 'تمت إضافة شارة لوموس الرسمية إلى مشروعك.',
+        entityType: 'project',
+        entityId: projectId,
+        actionUrl: '/profile?tab=projects',
+        priority: 'normal',
+      });
+    }
+
     return { success: true };
   } catch (error) {
     return { success: false, error: error instanceof Error ? error.message : 'project_update_failed' };
@@ -726,6 +847,10 @@ export async function uploadProjectDeliverable(
       published_to_identity: publishToIdentity,
       published_to_identity_at: publishToIdentity ? new Date().toISOString() : null,
       identity_publish_on_delivery: publishToIdentityOnDelivery,
+      placement_project_hub: input.placementProjectHub ?? clientVisible,
+      placement_action_center: input.placementActionCenter ?? (clientVisible && status === 'ready_for_review'),
+      placement_files_library: input.placementFilesLibrary ?? clientVisible,
+      placement_brand_kit: input.placementBrandKit ?? publishToIdentity,
     };
 
     const { data, error: insertError } = await supabase
@@ -739,7 +864,23 @@ export async function uploadProjectDeliverable(
       throw insertError;
     }
 
-    return { success: true, asset: data as ProjectDeliverable };
+    const asset = data as ProjectDeliverable;
+    if (clientVisible) {
+      void sendClientTelegramEvent({
+        clientId: input.clientId,
+        title: status === 'ready_for_review' ? 'File ready for review' : 'New project file shared',
+        message: status === 'ready_for_review'
+          ? `${input.file.name} is ready for your review.`
+          : `${input.file.name} was shared in your Lumos portal.`,
+        actionUrl: '/profile?tab=projects',
+        priority: status === 'ready_for_review' ? 'high' : 'normal',
+        type: 'file',
+        entityType: 'client_asset',
+        entityId: asset.id,
+      });
+    }
+
+    return { success: true, asset };
   } catch (error) {
     return { success: false, error: error instanceof Error ? error.message : 'deliverable_upload_failed' };
   }
@@ -750,6 +891,12 @@ export async function publishProjectDeliverableToIdentity(
   identityCategory: string,
 ): Promise<{ success: boolean; error?: string }> {
   try {
+    const { data: current } = await supabase
+      .from('client_assets')
+      .select('id,client_id,file_name')
+      .eq('id', assetId)
+      .maybeSingle();
+
     const { error } = await supabase
       .from('client_assets')
       .update({
@@ -762,9 +909,27 @@ export async function publishProjectDeliverableToIdentity(
         published_to_identity: true,
         published_to_identity_at: new Date().toISOString(),
         identity_publish_on_delivery: false,
+        placement_brand_kit: true,
+        placement_files_library: true,
+        placement_project_hub: true,
       })
       .eq('id', assetId);
     if (error) throw error;
+
+    const asset = current as Pick<ProjectDeliverable, 'id' | 'client_id' | 'file_name'> | null;
+    if (asset?.client_id) {
+      void sendClientTelegramEvent({
+        clientId: asset.client_id,
+        title: 'Brand Kit updated',
+        message: `${asset.file_name || 'A brand asset'} was published to your Brand Kit.`,
+        actionUrl: '/profile?tab=identity',
+        priority: 'high',
+        type: 'identity',
+        entityType: 'client_asset',
+        entityId: assetId,
+      });
+    }
+
     return { success: true };
   } catch (error) {
     return { success: false, error: error instanceof Error ? error.message : 'identity_publish_failed' };
@@ -773,6 +938,12 @@ export async function publishProjectDeliverableToIdentity(
 
 export async function markProjectDeliverableDelivered(assetId: string): Promise<{ success: boolean; error?: string }> {
   try {
+    const { data: current } = await supabase
+      .from('client_assets')
+      .select('id,client_id,file_name')
+      .eq('id', assetId)
+      .maybeSingle();
+
     const { error } = await supabase
       .from('client_assets')
       .update({
@@ -780,9 +951,26 @@ export async function markProjectDeliverableDelivered(assetId: string): Promise<
         client_visible: true,
         visibility: 'client',
         is_downloadable: true,
+        placement_project_hub: true,
+        placement_files_library: true,
       })
       .eq('id', assetId);
     if (error) throw error;
+
+    const asset = current as Pick<ProjectDeliverable, 'id' | 'client_id' | 'file_name'> | null;
+    if (asset?.client_id) {
+      void sendClientTelegramEvent({
+        clientId: asset.client_id,
+        title: 'File delivered',
+        message: `${asset.file_name || 'A project file'} is ready to download.`,
+        actionUrl: '/profile?tab=projects',
+        priority: 'high',
+        type: 'file',
+        entityType: 'client_asset',
+        entityId: assetId,
+      });
+    }
+
     return { success: true };
   } catch (error) {
     return { success: false, error: error instanceof Error ? error.message : 'deliverable_update_failed' };

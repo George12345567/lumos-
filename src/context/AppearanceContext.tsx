@@ -35,6 +35,12 @@ function applyThemeToDocument(theme: AppTheme) {
 
   document.documentElement.dataset.theme = theme;
   document.documentElement.classList.toggle('dark', theme === 'dark');
+  document.documentElement.style.colorScheme = theme;
+
+  const themeMeta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
+  if (themeMeta) {
+    themeMeta.content = theme === 'dark' ? '#0f1412' : '#f7faf8';
+  }
 }
 
 export function AppearanceProvider({ children }: { children: ReactNode }) {
@@ -72,4 +78,3 @@ export function useAppearance() {
   }
   return context;
 }
-

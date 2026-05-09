@@ -81,6 +81,10 @@ export interface ClientIdentityAsset {
   published_to_identity_at?: string | null;
   identity_publish_on_delivery?: boolean | null;
   client_visible?: boolean | null;
+  placement_project_hub?: boolean | null;
+  placement_action_center?: boolean | null;
+  placement_files_library?: boolean | null;
+  placement_brand_kit?: boolean | null;
   created_at?: string | null;
   uploaded_at?: string | null;
 }
@@ -186,7 +190,11 @@ export async function fetchClientIdentitySnapshot(
           .order('created_at', { ascending: false });
 
         if (!options.includeAdminOnly) {
-          query = query.eq('visibility', 'client').eq('is_downloadable', true);
+          query = query
+            .eq('published_to_identity', true)
+            .eq('visibility', 'client')
+            .eq('client_visible', true)
+            .eq('is_downloadable', true);
         }
 
         return query;
@@ -293,6 +301,13 @@ export async function uploadIdentityAsset(input: {
       sort_order: input.sortOrder ?? 0,
       is_downloadable: true,
       visibility: input.visibility,
+      client_visible: input.visibility === 'client',
+      published_to_identity: input.visibility === 'client',
+      published_to_identity_at: input.visibility === 'client' ? new Date().toISOString() : null,
+      placement_brand_kit: input.visibility === 'client',
+      placement_files_library: input.visibility === 'client',
+      placement_project_hub: false,
+      placement_action_center: false,
     };
 
     const { data, error: insertError } = await supabase

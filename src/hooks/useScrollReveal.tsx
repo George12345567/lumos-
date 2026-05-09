@@ -2,8 +2,6 @@ import { useEffect } from "react";
 
 export const useScrollReveal = () => {
   useEffect(() => {
-    const reveals = document.querySelectorAll(".reveal");
-
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
@@ -21,14 +19,24 @@ export const useScrollReveal = () => {
       }
     );
 
-    reveals.forEach((reveal) => {
-      observer.observe(reveal);
-    });
+    const observed = new WeakSet<Element>();
+    const observeReveals = () => {
+      document.querySelectorAll(".reveal:not(.active)").forEach((reveal) => {
+        if (!observed.has(reveal)) {
+          observed.add(reveal);
+          observer.observe(reveal);
+        }
+      });
+    };
+
+    observeReveals();
+
+    const mutationObserver = new MutationObserver(observeReveals);
+    mutationObserver.observe(document.body, { childList: true, subtree: true });
 
     return () => {
-      reveals.forEach((reveal) => {
-        observer.unobserve(reveal);
-      });
+      mutationObserver.disconnect();
+      observer.disconnect();
     };
   }, []);
 };

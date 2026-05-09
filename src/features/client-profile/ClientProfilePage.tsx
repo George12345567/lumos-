@@ -11,6 +11,8 @@ import {
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   AlertTriangle,
+  Archive,
+  BadgeCheck,
   Bell,
   Building2,
   CalendarDays,
@@ -40,6 +42,7 @@ import {
   Send,
   Settings,
   ShieldCheck,
+  Sparkles,
   Sun,
   Type,
   UserCircle,
@@ -86,6 +89,12 @@ import {
   type IdentityTypography,
 } from '@/services/clientIdentityService';
 import { getAssetDownloadUrl, type PortalAsset, type PortalMessage } from '@/services/clientPortalService';
+import {
+  clientAssetPlacementLabels,
+  clientAssetStatusLabel,
+  getClientAssetPlacements,
+  isReviewAsset,
+} from '@/services/clientAssetPlacement';
 import { profileService, type ProfileData } from '@/services/profileService';
 import type { Order } from '@/services/orderService';
 import {
@@ -103,11 +112,13 @@ import { useNotifications } from './hooks/useNotifications';
 import { useOrders } from './hooks/useOrders';
 import { useClientProjects } from './hooks/useClientProjects';
 import { useClientPricingRequests } from './hooks/useClientPricingRequests';
+import { useClientNotes } from './hooks/useClientNotes';
 import { usePortalData } from './hooks/usePortalData';
 import { useProfileMutation } from './hooks/useProfileMutation';
 import type { PricingRequest } from '@/types/dashboard';
 import { DEFAULT_ACCENT, TAB_ALIASES } from './constants';
 import { RequestStatusTimeline } from '@/components/requests/RequestStatusTimeline';
+import type { ClientNote } from '@/services/clientNotesService';
 
 type ProfileTab = 'overview' | 'projects' | 'messages' | 'files' | 'identity' | 'account';
 
@@ -139,22 +150,22 @@ type ProfileDraft = {
 };
 
 const PROFILE_NAV: Array<{ id: ProfileTab; label: string; labelAr: string; icon: typeof LayoutDashboard }> = [
-  { id: 'overview', label: 'Overview', labelAr: 'نظرة عامة', icon: LayoutDashboard },
-  { id: 'projects', label: 'Projects', labelAr: 'المشاريع', icon: FolderOpen },
+  { id: 'overview', label: 'Home', labelAr: 'الرئيسية', icon: LayoutDashboard },
+  { id: 'projects', label: 'Project Hub', labelAr: 'مركز المشروع', icon: FolderOpen },
+  { id: 'identity', label: 'Brand Kit', labelAr: 'حزمة الهوية', icon: Palette },
+  { id: 'files', label: 'Files Library', labelAr: 'مكتبة الملفات', icon: Archive },
   { id: 'messages', label: 'Messages', labelAr: 'الرسائل', icon: MessageSquare },
-  { id: 'files', label: 'Files', labelAr: 'الملفات', icon: FileText },
-  { id: 'identity', label: 'Identity', labelAr: 'الهوية', icon: Palette },
-  { id: 'account', label: 'Account', labelAr: 'الحساب', icon: Settings },
+  { id: 'account', label: 'Settings', labelAr: 'الإعدادات', icon: Settings },
 ];
 
 const SOCIAL_FIELDS = ['instagram', 'linkedin', 'behance', 'dribbble', 'twitter', 'github', 'facebook'] as const;
 
 const SECTION_COPY: Record<Exclude<ProfileTab, 'overview'>, { title: string; titleAr: string; description: string; descriptionAr: string }> = {
   projects: {
-    title: 'Projects',
-    titleAr: 'المشاريع',
-    description: 'Track active and completed Lumos projects.',
-    descriptionAr: 'تابع مشاريع لوموس النشطة والمكتملة.',
+    title: 'Project Hub',
+    titleAr: 'مركز المشروع',
+    description: 'Track progress, approvals, services, and project files.',
+    descriptionAr: 'تابع التقدم والموافقات والخدمات وملفات المشروع.',
   },
   messages: {
     title: 'Messages',
@@ -163,22 +174,22 @@ const SECTION_COPY: Record<Exclude<ProfileTab, 'overview'>, { title: string; tit
     descriptionAr: 'تابع محادثتك مع فريق لوموس.',
   },
   files: {
-    title: 'Files',
-    titleAr: 'الملفات',
-    description: 'Download private files shared for your account.',
-    descriptionAr: 'حمّل الملفات الخاصة المشتركة مع حسابك.',
+    title: 'Files Library',
+    titleAr: 'مكتبة الملفات',
+    description: 'All your client-visible downloads in one organized archive.',
+    descriptionAr: 'كل ملفاتك القابلة للتحميل في أرشيف منظم واحد.',
   },
   identity: {
-    title: 'Brand Identity',
-    titleAr: 'هوية العلامة',
-    description: 'All your approved Lumos brand assets in one place.',
-    descriptionAr: 'كل أصول هويتك المعتمدة من لوموس في مكان واحد.',
+    title: 'Brand Kit',
+    titleAr: 'حزمة الهوية',
+    description: 'Final approved brand assets published by Lumos.',
+    descriptionAr: 'أصول الهوية النهائية المعتمدة والمنشورة من لوموس.',
   },
   account: {
-    title: 'Account',
-    titleAr: 'الحساب',
-    description: 'Manage safe profile, brand, and contact details.',
-    descriptionAr: 'أدر بيانات الملف والهوية والتواصل الآمنة.',
+    title: 'Settings',
+    titleAr: 'الإعدادات',
+    description: 'Manage account details and Telegram notifications.',
+    descriptionAr: 'أدر بيانات الحساب وإشعارات تيليجرام.',
   },
 };
 
@@ -682,6 +693,12 @@ export default function ClientProfilePage() {
     error: requestsError,
     refetch: refetchRequests,
   } = useClientPricingRequests(client?.id);
+  const {
+    notes: clientNotes,
+    loading: notesLoading,
+    error: notesError,
+    markRead: markClientNoteRead,
+  } = useClientNotes(client?.id);
   const { notifications } = useNotifications(client?.id);
 
   const tab = normalizeProfileTab(searchParams.get('tab')) ?? 'overview';
@@ -816,8 +833,9 @@ export default function ClientProfilePage() {
 
   const loadingProfile =
     authLoading ||
+    profileLoading ||
     (isAuthenticated && !client && !profileError) ||
-    (isAuthenticated && Boolean(client) && !profile && (profileLoading || loading));
+    (isAuthenticated && Boolean(client) && !profile && loading);
 
   if (loadingProfile) {
     return <ProfilePageSkeleton isArabic={isArabic} />;
@@ -890,9 +908,10 @@ export default function ClientProfilePage() {
     .map((project) => project.expected_delivery_at || '')
     .filter(Boolean)
     .sort()[0];
-  const sharedAssets = assets.filter((asset) => !asset.is_identity_asset);
+  const libraryAssets = assets.filter((asset) => getClientAssetPlacements(asset).appearsInFilesLibrary);
+  const recentFiles = libraryAssets.slice(0, 4);
   const completion = getProfileCompletion(profile, client, Boolean(avatarUrl));
-  const recentActivity = getActivityItems(projects, messages, sharedAssets, notifications);
+  const recentActivity = getActivityItems(projects, messages, recentFiles, notifications);
   const packageName = cleanText(client.package_name || profile.package_name);
 
   return (
@@ -960,14 +979,19 @@ export default function ClientProfilePage() {
           )}
 
           {tab === 'overview' && (
-            <OverviewTab
+            <HomeTab
               profile={profile}
               client={client}
-              completion={completion}
+              projects={projects}
+              assets={libraryAssets}
+              notes={clientNotes}
+              notesLoading={notesLoading}
+              notesError={notesError}
+              notifications={notifications}
               recentActivity={recentActivity}
-              nextStep={client.next_steps || profile.next_steps}
               isArabic={isArabic}
-              onEdit={() => setEditorOpen(true)}
+              onNavigate={handleTabChange}
+              onMarkNoteRead={markClientNoteRead}
             />
           )}
 
@@ -982,6 +1006,9 @@ export default function ClientProfilePage() {
               requestsLoading={requestsLoading}
               requestsError={requestsError}
               onRefreshRequests={refetchRequests}
+              clientNotes={clientNotes}
+              onMessage={() => handleTabChange('messages')}
+              onMarkNoteRead={markClientNoteRead}
             />
           )}
 
@@ -999,7 +1026,8 @@ export default function ClientProfilePage() {
 
           {tab === 'files' && (
             <FilesTab
-              assets={sharedAssets}
+              assets={libraryAssets}
+              projects={projects}
               loading={portalLoading}
               error={portalError}
               isArabic={isArabic}
@@ -1570,6 +1598,380 @@ function getProfileCompletion(profile: ProfileData, client: ReturnType<typeof us
   };
 }
 
+function projectHasVerifiedBadge(project: Project) {
+  return Boolean(
+    project.client_verified_badge
+      && ['active', 'completed'].includes(project.status)
+      && (project.project_started_at || project.started_at),
+  );
+}
+
+function ProjectVerifiedBadge({ project, isArabic }: { project: Project; isArabic: boolean }) {
+  if (!projectHasVerifiedBadge(project)) return null;
+
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-300/60 bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-800 shadow-sm dark:border-amber-300/20 dark:bg-amber-400/10 dark:text-amber-200">
+      <BadgeCheck className="h-3.5 w-3.5" />
+      {project.verified_badge_label || (isArabic ? 'مشروع لوموس موثّق' : 'Verified Lumos Project')}
+    </span>
+  );
+}
+
+function getPrimaryProject(projects: Project[]) {
+  return projects.find((project) => project.status === 'active')
+    ?? projects.find((project) => project.status === 'paused')
+    ?? projects[0]
+    ?? null;
+}
+
+function getProjectPhase(project: Project | null, isArabic: boolean) {
+  if (!project) return isArabic ? 'لا يوجد مشروع نشط' : 'No active project';
+  const activeService = getActiveProjectService(project);
+  return activeService
+    ? `${activeService.service_name} · ${localizedStatus(activeService.status, isArabic)}`
+    : isArabic ? 'قيد الإعداد' : 'Project setup';
+}
+
+function getHomeAction(projects: Project[], assets: PortalAsset[], notes: ClientNote[], isArabic: boolean) {
+  const pinnedNote = notes.find((note) => !note.read_at && ['urgent', 'important'].includes(note.priority))
+    ?? notes.find((note) => !note.read_at);
+  if (pinnedNote) {
+    return {
+      title: pinnedNote.title,
+      detail: pinnedNote.body,
+      cta: pinnedNote.project_id ? (isArabic ? 'عرض المشروع' : 'View Project') : (isArabic ? 'قراءة الملاحظة' : 'Read Note'),
+      target: pinnedNote.project_id ? 'projects' as ProfileTab : 'overview' as ProfileTab,
+    };
+  }
+
+  const reviewAsset = assets.find((asset) => isReviewAsset(asset));
+  if (reviewAsset) {
+    return {
+      title: isArabic ? `${getFileName(reviewAsset)} جاهز للمراجعة` : `${getFileName(reviewAsset)} is ready for review`,
+      detail: isArabic ? 'راجع الملف وأرسل موافقتك أو ملاحظاتك من مركز المشروع.' : 'Review the file and send approval or feedback from the Project Hub.',
+      cta: isArabic ? 'المراجعة الآن' : 'Review Now',
+      target: 'projects' as ProfileTab,
+    };
+  }
+
+  const reviewProject = projects.find((project) => project.services.some((service) => ['review', 'changes_requested'].includes(service.status)));
+  if (reviewProject) {
+    return {
+      title: isArabic ? `${getProjectDisplayName(reviewProject)} يحتاج انتباهك` : `${getProjectDisplayName(reviewProject)} needs your attention`,
+      detail: getProjectNextStep(reviewProject, isArabic),
+      cta: isArabic ? 'فتح المشروع' : 'Open Project',
+      target: 'projects' as ProfileTab,
+    };
+  }
+
+  return null;
+}
+
+function HomeTab({
+  profile,
+  client,
+  projects,
+  assets,
+  notes,
+  notesLoading,
+  notesError,
+  notifications,
+  recentActivity,
+  isArabic,
+  onNavigate,
+  onMarkNoteRead,
+}: {
+  profile: ProfileData;
+  client: ReturnType<typeof useClient>;
+  projects: Project[];
+  assets: PortalAsset[];
+  notes: ClientNote[];
+  notesLoading: boolean;
+  notesError: string | null;
+  notifications: Notification[];
+  recentActivity: ActivityItem[];
+  isArabic: boolean;
+  onNavigate: (tab: ProfileTab) => void;
+  onMarkNoteRead: (noteId: string) => Promise<{ success: boolean; error?: string }>;
+}) {
+  const activeProject = getPrimaryProject(projects);
+  const action = getHomeAction(projects, assets, notes, isArabic);
+  const companyName = getClientCompany(profile, client) || getDisplayName(profile, client);
+  const recentNotifications = notifications.slice(0, 3);
+  const recentDeliveredFiles = assets
+    .filter((asset) => ['delivered', 'approved', 'final'].includes(cleanText(asset.deliverable_status).toLowerCase()) || asset.published_to_identity)
+    .slice(0, 3);
+  const homeNotes = notes.filter((note) => ['home', 'both'].includes(note.placement));
+
+  return (
+    <section className="space-y-5">
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.65fr)]">
+        <Card className="overflow-hidden p-0">
+          <div className="border-b border-border bg-muted/30 p-5 sm:p-6">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-[color:var(--profile-accent)]">
+                  {isArabic ? 'مرحباً' : 'Welcome'}
+                </p>
+                <h2 className="mt-1 text-2xl font-semibold text-card-foreground">{companyName}</h2>
+              </div>
+              {activeProject ? <ProjectVerifiedBadge project={activeProject} isArabic={isArabic} /> : null}
+            </div>
+          </div>
+
+          <div className="p-5 sm:p-6">
+            {activeProject ? (
+              <>
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      {isArabic ? 'المشروع النشط' : 'Active project'}
+                    </p>
+                    <h3 className="mt-2 text-xl font-semibold text-card-foreground">{getProjectDisplayName(activeProject)}</h3>
+                    <p className="mt-2 text-sm text-muted-foreground">{getProjectPhase(activeProject, isArabic)}</p>
+                  </div>
+                  <div className="w-full rounded-2xl border border-border bg-background p-4 sm:w-44">
+                    <p className="text-xs text-muted-foreground">{isArabic ? 'التقدم' : 'Progress'}</p>
+                    <p className="mt-1 text-3xl font-semibold text-card-foreground">{activeProject.progress || 0}%</p>
+                    <ProjectProgressBar progress={activeProject.progress || 0} className="mt-3" />
+                  </div>
+                </div>
+                <div className="mt-5 grid gap-3 sm:grid-cols-3">
+                  <InfoItem icon={Clock3} label={isArabic ? 'المرحلة الحالية' : 'Current phase'} value={getProjectPhase(activeProject, isArabic)} />
+                  <InfoItem icon={CalendarDays} label={isArabic ? 'التسليم المتوقع' : 'Expected delivery'} value={activeProject.expected_delivery_at ? formatDate(activeProject.expected_delivery_at) : isArabic ? 'غير محدد بعد' : 'Not scheduled yet'} />
+                  <InfoItem icon={MessageSquare} label={isArabic ? 'الخطوة التالية' : 'Next step'} value={getProjectNextStep(activeProject, isArabic)} />
+                </div>
+              </>
+            ) : (
+              <EmptyState
+                icon={FolderOpen}
+                compact
+                text={isArabic ? 'سيظهر مشروعك النشط هنا بعد أن يؤكده فريق لوموس.' : 'Your active project appears here after Lumos confirms it.'}
+              />
+            )}
+          </div>
+        </Card>
+
+        <Card className="p-5 sm:p-6">
+          <div className="flex items-start gap-3">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[color:var(--profile-accent)]/10 text-[color:var(--profile-accent)]">
+              {action ? <Sparkles className="h-5 w-5" /> : <CheckCircle2 className="h-5 w-5" />}
+            </span>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-card-foreground">{isArabic ? 'مطلوب منك' : 'Action Needed'}</p>
+              <h3 className="mt-2 text-lg font-semibold text-card-foreground">
+                {action?.title || (isArabic ? 'كل شيء جاهز حالياً' : 'You’re all caught up.')}
+              </h3>
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                {action?.detail || (isArabic ? 'سنرسل لك إشعاراً عندما يكون التحديث التالي جاهزاً.' : 'We’ll notify you when the next update is ready.')}
+              </p>
+            </div>
+          </div>
+          {action ? (
+            <button
+              type="button"
+              onClick={() => onNavigate(action.target)}
+              className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-full bg-foreground px-4 py-2.5 text-sm font-semibold text-background transition hover:opacity-90"
+            >
+              <ExternalLink className="h-4 w-4" />
+              {action.cta}
+            </button>
+          ) : null}
+        </Card>
+      </div>
+
+      {notesError ? <InlineError message={notesError} /> : null}
+      {homeNotes.length > 0 ? (
+        <div className="grid gap-3">
+          {homeNotes.slice(0, 2).map((note) => (
+            <ClientPinnedNoteCard
+              key={note.id}
+              note={note}
+              isArabic={isArabic}
+              onMarkRead={onMarkNoteRead}
+              onMessage={() => onNavigate('messages')}
+              onProject={() => onNavigate('projects')}
+            />
+          ))}
+        </div>
+      ) : notesLoading ? (
+        <Card className="p-4">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            {isArabic ? 'جار تحميل الملاحظات...' : 'Loading notes...'}
+          </div>
+        </Card>
+      ) : null}
+
+      <div className="grid gap-4 md:grid-cols-3">
+        <HomeNavCard
+          icon={FolderOpen}
+          title={isArabic ? 'مركز المشروع' : 'Project Hub'}
+          description={isArabic ? 'تابع التقدم واعتمد الأعمال' : 'Track progress and approve work'}
+          onClick={() => onNavigate('projects')}
+        />
+        <HomeNavCard
+          icon={Palette}
+          title={isArabic ? 'حزمة الهوية' : 'Brand Kit'}
+          description={isArabic ? 'أصول هويتك النهائية المعتمدة' : 'Your final approved brand assets'}
+          onClick={() => onNavigate('identity')}
+        />
+        <HomeNavCard
+          icon={Archive}
+          title={isArabic ? 'مكتبة الملفات' : 'Files Library'}
+          description={isArabic ? 'كل التحميلات في مكان واحد' : 'All your downloads in one place'}
+          onClick={() => onNavigate('files')}
+        />
+      </div>
+
+      <div className="grid gap-5 xl:grid-cols-3">
+        <Card className="p-5">
+          <p className="text-sm font-semibold text-card-foreground">{isArabic ? 'آخر الإشعارات' : 'Latest Updates'}</p>
+          <div className="mt-4 space-y-3">
+            {recentNotifications.length === 0 ? (
+              <p className="text-sm text-muted-foreground">{isArabic ? 'لا توجد إشعارات حديثة.' : 'No recent notifications.'}</p>
+            ) : (
+              recentNotifications.map((notification) => (
+                <ActivityRow
+                  key={notification.id}
+                  item={{
+                    id: notification.id,
+                    label: notification.title,
+                    detail: notification.message,
+                    createdAt: notification.created_at,
+                    icon: 'notification',
+                  }}
+                />
+              ))
+            )}
+          </div>
+        </Card>
+
+        <Card className="p-5">
+          <p className="text-sm font-semibold text-card-foreground">{isArabic ? 'ملفات مسلّمة حديثاً' : 'Recent Delivered Files'}</p>
+          <div className="mt-4 space-y-3">
+            {recentDeliveredFiles.length === 0 ? (
+              <p className="text-sm text-muted-foreground">{isArabic ? 'ستظهر الملفات المسلّمة هنا.' : 'Delivered files will appear here.'}</p>
+            ) : (
+              recentDeliveredFiles.map((asset) => (
+                <div key={asset.id} className="rounded-2xl border border-border bg-background p-3">
+                  <p className="truncate text-sm font-semibold text-card-foreground">{getFileName(asset)}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">{clientAssetStatusLabel(asset.deliverable_status)} · {formatDate(asset.uploaded_at || asset.created_at)}</p>
+                </div>
+              ))
+            )}
+          </div>
+        </Card>
+
+        <Card className="p-5">
+          <p className="text-sm font-semibold text-card-foreground">{isArabic ? 'نشاط المشروع' : 'Project Activity'}</p>
+          <div className="mt-4 space-y-3">
+            {recentActivity.length === 0 ? (
+              <p className="text-sm text-muted-foreground">{isArabic ? 'سيظهر النشاط هنا.' : 'Activity will appear here.'}</p>
+            ) : (
+              recentActivity.slice(0, 3).map((item) => <ActivityRow key={item.id} item={item} />)
+            )}
+          </div>
+        </Card>
+      </div>
+    </section>
+  );
+}
+
+function HomeNavCard({
+  icon: Icon,
+  title,
+  description,
+  onClick,
+}: {
+  icon: typeof FolderOpen;
+  title: string;
+  description: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="rounded-2xl border border-border bg-card p-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-[color:var(--profile-accent)]/40 hover:shadow-md"
+    >
+      <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[color:var(--profile-accent)]/10 text-[color:var(--profile-accent)]">
+        <Icon className="h-5 w-5" />
+      </span>
+      <h3 className="mt-4 text-base font-semibold text-card-foreground">{title}</h3>
+      <p className="mt-1 text-sm leading-6 text-muted-foreground">{description}</p>
+    </button>
+  );
+}
+
+function ClientPinnedNoteCard({
+  note,
+  isArabic,
+  onMarkRead,
+  onMessage,
+  onProject,
+  showProjectButton = true,
+}: {
+  note: ClientNote;
+  isArabic: boolean;
+  onMarkRead: (noteId: string) => Promise<{ success: boolean; error?: string }>;
+  onMessage: () => void;
+  onProject: () => void;
+  showProjectButton?: boolean;
+}) {
+  const tone = note.priority === 'urgent'
+    ? 'border-rose-200 bg-rose-50/80 text-rose-950 dark:border-rose-400/20 dark:bg-rose-400/10 dark:text-rose-100'
+    : note.priority === 'important'
+      ? 'border-amber-200 bg-amber-50/80 text-amber-950 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-100'
+      : 'border-border bg-card text-card-foreground';
+
+  return (
+    <Card className={cn('p-5', tone)}>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <p className="text-xs font-semibold uppercase tracking-wide opacity-75">
+            {isArabic ? 'ملاحظة مهمة من لوموس' : 'Important note from Lumos'}
+          </p>
+          <h3 className="mt-2 text-base font-semibold">{note.title}</h3>
+          <p className="mt-2 text-sm leading-6 opacity-80">{note.body}</p>
+        </div>
+        {note.read_at ? (
+          <span className="w-max rounded-full bg-white/60 px-2.5 py-1 text-xs font-semibold text-slate-600">
+            {isArabic ? 'تمت القراءة' : 'Read'}
+          </span>
+        ) : null}
+      </div>
+      <div className="mt-4 flex flex-wrap gap-2">
+        {note.is_dismissible && !note.read_at ? (
+          <button
+            type="button"
+            onClick={() => void onMarkRead(note.id)}
+            className="rounded-full bg-foreground px-3 py-1.5 text-xs font-semibold text-background transition hover:opacity-90"
+          >
+            {isArabic ? 'تمت القراءة' : 'Mark as read'}
+          </button>
+        ) : null}
+        <button
+          type="button"
+          onClick={onMessage}
+          className="rounded-full border border-current/20 px-3 py-1.5 text-xs font-semibold transition hover:bg-white/40"
+        >
+          {isArabic ? 'رد / راسلنا' : 'Reply / Message us'}
+        </button>
+        {note.project_id && showProjectButton ? (
+          <button
+            type="button"
+            onClick={onProject}
+            className="rounded-full border border-current/20 px-3 py-1.5 text-xs font-semibold transition hover:bg-white/40"
+          >
+            {isArabic ? 'عرض المشروع' : 'View project'}
+          </button>
+        ) : null}
+      </div>
+    </Card>
+  );
+}
+
 function OverviewTab({
   profile,
   client,
@@ -1751,6 +2153,9 @@ function ProjectsTab({
   requestsLoading,
   requestsError,
   onRefreshRequests,
+  clientNotes,
+  onMessage,
+  onMarkNoteRead,
 }: {
   projects: Project[];
   loading: boolean;
@@ -1761,6 +2166,9 @@ function ProjectsTab({
   requestsLoading: boolean;
   requestsError: string | null;
   onRefreshRequests: () => Promise<void>;
+  clientNotes: ClientNote[];
+  onMessage: () => void;
+  onMarkNoteRead: (noteId: string) => Promise<{ success: boolean; error?: string }>;
 }) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const selectedProject = useMemo(
@@ -1769,19 +2177,11 @@ function ProjectsTab({
   );
 
   return (
-    <section className="space-y-8">
-      <ClientRequestsPanel
-        requests={pricingRequests}
-        loading={requestsLoading}
-        error={requestsError}
-        isArabic={isArabic}
-        onRefresh={onRefreshRequests}
-      />
-
+    <section className="space-y-5">
       <div className="space-y-5">
         <SectionHeader
-          title={isArabic ? 'المشاريع' : 'Projects'}
-          description={isArabic ? 'تابع تقدم المشروع والتسليمات التالية من مساحة عمل لوموس.' : 'Follow project progress, delivered items, and next steps from the Lumos workroom.'}
+          title={isArabic ? 'مركز المشروع' : 'Project Hub'}
+          description={isArabic ? 'تابع التقدم والموافقات والخدمات والملفات المرتبطة بالمشروع.' : 'Track progress, approvals, services, and project-related files.'}
           action={
             <RefreshButton label={isArabic ? 'تحديث' : 'Refresh'} loading={loading} onClick={onRefresh} />
           }
@@ -1815,6 +2215,9 @@ function ProjectsTab({
       <ProjectDetailsDialog
         project={selectedProject}
         isArabic={isArabic}
+        notes={clientNotes}
+        onMessage={onMessage}
+        onMarkNoteRead={onMarkNoteRead}
         onOpenChange={(open) => {
           if (!open) setSelectedId(null);
         }}
@@ -1836,6 +2239,8 @@ function ProjectClientCard({
   const status = CLIENT_PROJECT_STATUS[project.status] ?? CLIENT_PROJECT_STATUS.active;
   const deliverables = getProjectDeliverables(project);
   const nextStep = getProjectNextStep(project, isArabic);
+  const actionCount = deliverables.filter((asset) => getClientAssetPlacements(asset).appearsInActions).length
+    + project.services.filter((service) => ['review', 'changes_requested'].includes(service.status)).length;
 
   return (
     <Card className="p-5">
@@ -1846,6 +2251,7 @@ function ProjectClientCard({
             <span className={`rounded-full px-3 py-1 text-xs font-semibold ${status.className}`}>
               {isArabic ? status.ar : status.en}
             </span>
+            <ProjectVerifiedBadge project={project} isArabic={isArabic} />
           </div>
           <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
             {project.invoice_number ? (
@@ -1886,6 +2292,11 @@ function ProjectClientCard({
           label={isArabic ? 'التسليمات' : 'Deliverables'}
           value={`${deliverables.length}`}
         />
+        <ProjectInfoPill
+          icon={Sparkles}
+          label={isArabic ? 'إجراءات مطلوبة' : 'Action needed'}
+          value={`${actionCount}`}
+        />
       </div>
 
       <div className="mt-5 rounded-2xl border border-border bg-muted/30 p-4">
@@ -1901,7 +2312,7 @@ function ProjectClientCard({
         className="mt-5 inline-flex items-center justify-center gap-2 rounded-full bg-foreground px-4 py-2.5 text-sm font-semibold text-background transition hover:opacity-90"
       >
         <FolderOpen className="h-4 w-4" />
-        {isArabic ? 'عرض المشروع' : 'View Project'}
+        {isArabic ? 'فتح المشروع' : 'Open Project'}
       </button>
     </Card>
   );
@@ -1910,16 +2321,23 @@ function ProjectClientCard({
 function ProjectDetailsDialog({
   project,
   isArabic,
+  notes,
+  onMessage,
+  onMarkNoteRead,
   onOpenChange,
 }: {
   project: Project | null;
   isArabic: boolean;
+  notes: ClientNote[];
+  onMessage: () => void;
+  onMarkNoteRead: (noteId: string) => Promise<{ success: boolean; error?: string }>;
   onOpenChange: (open: boolean) => void;
 }) {
   if (!project) return null;
 
   const activeService = getActiveProjectService(project);
-  const deliverables = getProjectDeliverables(project);
+  const deliverables = getProjectDeliverables(project).filter((asset) => getClientAssetPlacements(asset).appearsInProjectHub);
+  const projectNotes = notes.filter((note) => note.project_id === project.id && ['project', 'both'].includes(note.placement));
   const nextStep = getProjectNextStep(project, isArabic);
   const currentPhase = activeService
     ? `${activeService.service_name} · ${localizedStatus(activeService.status, isArabic)}`
@@ -1929,7 +2347,10 @@ function ProjectDetailsDialog({
     <Dialog open={!!project} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[92vh] max-w-5xl overflow-y-auto rounded-3xl">
         <DialogHeader>
-          <DialogTitle>{getProjectDisplayName(project)}</DialogTitle>
+          <DialogTitle className="flex flex-wrap items-center gap-2">
+            {getProjectDisplayName(project)}
+            <ProjectVerifiedBadge project={project} isArabic={isArabic} />
+          </DialogTitle>
           <DialogDescription>
             {project.invoice_number
               ? `${isArabic ? 'رقم الفاتورة' : 'Invoice'} ${project.invoice_number}`
@@ -1969,12 +2390,18 @@ function ProjectDetailsDialog({
             </div>
           </Card>
 
-          <ClientActionCenter project={project} isArabic={isArabic} />
+          <ClientActionCenter
+            project={project}
+            notes={projectNotes}
+            isArabic={isArabic}
+            onMessage={onMessage}
+            onMarkNoteRead={onMarkNoteRead}
+          />
 
           <Card className="p-5">
             <SectionHeader
               title={isArabic ? 'تقدم الخدمات' : 'Services Progress'}
-              description={isArabic ? 'كل خدمة مختارة تظهر كمحطة واضحة في المشروع.' : 'Each selected service appears as a clear milestone.'}
+              description={isArabic ? 'كل خدمة مختارة تظهر بتحديث بسيط وواضح.' : 'Each included service appears with a simple client-visible update.'}
             />
             <div className="mt-5 grid gap-3">
               {project.services.length === 0 ? (
@@ -1993,8 +2420,8 @@ function ProjectDetailsDialog({
 
           <Card className="p-5">
             <SectionHeader
-              title={isArabic ? 'مركز التحميل' : 'Download Center'}
-              description={isArabic ? 'كل التسليمات المرئية للعميل من هذا المشروع.' : 'All client-visible deliverables from this project.'}
+              title={isArabic ? 'ملفات المشروع' : 'Project Files'}
+              description={isArabic ? 'الملفات المرتبطة بهذا المشروع والمرئية لك.' : 'Client-visible files linked to this project.'}
             />
             <div className="mt-5 space-y-3">
               {deliverables.length === 0 ? (
@@ -2076,9 +2503,23 @@ function ProjectJourneyTimeline({ project, isArabic }: { project: Project; isAra
   );
 }
 
-function ClientActionCenter({ project, isArabic }: { project: Project; isArabic: boolean }) {
+function ClientActionCenter({
+  project,
+  notes,
+  isArabic,
+  onMessage,
+  onMarkNoteRead,
+}: {
+  project: Project;
+  notes: ClientNote[];
+  isArabic: boolean;
+  onMessage: () => void;
+  onMarkNoteRead: (noteId: string) => Promise<{ success: boolean; error?: string }>;
+}) {
   const activeService = getActiveProjectService(project);
-  const delivered = getProjectDeliverables(project).filter((asset) => asset.deliverable_status === 'delivered');
+  const projectFiles = getProjectDeliverables(project);
+  const delivered = projectFiles.filter((asset) => asset.deliverable_status === 'delivered');
+  const reviewFiles = projectFiles.filter((asset) => getClientAssetPlacements(asset).appearsInActions);
   const needsReview = activeService?.status === 'review' || activeService?.status === 'changes_requested';
 
   return (
@@ -2087,8 +2528,8 @@ function ClientActionCenter({ project, isArabic }: { project: Project; isArabic:
         <div>
           <p className="text-sm font-semibold text-card-foreground">{isArabic ? 'مركز الإجراءات' : 'Client Action Center'}</p>
           <p className="mt-1 text-sm text-muted-foreground">
-            {needsReview
-              ? (isArabic ? 'لديك عنصر جاهز للمراجعة. استخدم الرسائل لإرسال ملاحظاتك.' : 'You have an item ready for review. Use Messages to send feedback.')
+            {needsReview || reviewFiles.length > 0 || notes.some((note) => !note.read_at)
+              ? (isArabic ? 'توجد عناصر تحتاج مراجعتك أو ردك.' : 'There are items waiting for your review or reply.')
               : delivered.length > 0
                 ? (isArabic ? 'بعض التسليمات جاهزة للتحميل الآن.' : 'Some deliverables are ready to download now.')
                 : (isArabic ? 'لا يوجد إجراء مطلوب منك الآن.' : 'No action is needed from you right now.')}
@@ -2097,10 +2538,51 @@ function ClientActionCenter({ project, isArabic }: { project: Project; isArabic:
         <span className="rounded-full bg-[color:var(--profile-accent)]/10 px-3 py-1 text-xs font-semibold text-[color:var(--profile-accent)]">
           {delivered.length > 0
             ? (isArabic ? 'جاهز للتحميل' : 'Ready to download')
-            : activeService?.status === 'in_progress'
+            : needsReview || reviewFiles.length > 0 || notes.some((note) => !note.read_at)
+              ? (isArabic ? 'يحتاج ردك' : 'Needs your response')
+              : activeService?.status === 'in_progress'
               ? (isArabic ? 'نعمل عليه الآن' : 'We are working on this now')
               : (isArabic ? 'قيد المتابعة' : 'In progress')}
         </span>
+      </div>
+
+      {notes.length > 0 ? (
+        <div className="mt-4 grid gap-3">
+          {notes.map((note) => (
+            <ClientPinnedNoteCard
+              key={note.id}
+              note={note}
+              isArabic={isArabic}
+              onMarkRead={onMarkNoteRead}
+              onMessage={onMessage}
+              onProject={() => undefined}
+              showProjectButton={false}
+            />
+          ))}
+        </div>
+      ) : null}
+
+      {reviewFiles.length > 0 ? (
+        <div className="mt-4 space-y-2">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            {isArabic ? 'ملفات تحتاج مراجعة' : 'Files needing review'}
+          </p>
+          {reviewFiles.slice(0, 3).map((asset) => (
+            <ProjectDeliverableRow key={asset.id} asset={asset} isArabic={isArabic} compact />
+          ))}
+        </div>
+      ) : null}
+
+      <div className="mt-4 flex flex-wrap gap-2">
+        <button type="button" onClick={onMessage} className="rounded-full bg-foreground px-3 py-1.5 text-xs font-semibold text-background transition hover:opacity-90">
+          {isArabic ? 'اعتماد عبر الرسائل' : 'Approve'}
+        </button>
+        <button type="button" onClick={onMessage} className="rounded-full border border-border px-3 py-1.5 text-xs font-semibold text-foreground transition hover:bg-muted">
+          {isArabic ? 'طلب تعديلات' : 'Request Changes'}
+        </button>
+        <button type="button" onClick={onMessage} className="rounded-full border border-border px-3 py-1.5 text-xs font-semibold text-foreground transition hover:bg-muted">
+          {isArabic ? 'اسأل سؤالاً' : 'Ask Question'}
+        </button>
       </div>
     </Card>
   );
@@ -2219,6 +2701,7 @@ function ProjectDeliverableRow({
   compact?: boolean;
 }) {
   const [busy, setBusy] = useState(false);
+  const placementLabels = clientAssetPlacementLabels(asset);
 
   const download = async () => {
     setBusy(true);
@@ -2235,19 +2718,42 @@ function ProjectDeliverableRow({
       <ProjectPreviewThumb asset={asset} />
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-semibold text-card-foreground">{asset.file_name}</p>
+        <div className="mt-1 flex flex-wrap gap-1.5">
+          <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-200">
+            {isArabic ? 'معتمد' : 'Approved'}
+          </span>
+          <span className="rounded-full bg-[color:var(--profile-accent)]/10 px-2 py-0.5 text-[11px] font-semibold text-[color:var(--profile-accent)]">
+            {isArabic ? 'منشور' : 'Published'}
+          </span>
+        </div>
         <p className="mt-1 text-xs text-muted-foreground">
           {(asset.file_type || asset.asset_type || asset.file_name?.split('.').pop() || 'file').toUpperCase()}
           {formatBytes(asset.file_size) ? ` · ${formatBytes(asset.file_size)}` : ''}
           {asset.created_at || asset.uploaded_at ? ` · ${formatDate(asset.created_at || asset.uploaded_at)}` : ''}
         </p>
         {asset.note && !compact ? <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{asset.note}</p> : null}
+        {!compact && placementLabels.length > 0 ? (
+          <p className="mt-2 text-xs text-muted-foreground">
+            {isArabic ? 'يظهر في: ' : 'Appears in: '}
+            {placementLabels.join(' · ')}
+          </p>
+        ) : null}
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-semibold text-muted-foreground">
           {asset.deliverable_status === 'delivered'
             ? (isArabic ? 'جاهز للتحميل' : 'Ready to download')
-            : getReadableStatus(asset.deliverable_status)}
+            : clientAssetStatusLabel(asset.deliverable_status)}
         </span>
+        <button
+          type="button"
+          onClick={() => void download()}
+          disabled={busy}
+          className="inline-flex h-8 items-center gap-1.5 rounded-full border border-border px-3 text-xs font-semibold text-foreground transition hover:bg-muted disabled:opacity-60"
+        >
+          <ExternalLink className="h-3.5 w-3.5" />
+          {isArabic ? 'معاينة' : 'Preview'}
+        </button>
         <button
           type="button"
           onClick={() => void download()}
@@ -2259,7 +2765,7 @@ function ProjectDeliverableRow({
         </button>
         {asset.published_to_identity ? (
           <span className="rounded-full bg-[color:var(--profile-accent)]/10 px-2.5 py-1 text-xs font-semibold text-[color:var(--profile-accent)]">
-            {isArabic ? 'في الهوية' : 'In Identity'}
+            {isArabic ? 'في حزمة الهوية' : 'In Brand Kit'}
           </span>
         ) : null}
       </div>
@@ -2522,12 +3028,14 @@ function MessagesTab({
 
 function FilesTab({
   assets,
+  projects,
   loading,
   error,
   isArabic,
   onRefresh,
 }: {
   assets: PortalAsset[];
+  projects: Project[];
   loading: boolean;
   error: string | null;
   isArabic: boolean;
@@ -2535,6 +3043,27 @@ function FilesTab({
 }) {
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [downloadError, setDownloadError] = useState<string | null>(null);
+  const [filter, setFilter] = useState<'all' | 'review' | 'final' | 'brand' | 'project' | 'invoice' | 'document'>('all');
+  const projectById = useMemo(() => new Map(projects.map((project) => [project.id, project])), [projects]);
+  const serviceById = useMemo(() => {
+    const map = new Map<string, ProjectService>();
+    projects.forEach((project) => project.services.forEach((service) => map.set(service.id, service)));
+    return map;
+  }, [projects]);
+  const filteredAssets = useMemo(() => assets.filter((asset) => {
+    const placements = getClientAssetPlacements(asset);
+    const status = cleanText(asset.deliverable_status).toLowerCase();
+    const category = cleanText(asset.category).toLowerCase();
+    const type = cleanText(asset.file_type || asset.asset_type).toLowerCase();
+
+    if (filter === 'review') return placements.appearsInActions || isReviewAsset(asset);
+    if (filter === 'final') return ['approved', 'delivered', 'final'].includes(status);
+    if (filter === 'brand') return placements.appearsInBrandKit || Boolean(asset.is_identity_asset);
+    if (filter === 'project') return placements.appearsInProjectHub || Boolean(asset.project_id);
+    if (filter === 'invoice') return /invoice|receipt|payment/.test(`${category} ${type}`);
+    if (filter === 'document') return /pdf|doc|document|guide/.test(`${category} ${type} ${getFileName(asset).toLowerCase()}`);
+    return true;
+  }), [assets, filter]);
 
   const handleDownload = async (asset: PortalAsset) => {
     if (downloadingId) return;
@@ -2560,21 +3089,53 @@ function FilesTab({
   return (
     <section className="space-y-5">
       <SectionHeader
-        title={isArabic ? 'الملفات' : 'Files'}
-        description={isArabic ? 'الملفات المشتركة معك من لوموس أو التي رفعتها لحسابك.' : 'Files shared by Lumos or uploaded for your account.'}
+        title={isArabic ? 'مكتبة الملفات' : 'Files Library'}
+        description={isArabic ? 'أرشيف منظم لكل الملفات المرئية للعميل والقابلة للتحميل.' : 'An organized archive of every client-visible downloadable file.'}
         action={<RefreshButton label={isArabic ? 'تحديث' : 'Refresh'} onClick={onRefresh} />}
       />
 
       {error && <InlineError message={error} />}
       {downloadError && <InlineError message={downloadError} />}
 
+      <div className="flex flex-wrap gap-2">
+        {[
+          { id: 'all', label: isArabic ? 'الكل' : 'All' },
+          { id: 'review', label: isArabic ? 'تحتاج مراجعة' : 'Needs Review' },
+          { id: 'final', label: isArabic ? 'النهائية' : 'Final Files' },
+          { id: 'brand', label: isArabic ? 'أصول الهوية' : 'Brand Assets' },
+          { id: 'project', label: isArabic ? 'ملفات المشروع' : 'Project Files' },
+          { id: 'invoice', label: isArabic ? 'الفواتير' : 'Invoices' },
+          { id: 'document', label: isArabic ? 'مستندات' : 'Documents' },
+        ].map((item) => (
+          <button
+            key={item.id}
+            type="button"
+            onClick={() => setFilter(item.id as typeof filter)}
+            className={cn(
+              'rounded-full px-3 py-1.5 text-xs font-semibold transition',
+              filter === item.id
+                ? 'bg-foreground text-background'
+                : 'border border-border text-muted-foreground hover:bg-muted hover:text-foreground',
+            )}
+          >
+            {item.label}
+          </button>
+        ))}
+      </div>
+
       {assets.length === 0 ? (
-        <EmptyState icon={FileText} text={isArabic ? 'ستظهر هنا الملفات المشتركة بينك وبين لوموس.' : 'Files shared by you or Lumos will appear here.'} />
+        <EmptyState icon={FileText} text={isArabic ? 'ستظهر هنا الملفات المشتركة بينك وبين لوموس.' : 'Files shared by Lumos will appear here.'} />
+      ) : filteredAssets.length === 0 ? (
+        <EmptyState icon={Archive} text={isArabic ? 'لا توجد ملفات ضمن هذا الفلتر.' : 'No files match this filter.'} />
       ) : (
-        <div className="grid gap-4 md:grid-cols-2">
-          {assets.map((asset) => (
+        <div className="grid gap-3">
+          {filteredAssets.map((asset) => {
+            const placements = clientAssetPlacementLabels(asset);
+            const project = asset.project_id ? projectById.get(asset.project_id) : null;
+            const service = asset.project_service_id ? serviceById.get(asset.project_service_id) : null;
+            return (
             <Card key={asset.id} className="p-4">
-              <div className="flex items-start gap-4">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-center">
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[color:var(--profile-accent)]/10 text-[color:var(--profile-accent)]">
                   <FileText className="h-5 w-5" />
                 </div>
@@ -2582,28 +3143,44 @@ function FilesTab({
                   <h3 className="truncate text-base font-semibold text-card-foreground">{getFileName(asset)}</h3>
                   <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
                     <span>{getFileType(asset)}</span>
-                    <span>{asset.category || 'General'}</span>
+                    <span>{clientAssetStatusLabel(asset.deliverable_status) || asset.category || 'General'}</span>
                     <span>{formatFileSize(asset.file_size)}</span>
                     <span>{formatDate(asset.uploaded_at || asset.created_at)}</span>
                   </div>
+                  <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                    <span>{isArabic ? 'المشروع: ' : 'Project: '}{project ? getProjectDisplayName(project) : isArabic ? 'عام' : 'General'}</span>
+                    {service ? <span>{isArabic ? 'الخدمة: ' : 'Service: '}{service.service_name}</span> : null}
+                  </div>
                   {asset.note && <p className="mt-3 line-clamp-2 text-sm leading-6 text-muted-foreground">{asset.note}</p>}
                   <p className="mt-3 text-xs text-muted-foreground">
-                    {asset.uploaded_by_type === 'client' ? (isArabic ? 'تم الرفع بواسطتك' : 'Uploaded by you') : isArabic ? 'تمت المشاركة بواسطة لوموس' : 'Shared by Lumos'}
+                    {isArabic ? 'يظهر في: ' : 'Appears in: '}
+                    {placements.join(' · ')}
                   </p>
                 </div>
-              </div>
 
-              <button
-                type="button"
-                onClick={() => void handleDownload(asset)}
-                disabled={downloadingId === asset.id}
-                className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-full border border-border px-4 py-2.5 text-sm font-semibold text-foreground transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {downloadingId === asset.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-                {isArabic ? 'تحميل آمن' : 'Download'}
-              </button>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => void handleDownload(asset)}
+                    disabled={downloadingId === asset.id}
+                    className="inline-flex items-center justify-center gap-2 rounded-full border border-border px-4 py-2.5 text-sm font-semibold text-foreground transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {downloadingId === asset.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <ExternalLink className="h-4 w-4" />}
+                    {isArabic ? 'معاينة' : 'Preview'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void handleDownload(asset)}
+                    disabled={downloadingId === asset.id}
+                    className="inline-flex items-center justify-center gap-2 rounded-full bg-foreground px-4 py-2.5 text-sm font-semibold text-background transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {downloadingId === asset.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                    {isArabic ? 'تحميل' : 'Download'}
+                  </button>
+                </div>
+              </div>
             </Card>
-          ))}
+          );})}
         </div>
       )}
     </section>
@@ -2667,8 +3244,8 @@ function IdentityTab({
   return (
     <section className="space-y-5">
       <SectionHeader
-        title={isArabic ? 'هوية العلامة' : 'Brand Identity'}
-        description={isArabic ? 'كل أصول هويتك المعتمدة من لوموس في مكان واحد.' : 'All your approved Lumos brand assets in one place.'}
+        title={isArabic ? 'حزمة الهوية' : 'Brand Kit'}
+        description={isArabic ? 'الأصول النهائية المعتمدة فقط بعد نشرها من لوموس.' : 'Only final approved brand assets published by Lumos.'}
         action={
           <RefreshButton
             label={isArabic ? 'تحديث' : 'Refresh'}
@@ -2684,8 +3261,8 @@ function IdentityTab({
         <EmptyState
           icon={Palette}
           text={isArabic
-            ? 'ستظهر أصول هوية علامتك هنا بعد أن يرفعها فريق لوموس.'
-            : 'Your brand identity assets will appear here once Lumos uploads them.'}
+            ? 'حزمة هويتك قيد التحضير. سننشر الأصول النهائية هنا عندما تكون جاهزة.'
+            : 'Your Brand Kit is being prepared. We’ll publish your final assets here once they’re ready.'}
         />
       )}
 
@@ -2972,6 +3549,14 @@ function LogoKitCard({
         <p className="text-sm font-semibold text-card-foreground">{label}</p>
         {asset ? (
           <>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-200">
+                {isArabic ? 'نهائي' : 'Final'}
+              </span>
+              <span className="rounded-full bg-[color:var(--profile-accent)]/10 px-2 py-0.5 text-[11px] font-semibold text-[color:var(--profile-accent)]">
+                {isArabic ? 'منشور' : 'Published'}
+              </span>
+            </div>
             <p className="mt-1 truncate text-xs text-muted-foreground">{asset.file_name}</p>
             <p className="mt-1 text-xs text-muted-foreground">
               {(identityFileTypeLabel(asset) || 'FILE').toUpperCase()}

@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useCallback } from "react";
 import { useLanguage } from "@/context/LanguageContext";
 import {
   Code2, Terminal, Database, Braces, Layout, Sparkles,
@@ -77,18 +77,17 @@ const MarqueeRow = ({
   setHoveredTool: (id: string | null) => void;
 }) => {
   const doubled = [...items, ...items];
-  const animClass = reverse
-    ? isArabic ? "ts-ltr" : "ts-rtl"
-    : isArabic ? "ts-rtl" : "ts-ltr";
+  const animClass = reverse ? "ts-scroll-right" : "ts-scroll-left";
 
   return (
     <div
-      className="flex overflow-visible"
+      className="relative w-full overflow-hidden py-2"
+      dir="ltr"
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => { setPaused(false); setHoveredTool(null); }}
     >
       <div
-        className={`flex gap-3 sm:gap-4 ${animClass}`}
+        className={`flex w-max gap-3 sm:gap-4 ${animClass}`}
         style={isPaused ? { animationPlayState: "paused" } : undefined}
       >
         {doubled.map((tool, i) => {
@@ -104,23 +103,21 @@ const MarqueeRow = ({
             >
               <div
                 className={`
-                  group relative flex items-center gap-2.5 sm:gap-3 px-4 sm:px-5 py-2.5 sm:py-3
+                  group relative flex min-w-[172px] items-center gap-2.5 sm:gap-3 px-4 sm:px-5 py-2.5 sm:py-3
                   rounded-xl sm:rounded-2xl cursor-pointer select-none
                   border transition-all duration-300 ease-out
                   ${isHovered
                     ? "border-primary/40 shadow-lg shadow-primary/10 scale-110 z-30"
                     : nearHovered
-                      ? "border-white/10 dark:border-white/5 scale-[0.95] opacity-50"
-                      : "border-white/10 dark:border-white/5 scale-100"
+                      ? "border-border/50 scale-[0.98] opacity-60"
+                      : "border-border/60 scale-100"
                   }
                 `}
                 style={{
-                  backgroundColor: isHovered
-                    ? "rgba(16,185,129,0.08)"
-                    : "rgba(255,255,255,0.06)",
+                  backgroundColor: isHovered ? "hsl(var(--primary) / 0.08)" : "hsl(var(--card) / 0.72)",
                   backdropFilter: "blur(12px)",
-                  minWidth: isHovered ? "175px" : "145px",
                 }}
+                dir={isArabic ? "rtl" : "ltr"}
               >
                 <div
                   className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg flex items-center justify-center shrink-0 transition-all duration-300"
@@ -224,7 +221,7 @@ const ToolDetailCard = ({ tool, isArabic }: { tool: Tool | null; isArabic: boole
                 {tool.proficiency}%
               </span>
             </div>
-            <div className="h-2 rounded-full bg-white/10 overflow-hidden">
+            <div className="h-2 rounded-full bg-muted overflow-hidden">
               <div
                 className="h-full rounded-full transition-all duration-700 ease-out"
                 style={{
@@ -266,21 +263,35 @@ const TechStack = () => {
       className="py-8 sm:py-12 md:py-16 relative overflow-hidden bg-background"
     >
       <style>{`
-        @keyframes ts-ltr {
-          0% { transform: translateX(0); }
-          100% { transform: translateX(-50%); }
+        @keyframes ts-scroll-left {
+          from { transform: translate3d(0, 0, 0); }
+          to { transform: translate3d(-50%, 0, 0); }
         }
-        @keyframes ts-rtl {
-          0% { transform: translateX(-50%); }
-          100% { transform: translateX(0); }
+        @keyframes ts-scroll-right {
+          from { transform: translate3d(-50%, 0, 0); }
+          to { transform: translate3d(0, 0, 0); }
         }
-        .ts-ltr { animation: ts-ltr 40s linear infinite; }
-        .ts-rtl { animation: ts-rtl 40s linear infinite; }
+        .ts-scroll-left,
+        .ts-scroll-right {
+          will-change: transform;
+          animation-duration: 44s;
+          animation-timing-function: linear;
+          animation-iteration-count: infinite;
+        }
+        .ts-scroll-left { animation-name: ts-scroll-left; }
+        .ts-scroll-right { animation-name: ts-scroll-right; }
+        @media (prefers-reduced-motion: reduce) {
+          .ts-scroll-left,
+          .ts-scroll-right {
+            animation: none;
+            transform: none;
+          }
+        }
       `}</style>
 
       <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute top-0 left-1/4 w-[400px] h-[400px] bg-primary/5 rounded-full blur-[120px] opacity-50" />
-        <div className="absolute bottom-0 right-1/4 w-[300px] h-[300px] bg-emerald-500/5 rounded-full blur-[100px] opacity-50" />
+        <div className="absolute top-0 start-1/4 w-[400px] h-[400px] bg-primary/5 rounded-full blur-[120px] opacity-50" />
+        <div className="absolute bottom-0 end-1/4 w-[300px] h-[300px] bg-emerald-500/5 rounded-full blur-[100px] opacity-50" />
       </div>
 
       <div className="relative z-10">

@@ -79,6 +79,8 @@ const TeamSection = () => {
                 <img
                   src={member.photo}
                   alt={member.name}
+                  loading="lazy"
+                  decoding="async"
                   className="w-28 h-28 rounded-full object-cover object-top ring-2 ring-primary/40 shadow-lg"
                 />
                 <div className="absolute inset-0 rounded-full bg-gradient-to-b from-transparent to-primary/10" />

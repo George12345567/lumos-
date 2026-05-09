@@ -34,7 +34,7 @@ const FAQ = () => {
   };
 
   return (
-    <section id="faq" className="py-12 sm:py-16 md:py-20 px-4 sm:px-6 bg-secondary/30">
+    <section className="py-12 sm:py-16 md:py-20 px-4 sm:px-6 bg-secondary/30">
       <div className="container mx-auto max-w-4xl" dir={isArabic ? 'rtl' : 'ltr'}>
         <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-center mb-3 sm:mb-4 text-foreground reveal">
           {t('الأسئلة', 'Frequently Asked')} <span className="text-primary">{t('الشائعة', 'Questions')}</span>
@@ -53,7 +53,7 @@ const FAQ = () => {
                 onClick={() => toggleFAQ(index)}
                 className={`w-full px-6 py-5 flex items-center justify-between ${isArabic ? 'text-right' : 'text-left'} hover:bg-secondary/50 transition-colors`}
               >
-                <span className="text-lg font-semibold text-foreground pr-4">
+                <span className="pe-4 text-lg font-semibold text-foreground">
                   {faq.question}
                 </span>
                 <span className="flex-shrink-0 text-primary">

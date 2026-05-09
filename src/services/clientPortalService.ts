@@ -35,6 +35,18 @@ export interface PortalAsset {
   sort_order?: number | null;
   is_downloadable?: boolean | null;
   visibility?: string | null;
+  project_id?: string | null;
+  project_service_id?: string | null;
+  is_deliverable?: boolean | null;
+  deliverable_status?: string | null;
+  published_to_identity?: boolean | null;
+  published_to_identity_at?: string | null;
+  identity_publish_on_delivery?: boolean | null;
+  client_visible?: boolean | null;
+  placement_project_hub?: boolean | null;
+  placement_action_center?: boolean | null;
+  placement_files_library?: boolean | null;
+  placement_brand_kit?: boolean | null;
   uploaded_at?: string | null;
   created_at?: string;
 }
@@ -81,6 +93,9 @@ export async function fetchClientPortalSnapshot(clientId: string): Promise<Porta
         .from('client_assets')
         .select('*')
         .eq('client_id', clientId)
+        .eq('client_visible', true)
+        .eq('visibility', 'client')
+        .eq('is_downloadable', true)
         .order('created_at', { ascending: false }),
     ]);
 

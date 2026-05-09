@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import { X } from "lucide-react";
 import { useLanguage } from "@/context/LanguageContext";
 
@@ -51,18 +51,21 @@ const TeamModal = ({ open, onClose }: TeamModalProps) => {
 
   useEffect(() => {
     if (!open) return;
-    const handler = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    const handler = (event: KeyboardEvent) => event.key === "Escape" && onClose();
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, [open, onClose]);
 
   useEffect(() => {
     document.body.style.overflow = open ? "hidden" : "";
-    return () => { document.body.style.overflow = ""; };
+    return () => {
+      document.body.style.overflow = "";
+    };
   }, [open]);
 
-  // reset on open
-  useEffect(() => { if (open) setActive(0); }, [open]);
+  useEffect(() => {
+    if (open) setActive(0);
+  }, [open]);
 
   return (
     <AnimatePresence>
@@ -72,172 +75,170 @@ const TeamModal = ({ open, onClose }: TeamModalProps) => {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          transition={{ duration: 0.25 }}
+          transition={{ duration: 0.2 }}
         >
-          {/* Backdrop */}
-          <div
-            className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+          <button
+            type="button"
+            className="absolute inset-0 bg-black/75 backdrop-blur-sm"
             onClick={onClose}
+            aria-label={isArabic ? "إغلاق النافذة" : "Close modal"}
           />
 
-          {/* Modal */}
           <motion.div
-            className="relative w-full max-w-5xl rounded-2xl overflow-hidden"
-            style={{ background: "#0c0c0c", border: "1px solid #1a1a1a" }}
-            initial={{ opacity: 0, scale: 0.94, y: 40 }}
+            className="relative flex max-h-[calc(100vh-48px)] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-border/75 bg-card text-card-foreground shadow-2xl"
+            initial={{ opacity: 0, scale: 0.95, y: 24 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.96, y: 20 }}
-            transition={{ type: "spring", damping: 24, stiffness: 260 }}
+            exit={{ opacity: 0, scale: 0.97, y: 18 }}
+            transition={{ type: "spring", damping: 25, stiffness: 260 }}
             dir={isArabic ? "rtl" : "ltr"}
+            role="dialog"
+            aria-modal="true"
+            aria-label={isArabic ? "تفاصيل الفريق" : "Team details"}
           >
-            {/* Noise texture overlay */}
             <div
-              className="absolute inset-0 pointer-events-none z-0 opacity-[0.03]"
+              className="pointer-events-none absolute inset-0 z-0 opacity-[0.025]"
               style={{
                 backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E")`,
                 backgroundRepeat: "repeat",
               }}
             />
 
-            {/* Accent glow top */}
             <motion.div
-              className="absolute top-0 inset-x-0 h-px"
+              className="absolute inset-x-0 top-0 h-px"
               animate={{ background: `linear-gradient(90deg, transparent, ${member.accent}80, transparent)` }}
-              transition={{ duration: 0.4 }}
+              transition={{ duration: 0.3 }}
             />
 
-            {/* Close */}
             <button
+              type="button"
               onClick={onClose}
-              className="absolute top-4 right-4 z-30 w-8 h-8 flex items-center justify-center rounded-full text-white/40 hover:text-white transition-colors"
-              style={{ background: "#ffffff08", border: "1px solid #ffffff12" }}
+              className="absolute end-4 top-4 z-30 flex h-9 w-9 items-center justify-center rounded-full border border-border/80 bg-background/90 text-muted-foreground shadow-lg backdrop-blur transition-colors hover:text-foreground"
+              aria-label={isArabic ? "إغلاق" : "Close"}
             >
-              <X size={15} />
+              <X size={16} />
             </button>
 
-            <div className="relative z-10 flex flex-col md:flex-row h-auto md:h-[540px]">
-
-              {/* LEFT — Photo + info */}
-              <div className="relative w-full md:w-[42%] flex-shrink-0 h-64 md:h-full overflow-hidden">
+            <div className="relative z-10 grid min-h-0 flex-1 grid-cols-1 md:grid-cols-[0.9fr_1.1fr]">
+              <div className="relative h-56 w-full overflow-hidden sm:h-64 md:h-auto md:min-h-[520px]">
                 <AnimatePresence mode="wait">
                   <motion.img
                     key={member.photo}
                     src={member.photo}
                     alt={member.name}
-                    className="absolute inset-0 w-full h-full object-cover object-top"
-                    initial={{ opacity: 0, scale: 1.06 }}
+                    loading="lazy"
+                    decoding="async"
+                    className="absolute inset-0 h-full w-full object-cover object-top"
+                    initial={{ opacity: 0, scale: 1.04 }}
                     animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.97 }}
-                    transition={{ duration: 0.45 }}
+                    exit={{ opacity: 0, scale: 0.98 }}
+                    transition={{ duration: 0.35 }}
                   />
                 </AnimatePresence>
 
-                {/* Photo gradient overlay */}
-                <div className="absolute inset-0 bg-gradient-to-t from-[#0c0c0c] via-[#0c0c0c]/30 to-transparent md:bg-gradient-to-r md:from-transparent md:via-transparent md:to-[#0c0c0c]" />
-                <div className="absolute inset-0 bg-gradient-to-t from-[#0c0c0c] via-transparent to-transparent" />
-
-                {/* Number badge */}
+                <div className="absolute inset-0 bg-gradient-to-t from-card via-card/25 to-transparent md:bg-gradient-to-r md:from-transparent md:via-transparent md:to-card" />
                 <div
-                  className="absolute top-5 left-5 text-xs font-mono font-bold px-2 py-0.5 rounded"
+                  className="absolute start-5 top-5 rounded px-2 py-0.5 font-mono text-xs font-bold"
                   style={{ color: member.accent, background: `${member.accent}18`, border: `1px solid ${member.accent}30` }}
                 >
                   {member.id}
                 </div>
-
-                {/* Accent glow on photo edge */}
-                <motion.div
-                  className="absolute bottom-0 left-0 right-0 h-1"
-                  animate={{ background: `linear-gradient(90deg, ${member.accent}60, transparent)` }}
-                  transition={{ duration: 0.4 }}
-                />
+                <div className="absolute inset-x-5 bottom-5">
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-[0.25em] text-white/65">Lumos Team</p>
+                  <h2 className="text-3xl font-black leading-none text-white sm:text-4xl">{member.name}</h2>
+                </div>
               </div>
 
-              {/* RIGHT — Content */}
-              <div className="flex flex-col justify-between flex-1 p-6 sm:p-8 md:p-10">
-
-                {/* Top: Member selector tabs */}
-                <div className="flex gap-2 mb-8 flex-wrap">
-                  {team.map((m, i) => (
+              <div className="flex min-h-0 flex-col">
+                <div className="sticky top-0 z-20 flex flex-wrap gap-2 border-b border-border/60 bg-card/95 px-5 py-4 pe-16 backdrop-blur sm:px-7 md:px-8">
+                  {team.map((item, index) => (
                     <motion.button
-                      key={m.id}
-                      onClick={() => setActive(i)}
-                      whileHover={{ scale: 1.04 }}
-                      whileTap={{ scale: 0.97 }}
-                      className="relative px-4 py-1.5 rounded-full text-sm font-medium transition-all duration-200"
+                      key={item.id}
+                      type="button"
+                      onClick={() => setActive(index)}
+                      whileHover={{ scale: 1.03 }}
+                      whileTap={{ scale: 0.98 }}
+                      className="relative rounded-full border border-border/60 bg-background/60 px-4 py-1.5 text-sm font-medium text-muted-foreground transition-all duration-200 hover:text-foreground"
                       style={
-                        active === i
-                          ? { color: m.accent, background: `${m.accent}18`, border: `1px solid ${m.accent}50` }
-                          : { color: "#666", background: "#ffffff06", border: "1px solid #ffffff0f" }
+                        active === index
+                          ? { color: item.accent, background: `${item.accent}18`, border: `1px solid ${item.accent}50` }
+                          : undefined
                       }
                     >
-                      {m.name}
-                      {active === i && (
-                        <motion.div
+                      {item.name}
+                      {active === index && (
+                        <motion.span
                           className="absolute inset-0 rounded-full"
-                          layoutId="activeTab"
-                          style={{ boxShadow: `0 0 12px ${m.accent}30` }}
+                          layoutId="activeTeamMember"
+                          style={{ boxShadow: `0 0 12px ${item.accent}30` }}
                         />
                       )}
                     </motion.button>
                   ))}
                 </div>
 
-                {/* Member info */}
-                <AnimatePresence mode="wait">
-                  <motion.div
-                    key={member.id}
-                    initial={{ opacity: 0, x: 20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: -20 }}
-                    transition={{ duration: 0.3 }}
-                    className="flex-1"
-                  >
-                    {/* Tag */}
-                    <p className="text-xs font-mono uppercase tracking-widest mb-3" style={{ color: member.accent }}>
-                      {member.tag}
-                    </p>
-
-                    {/* Name */}
-                    <h2 className="text-4xl sm:text-5xl font-black text-white mb-2 leading-none tracking-tight">
-                      {member.name}
-                    </h2>
-
-                    {/* Role */}
-                    <p className="text-base font-medium mb-6" style={{ color: "#888" }}>
-                      {isArabic ? member.roleAr : member.roleEn}
-                    </p>
-
-                    {/* Divider */}
+                <div className="custom-scrollbar min-h-0 flex-1 overflow-y-auto px-5 py-6 sm:px-7 md:px-8 md:py-8">
+                  <AnimatePresence mode="wait">
                     <motion.div
-                      className="h-px mb-6 w-16"
-                      animate={{ background: member.accent }}
-                      transition={{ duration: 0.4 }}
-                    />
+                      key={member.id}
+                      initial={{ opacity: 0, x: isArabic ? -16 : 16 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: isArabic ? 16 : -16 }}
+                      transition={{ duration: 0.25 }}
+                    >
+                      <p className="mb-3 font-mono text-xs uppercase tracking-widest" style={{ color: member.accent }}>
+                        {member.tag}
+                      </p>
+                      <h2 className="mb-2 text-4xl font-black leading-none tracking-tight text-foreground sm:text-5xl">
+                        {member.name}
+                      </h2>
+                      <p className="mb-6 text-base font-medium text-muted-foreground">
+                        {isArabic ? member.roleAr : member.roleEn}
+                      </p>
+                      <motion.div
+                        className="mb-6 h-px w-16"
+                        animate={{ background: member.accent }}
+                        transition={{ duration: 0.3 }}
+                      />
+                      <p className="max-w-xl text-sm leading-7 text-muted-foreground sm:text-base">
+                        {isArabic ? member.descAr : member.descEn}
+                      </p>
 
-                    {/* Description */}
-                    <p className="text-sm leading-relaxed text-white/50 max-w-sm">
-                      {isArabic ? member.descAr : member.descEn}
-                    </p>
-                  </motion.div>
-                </AnimatePresence>
+                      <div className="mt-8 grid gap-3 sm:grid-cols-2">
+                        <div className="rounded-xl border border-border/70 bg-background/55 p-4">
+                          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+                            {isArabic ? "التركيز" : "Focus"}
+                          </p>
+                          <p className="mt-2 text-sm font-semibold text-foreground">{member.tag}</p>
+                        </div>
+                        <div className="rounded-xl border border-border/70 bg-background/55 p-4">
+                          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+                            {isArabic ? "المسؤولية" : "Responsibility"}
+                          </p>
+                          <p className="mt-2 text-sm font-semibold text-foreground">
+                            {isArabic ? "جودة التسليم وتجربة العميل" : "Delivery quality and client experience"}
+                          </p>
+                        </div>
+                      </div>
+                    </motion.div>
+                  </AnimatePresence>
 
-                {/* Bottom: dots + label */}
-                <div className="flex items-center gap-3 mt-8">
-                  {team.map((m, i) => (
-                    <motion.button
-                      key={m.id}
-                      onClick={() => setActive(i)}
-                      animate={{
-                        width: active === i ? 24 : 6,
-                        background: active === i ? m.accent : "#333",
-                      }}
-                      className="h-1.5 rounded-full cursor-pointer"
-                      transition={{ duration: 0.3 }}
-                    />
-                  ))}
-                  <span className="text-xs text-white/20 font-mono ml-2">
-                    {member.id} / 03
-                  </span>
+                  <div className="mt-8 flex items-center gap-3">
+                    {team.map((item, index) => (
+                      <motion.button
+                        key={item.id}
+                        type="button"
+                        onClick={() => setActive(index)}
+                        aria-label={`${isArabic ? "عرض" : "View"} ${item.name}`}
+                        animate={{
+                          width: active === index ? 24 : 6,
+                          background: active === index ? item.accent : "hsl(var(--muted-foreground) / 0.35)",
+                        }}
+                        className="h-1.5 rounded-full"
+                        transition={{ duration: 0.25 }}
+                      />
+                    ))}
+                    <span className="ms-2 font-mono text-xs text-muted-foreground">{member.id} / 03</span>
+                  </div>
                 </div>
               </div>
             </div>

@@ -1,4 +1,4 @@
-import { LayoutDashboard, FolderOpen, MessageCircle, Settings, Briefcase, Palette } from 'lucide-react';
+import { Archive, LayoutDashboard, FolderOpen, MessageCircle, Settings, Palette } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
 export type TabId = 'overview' | 'projects' | 'messages' | 'files' | 'identity' | 'account';
@@ -16,12 +16,12 @@ export interface TabDef {
  * under Account.
  */
 export const TABS: TabDef[] = [
-  { id: 'overview', label: 'Overview', labelAr: 'نظرة عامة', icon: LayoutDashboard },
-  { id: 'projects', label: 'Projects', labelAr: 'المشاريع', icon: Briefcase },
+  { id: 'overview', label: 'Home', labelAr: 'الرئيسية', icon: LayoutDashboard },
+  { id: 'projects', label: 'Project Hub', labelAr: 'مركز المشروع', icon: FolderOpen },
+  { id: 'identity', label: 'Brand Kit', labelAr: 'حزمة الهوية', icon: Palette },
+  { id: 'files', label: 'Files Library', labelAr: 'مكتبة الملفات', icon: Archive },
   { id: 'messages', label: 'Messages', labelAr: 'الرسائل', icon: MessageCircle },
-  { id: 'files', label: 'Files', labelAr: 'الملفات', icon: FolderOpen },
-  { id: 'identity', label: 'Identity', labelAr: 'الهوية', icon: Palette },
-  { id: 'account', label: 'Account', labelAr: 'الحساب', icon: Settings },
+  { id: 'account', label: 'Settings', labelAr: 'الإعدادات', icon: Settings },
 ];
 
 /**
@@ -33,8 +33,19 @@ export const TAB_ALIASES: Record<string, TabId> = {
   library: 'files',
   brand: 'identity',
   brandkit: 'identity',
+  'brand-kit': 'identity',
   identity: 'identity',
   home: 'overview',
+  overview: 'overview',
+  dashboard: 'overview',
+  projecthub: 'projects',
+  'project-hub': 'projects',
+  projects: 'projects',
+  files: 'files',
+  fileslibrary: 'files',
+  'files-library': 'files',
+  settings: 'account',
+  account: 'account',
 };
 
 export const DEFAULT_ACCENT = '#077F5B';

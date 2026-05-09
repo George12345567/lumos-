@@ -72,6 +72,7 @@ const EnhancedNavbar = () => {
   const [clientAvatarUrl, setClientAvatarUrl] = useState<string | null>(null);
   const [clientDisplayName, setClientDisplayName] = useState<string>("");
   const lastScrollY = useRef(0);
+  const scrollRafRef = useRef<number | null>(null);
   const getStartedRef = useRef<HTMLDivElement>(null);
   const navGuideRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
@@ -80,6 +81,7 @@ const EnhancedNavbar = () => {
   const { logout } = useAuthActions();
   const { theme, toggleTheme } = useAppearance();
   const { isArabic, t, toggleLanguage } = useLanguage();
+  const nextThemeLabel = theme === "dark" ? t("الوضع الفاتح", "Light Mode") : t("الوضع الداكن", "Dark Mode");
 
   const openPricingModal = useCallback((request: PricingRequest | null = null) => {
     setPricingDraft(request);
@@ -216,7 +218,7 @@ const EnhancedNavbar = () => {
 
   // Scroll tracking: progress + direction-based hide/show
   useEffect(() => {
-    const handleScroll = () => {
+    const updateScrollState = () => {
       const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
       const scrollHeight = document.documentElement.scrollHeight - document.documentElement.clientHeight;
       const progress = scrollHeight > 0 ? (scrollTop / scrollHeight) * 100 : 0;
@@ -231,10 +233,22 @@ const EnhancedNavbar = () => {
         setIsHidden(false);
       }
       lastScrollY.current = scrollTop;
+      scrollRafRef.current = null;
     };
 
+    const handleScroll = () => {
+      if (scrollRafRef.current !== null) return;
+      scrollRafRef.current = window.requestAnimationFrame(updateScrollState);
+    };
+
+    handleScroll();
     window.addEventListener("scroll", handleScroll, { passive: true });
-    return () => window.removeEventListener("scroll", handleScroll);
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+      if (scrollRafRef.current !== null) {
+        window.cancelAnimationFrame(scrollRafRef.current);
+      }
+    };
   }, []);
 
   // Active section tracking with IntersectionObserver
@@ -297,7 +311,7 @@ const EnhancedNavbar = () => {
       {/* ── TOP BAR ──────────────────────────────────────── */}
       {/* ════════════════════════════════════════════════════ */}
       <nav
-        className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ease-out ${isHidden ? "-translate-y-full" : "translate-y-0"
+        className={`fixed inset-x-0 top-0 z-50 transition-all duration-500 ease-out ${isHidden ? "-translate-y-full" : "translate-y-0"
           }`}
       >
         <div className={`transition-all duration-700 ${isScrolled ? "pt-2.5 px-4 lg:px-8" : "pt-0 px-0"
@@ -320,7 +334,7 @@ const EnhancedNavbar = () => {
             {/* Neon underglow */}
             {isScrolled && (
               <div
-                className="absolute -bottom-2 left-[10%] right-[10%] h-8 rounded-full blur-xl pointer-events-none transition-opacity duration-700"
+                className="absolute -bottom-2 inset-x-[10%] h-8 rounded-full blur-xl pointer-events-none transition-opacity duration-700"
                 style={{
                   background: `radial-gradient(ellipse, hsla(150,100%,40%,${0.06 + scrollIntensity * 0.1}) 0%, transparent 70%)`,
                   opacity: scrollIntensity,
@@ -331,8 +345,8 @@ const EnhancedNavbar = () => {
             {/* Glass surface */}
             <div
               className={`relative transition-all duration-700 ${isScrolled
-                ? "bg-background/85 backdrop-blur-2xl rounded-2xl shadow-[0_8px_40px_rgba(0,0,0,0.5)]"
-                : "bg-background/50 backdrop-blur-xl border-b border-border/50"
+                ? "rounded-2xl border border-border/70 bg-background/85 shadow-[0_16px_44px_rgba(2,6,23,0.12)] backdrop-blur-2xl dark:shadow-[0_8px_40px_rgba(0,0,0,0.5)]"
+                : "border-b border-border/60 bg-background/75 shadow-sm backdrop-blur-xl"
                 }`}
               style={isScrolled ? {
                 backdropFilter: `blur(${20 + scrollIntensity * 12}px) saturate(${1.2 + scrollIntensity * 0.6})`,
@@ -375,14 +389,14 @@ const EnhancedNavbar = () => {
                         ★
                       </span>
                     </div>
-                    <span className="text-xl font-bold bg-gradient-to-r from-white to-white/70 bg-clip-text text-transparent transition-all duration-300 group-hover:from-[hsl(150,100%,40%)] group-hover:to-[hsl(160,70%,18%)]">
+                    <span className="text-xl font-bold bg-gradient-to-r from-foreground to-foreground/65 bg-clip-text text-transparent transition-all duration-300 group-hover:from-[hsl(var(--primary))] group-hover:to-[hsl(var(--secondary))]">
                       Lumos
                     </span>
                   </div>
 
                   {/* ── Desktop Navigation Pills (section scroll) ── */}
                   <div className="hidden lg:flex items-center">
-                    <div className="flex items-center gap-1 bg-white/[0.04] border border-white/[0.06] rounded-xl p-1">
+                    <div className="flex items-center gap-1 rounded-xl border border-border/70 bg-card/60 p-1 shadow-sm backdrop-blur dark:border-white/[0.06] dark:bg-white/[0.04]">
                       {navItems.map((item) => {
                         const isActive = activeSection === item.id;
                         const isHovered = hoveredItem === item.id;
@@ -394,19 +408,19 @@ const EnhancedNavbar = () => {
                             onMouseEnter={() => setHoveredItem(item.id)}
                             onMouseLeave={() => setHoveredItem(null)}
                             className={`relative px-4 py-2 text-sm font-medium rounded-lg transition-all duration-300 ${isActive
-                              ? "text-background"
-                              : "text-white/50 hover:text-white/90"
+                              ? "text-primary-foreground"
+                              : "text-muted-foreground hover:text-foreground"
                               }`}
                           >
                             {isActive && (
-                              <span className="absolute inset-0 rounded-lg bg-gradient-to-r from-[hsl(150,100%,40%)] to-[hsl(160,70%,18%)] shadow-[0_0_16px_hsla(150,100%,40%,0.3)]" />
+                              <span className="absolute inset-0 rounded-lg bg-gradient-to-r from-[hsl(var(--primary))] to-[hsl(var(--secondary))] shadow-[0_0_16px_hsla(150,100%,40%,0.22)]" />
                             )}
                             {!isActive && isHovered && (
-                              <span className="absolute inset-0 rounded-lg bg-white/[0.06] transition-opacity duration-300" />
+                              <span className="absolute inset-0 rounded-lg bg-muted/70 transition-opacity duration-300 dark:bg-white/[0.06]" />
                             )}
                             <span className="relative z-10 flex items-center gap-2">
                               {item.label}
-                              {isHovered && !isActive && <span className="text-[10px] font-semibold text-white/45">{item.desc}</span>}
+                              {isHovered && !isActive && <span className="text-[10px] font-semibold text-muted-foreground/80">{item.desc}</span>}
                             </span>
                           </button>
                         );
@@ -417,10 +431,10 @@ const EnhancedNavbar = () => {
                         onClick={() => openPricingModal()}
                         onMouseEnter={() => setHoveredItem("pricing")}
                         onMouseLeave={() => setHoveredItem(null)}
-                        className={`relative px-4 py-2 text-sm font-medium text-white/50 hover:text-white/90 rounded-lg transition-all duration-300 ${guideStep === 1 ? "ring-2 ring-cyan-300/80 bg-cyan-300/10" : ""}`}
+                        className={`relative px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground rounded-lg transition-all duration-300 ${guideStep === 1 ? "ring-2 ring-cyan-300/80 bg-cyan-300/10" : ""}`}
                       >
                         {hoveredItem === "pricing" && (
-                          <span className="absolute inset-0 rounded-lg bg-white/[0.06] transition-opacity duration-300" />
+                          <span className="absolute inset-0 rounded-lg bg-muted/70 transition-opacity duration-300 dark:bg-white/[0.06]" />
                         )}
                         <span className="relative z-10 flex items-center gap-1.5">
                           <DollarSign className="w-3.5 h-3.5" />
@@ -438,6 +452,21 @@ const EnhancedNavbar = () => {
                   {/* ── Right side: Get Started CTA ── */}
                   <div className="flex items-center gap-2" ref={getStartedRef}>
                     {/* "How To Use" navigation guide is intentionally not rendered. */}
+                    <button
+                      type="button"
+                      onClick={toggleTheme}
+                      aria-label={nextThemeLabel}
+                      title={nextThemeLabel}
+                      aria-pressed={theme === "dark"}
+                      className="inline-flex h-10 items-center gap-2 rounded-full border border-border/70 bg-card/65 px-2.5 text-foreground shadow-[0_10px_28px_rgba(2,6,23,0.08)] backdrop-blur-xl transition-all duration-300 hover:border-primary/35 hover:bg-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--ring))] focus-visible:ring-offset-2 focus-visible:ring-offset-background dark:border-white/10 dark:bg-white/[0.06] dark:hover:bg-white/[0.1]"
+                    >
+                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-primary">
+                        {theme === "dark" ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
+                      </span>
+                      <span className="hidden text-xs font-semibold xl:inline">
+                        {nextThemeLabel}
+                      </span>
+                    </button>
 
                     {isAuthenticated && (isAdmin || client) && (
                       <NotificationCenter scope={isAdmin ? "admin" : "client"} />
@@ -448,7 +477,7 @@ const EnhancedNavbar = () => {
                         <DropdownMenuTrigger asChild>
                           <button
                             type="button"
-                            className="group inline-flex h-10 max-w-[188px] items-center gap-2 rounded-full border border-border/70 bg-card/55 py-1 pl-1.5 pr-2.5 text-foreground shadow-[0_10px_28px_rgba(2,6,23,0.08)] backdrop-blur-xl transition-all duration-300 hover:border-border hover:bg-card/80 hover:shadow-[0_14px_32px_rgba(2,6,23,0.12)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--ring))] focus-visible:ring-offset-2 focus-visible:ring-offset-background dark:border-white/10 dark:bg-white/[0.06] dark:hover:bg-white/[0.1]"
+                            className="group inline-flex h-10 max-w-[188px] items-center gap-2 rounded-full border border-border/70 bg-card/55 py-1 ps-1.5 pe-2.5 text-foreground shadow-[0_10px_28px_rgba(2,6,23,0.08)] backdrop-blur-xl transition-all duration-300 hover:border-border hover:bg-card/80 hover:shadow-[0_14px_32px_rgba(2,6,23,0.12)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--ring))] focus-visible:ring-offset-2 focus-visible:ring-offset-background dark:border-white/10 dark:bg-white/[0.06] dark:hover:bg-white/[0.1]"
                             aria-label={t("افتح قائمة الحساب", "Open account menu")}
                             title={t("افتح قائمة الحساب", "Open account menu")}
                           >
@@ -498,21 +527,21 @@ const EnhancedNavbar = () => {
                             onSelect={() => navigate("/profile")}
                             className="cursor-pointer rounded-xl px-3 py-2.5 text-sm text-card-foreground focus:bg-muted focus:text-foreground"
                           >
-                            <UserCircle className="mr-2 h-4 w-4 text-muted-foreground" />
+                            <UserCircle className="me-2 h-4 w-4 text-muted-foreground" />
                             {t("عرض الملف", "View Profile")}
                           </DropdownMenuItem>
                           <DropdownMenuItem
                             onSelect={() => navigate("/profile?tab=account")}
                             className="cursor-pointer rounded-xl px-3 py-2.5 text-sm text-card-foreground focus:bg-muted focus:text-foreground"
                           >
-                            <Settings className="mr-2 h-4 w-4 text-muted-foreground" />
+                            <Settings className="me-2 h-4 w-4 text-muted-foreground" />
                             {t("إعدادات الحساب", "Account Settings")}
                           </DropdownMenuItem>
                           <DropdownMenuItem
                             onSelect={toggleLanguage}
                             className="cursor-pointer rounded-xl px-3 py-2.5 text-sm text-card-foreground focus:bg-muted focus:text-foreground"
                           >
-                            <Languages className="mr-2 h-4 w-4 text-muted-foreground" />
+                            <Languages className="me-2 h-4 w-4 text-muted-foreground" />
                             {isArabic ? "English" : "العربية"}
                           </DropdownMenuItem>
                           <DropdownMenuItem
@@ -520,9 +549,9 @@ const EnhancedNavbar = () => {
                             className="cursor-pointer rounded-xl px-3 py-2.5 text-sm text-card-foreground focus:bg-muted focus:text-foreground"
                           >
                             {theme === "dark" ? (
-                              <Sun className="mr-2 h-4 w-4 text-muted-foreground" />
+                              <Sun className="me-2 h-4 w-4 text-muted-foreground" />
                             ) : (
-                              <Moon className="mr-2 h-4 w-4 text-muted-foreground" />
+                              <Moon className="me-2 h-4 w-4 text-muted-foreground" />
                             )}
                             {theme === "dark" ? t("الوضع الفاتح", "Light Mode") : t("الوضع الداكن", "Dark Mode")}
                           </DropdownMenuItem>
@@ -531,7 +560,7 @@ const EnhancedNavbar = () => {
                             onSelect={() => void handleClientSignOut()}
                             className="cursor-pointer rounded-xl px-3 py-2.5 text-sm text-rose-600 focus:bg-rose-50 focus:text-rose-700 dark:text-rose-300 dark:focus:bg-rose-950/40 dark:focus:text-rose-200"
                           >
-                            <LogOut className="mr-2 h-4 w-4" />
+                            <LogOut className="me-2 h-4 w-4" />
                             {t("تسجيل الخروج", "Sign out")}
                           </DropdownMenuItem>
                         </DropdownMenuContent>
@@ -545,7 +574,7 @@ const EnhancedNavbar = () => {
                           setGuideStep(0);
                           sessionStorage.setItem("lumos_nav_guide_seen", "1");
                         }}
-                        className={`relative px-3.5 sm:px-4 py-2 text-xs sm:text-sm font-semibold rounded-xl border border-white/20 text-white/85 hover:text-white hover:bg-white/10 transition-all duration-300 ${guideStep === 2 ? "ring-2 ring-cyan-300/80 bg-cyan-300/10" : ""}`}
+                        className={`relative px-3.5 sm:px-4 py-2 text-xs sm:text-sm font-semibold rounded-xl border border-border/70 bg-card/50 text-foreground hover:border-primary/35 hover:bg-card transition-all duration-300 dark:border-white/15 dark:bg-white/[0.05] ${guideStep === 2 ? "ring-2 ring-cyan-300/80 bg-cyan-300/10" : ""}`}
                         title={t("أنشئ حساب عميل جديد لمتابعة طلبات التسعير وتقدم المشروع", "Create a new client account to track pricing requests and project progress")}
                       >
                         {t("إنشاء حساب", "Sign Up")}
@@ -559,7 +588,7 @@ const EnhancedNavbar = () => {
 
                     <button
                       onClick={() => setShowGetStartedMenu(v => !v)}
-                      className="relative px-5 sm:px-6 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold text-background rounded-xl overflow-hidden group/cta transition-all duration-300 hover:shadow-[0_0_24px_hsla(150,100%,40%,0.35)] hover:scale-[1.03] active:scale-[0.97]"
+                      className="relative px-5 sm:px-6 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold text-primary-foreground rounded-xl overflow-hidden group/cta transition-all duration-300 hover:shadow-[0_0_24px_hsla(150,100%,40%,0.35)] hover:scale-[1.03] active:scale-[0.97]"
                       title={t("افتح قائمة البدء السريعة التي تعرض أسرع الخطوات الأولى", "Open the quick start menu with the fastest first actions")}
                     >
                       <span className="absolute inset-0 bg-gradient-to-r from-[hsl(150,100%,40%)] to-[hsl(160,70%,18%)]" />
@@ -572,26 +601,26 @@ const EnhancedNavbar = () => {
                     </button>
 
                     {showGetStartedMenu && (
-                      <div className="absolute top-[calc(100%+10px)] right-0 w-[240px] rounded-2xl border border-white/15 bg-[#0c1222]/95 backdrop-blur-xl p-2 shadow-2xl z-[70]">
+                      <div className="absolute top-[calc(100%+10px)] end-0 z-[70] w-[240px] rounded-2xl border border-border bg-card/95 p-2 text-card-foreground shadow-2xl backdrop-blur-xl">
                         <button
                           onClick={() => {
                             openPricingModal();
                             setShowGetStartedMenu(false);
                           }}
-                          className="w-full text-left px-3 py-2.5 rounded-xl text-sm font-semibold text-white/90 hover:bg-white/10 transition-all"
+                          className="w-full text-start px-3 py-2.5 rounded-xl text-sm font-semibold text-card-foreground hover:bg-muted transition-all"
                         >
                           {t("افتح خطط الأسعار", "Open Pricing Plans")}
-                          <span className="mt-1 block text-[11px] font-normal text-white/45">{t("كوّن باقة أو قارن الخطط أو أرسل طلب تسعير.", "Build a package, compare plans, or send a pricing request.")}</span>
+                          <span className="mt-1 block text-[11px] font-normal text-muted-foreground">{t("كوّن باقة أو قارن الخطط أو أرسل طلب تسعير.", "Build a package, compare plans, or send a pricing request.")}</span>
                         </button>
                         <button
                           onClick={() => {
                             scrollToSection("contact");
                             setShowGetStartedMenu(false);
                           }}
-                          className="w-full text-left px-3 py-2.5 rounded-xl text-sm font-semibold text-white/90 hover:bg-white/10 transition-all"
+                          className="w-full text-start px-3 py-2.5 rounded-xl text-sm font-semibold text-card-foreground hover:bg-muted transition-all"
                         >
                           {t("اذهب إلى نموذج التواصل", "Jump To Contact Form")}
-                          <span className="mt-1 block text-[11px] font-normal text-white/45">{t("استخدم هذا الخيار إذا كنت تعرف احتياجك بالفعل وتريد مراسلة الفريق مباشرة.", "Use this if you already know your case and want to message the team directly.")}</span>
+                          <span className="mt-1 block text-[11px] font-normal text-muted-foreground">{t("استخدم هذا الخيار إذا كنت تعرف احتياجك بالفعل وتريد مراسلة الفريق مباشرة.", "Use this if you already know your case and want to message the team directly.")}</span>
                         </button>
                       </div>
                     )}

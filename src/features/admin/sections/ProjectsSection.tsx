@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   AlertTriangle,
   BadgeCheck,
@@ -13,7 +13,6 @@ import {
   Palette,
   RefreshCw,
   Search,
-  Send,
   Trash2,
   Upload,
 } from 'lucide-react';
@@ -39,6 +38,18 @@ import {
   type ProjectServiceStatus,
 } from '@/services/projectService';
 import { IDENTITY_ASSET_CATEGORIES } from '@/services/clientIdentityService';
+import {
+  clientAssetPlacementLabels,
+  clientAssetStatusLabel,
+  getClientAssetPlacements,
+} from '@/services/clientAssetPlacement';
+import {
+  createClientNote,
+  fetchClientNotes,
+  type ClientNote,
+  type ClientNotePlacement,
+  type ClientNotePriority,
+} from '@/services/clientNotesService';
 import {
   EmptyState,
   SectionHeader,
@@ -513,7 +524,7 @@ function DeleteProjectDialog({
   );
 }
 
-type DrawerTab = 'summary' | 'services' | 'files' | 'messages' | 'client' | 'timeline' | 'notes';
+type DrawerTab = 'overview' | 'services' | 'files' | 'preview' | 'activity';
 
 function ProjectDrawer({
   project,
@@ -539,8 +550,26 @@ function ProjectDrawer({
   const { language } = useLanguage();
   const isAr = language === 'ar';
   const t = (ar: string, en: string) => (isAr ? ar : en);
-  const [tab, setTab] = useState<DrawerTab>('summary');
+  const [tab, setTab] = useState<DrawerTab>('overview');
   const [saving, setSaving] = useState(false);
+  const [openServiceId, setOpenServiceId] = useState<string | null>(null);
+  const [clientNotes, setClientNotes] = useState<ClientNote[]>([]);
+
+  useEffect(() => {
+    setTab('overview');
+    setOpenServiceId(null);
+    setClientNotes([]);
+    if (!project?.client_id) return;
+
+    let cancelled = false;
+    void fetchClientNotes(project.client_id).then((notes) => {
+      if (!cancelled) setClientNotes(notes);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [project?.client_id, project?.id]);
 
   if (!project) return null;
 
@@ -549,6 +578,11 @@ function ProjectDrawer({
   const activeService = currentService(project);
   const status = PROJECT_STATUS[project.status] ?? PROJECT_STATUS.active;
   const payment = PAYMENT_STATUS[project.payment_status] ?? PAYMENT_STATUS.unpaid;
+  const verifiedEnabled = Boolean(project.client_verified_badge && (project.project_started_at || project.started_at));
+  const linkedNotes = clientNotes.filter((note) => note.project_id === project.id || note.placement === 'both');
+  const selectedService = openServiceId
+    ? project.services.find((service) => service.id === openServiceId) ?? project.services[0] ?? null
+    : project.services[0] ?? null;
 
   const updateProjectField = async (updates: Parameters<typeof projectService.updateProject>[1]) => {
     if (!canEdit) return;
@@ -567,23 +601,26 @@ function ProjectDrawer({
   };
 
   const tabs: Array<{ id: DrawerTab; en: string; ar: string }> = [
-    { id: 'summary', en: 'Summary', ar: 'الملخص' },
+    { id: 'overview', en: 'Overview', ar: 'نظرة عامة' },
     { id: 'services', en: 'Services', ar: 'الخدمات' },
-    { id: 'files', en: 'Files', ar: 'الملفات' },
-    { id: 'messages', en: 'Messages', ar: 'الرسائل' },
-    { id: 'client', en: 'Client', ar: 'العميل' },
-    { id: 'timeline', en: 'Timeline', ar: 'الخط الزمني' },
-    { id: 'notes', en: 'Admin Notes', ar: 'ملاحظات الإدارة' },
+    { id: 'files', en: 'Files & Delivery', ar: 'الملفات والتسليم' },
+    { id: 'preview', en: 'Client Preview', ar: 'معاينة العميل' },
+    { id: 'activity', en: 'Activity', ar: 'النشاط' },
   ];
 
   return (
     <AdminDrawer
       open={!!project}
       onOpenChange={(open) => !open && onClose()}
-      title={project.project_name || project.package_name || t('مشروع', 'Project')}
-      subtitle={project.invoice_number || client?.email || ''}
+      title={project.project_name || project.package_name || t('غرفة المشروع', 'Project Room')}
+      subtitle={project.invoice_number ? `${t('غرفة المشروع', 'Project Room')} · ${project.invoice_number}` : t('غرفة المشروع', 'Project Room')}
       width="xl"
-      badge={<SoftBadge tone={status.tone}>{label(isAr, status)}</SoftBadge>}
+      badge={
+        <span className="inline-flex flex-wrap gap-2">
+          <SoftBadge tone={status.tone}>{label(isAr, status)}</SoftBadge>
+          {verifiedEnabled ? <SoftBadge tone="amber" icon={BadgeCheck}>{project.verified_badge_label || t('مشروع لوموس موثّق', 'Verified Lumos Project')}</SoftBadge> : null}
+        </span>
+      }
     >
       <div className="space-y-5">
         <SoftCard className="p-5">
@@ -626,16 +663,24 @@ function ProjectDrawer({
           ))}
         </div>
 
-        {tab === 'summary' && (
+        {tab === 'overview' && (
           <SoftCard className="p-5 space-y-4">
             <div className="grid gap-3 sm:grid-cols-2">
               <Field label={t('الباقة', 'Package')}>{project.package_name}</Field>
               <Field label={t('رقم الفاتورة', 'Invoice')}>{project.invoice_number}</Field>
-              <Field label={t('بدأ في', 'Started')}>{formatDate(project.started_at || project.created_at, isAr)}</Field>
+              <Field label={t('بدأ في', 'Started')}>{formatDate(project.project_started_at || project.started_at || project.created_at, isAr)}</Field>
               <Field label={t('التسليم المتوقع', 'Expected delivery')}>{formatDate(project.expected_delivery_at, isAr)}</Field>
               <Field label={t('المسؤول', 'Assigned')}>{assigned?.name || t('غير معين', 'Unassigned')}</Field>
               <Field label={t('المبلغ', 'Amount')}>
                 {project.total_amount ? `${new Intl.NumberFormat(isAr ? 'ar' : 'en').format(project.total_amount)} ${project.currency || 'EGP'}` : '—'}
+              </Field>
+              <Field label={t('الإجراء التالي', 'Next action')}>{activeService?.service_name || t('تحديد خدمة نشطة', 'Set an active service')}</Field>
+              <Field label={t('حالة العميل', 'Client action status')}>
+                {project.deliverables.some((asset) => getClientAssetPlacements(asset).appearsInActions)
+                  ? t('ينتظر مراجعة ملف', 'Waiting for file review')
+                  : linkedNotes.some((note) => !note.read_at)
+                    ? t('ينتظر قراءة ملاحظة', 'Waiting for note read')
+                    : t('لا يوجد إجراء مطلوب', 'No client action needed')}
               </Field>
             </div>
             <div className="grid gap-3 sm:grid-cols-3">
@@ -676,6 +721,36 @@ function ProjectDrawer({
                 className={inputCls}
               />
             </label>
+            <div className="grid gap-3 rounded-3xl bg-slate-50/80 p-4 ring-1 ring-slate-200 dark:bg-slate-900 dark:ring-white/10 sm:grid-cols-[1fr_auto] sm:items-center">
+              <div>
+                <p className="text-sm font-bold text-foreground">{t('شارة المشروع الموثق', 'Verified project badge')}</p>
+                <p className="mt-1 text-xs leading-5 text-slate-500">
+                  {t('تظهر للعميل فقط بعد بدء المشروع فعلياً.', 'Shown to the client only after the project is actually started.')}
+                </p>
+              </div>
+              <SoftButton
+                variant={verifiedEnabled ? 'soft' : 'outline'}
+                size="sm"
+                disabled={!canEdit || saving || (!project.started_at && !project.project_started_at && !project.created_at)}
+                onClick={() => void updateProjectField({
+                  client_verified_badge: !project.client_verified_badge,
+                  project_started_at: project.project_started_at || project.started_at || new Date().toISOString(),
+                  verified_badge_label: project.verified_badge_label || 'Verified Lumos Project',
+                })}
+              >
+                <BadgeCheck className="w-3.5 h-3.5" />
+                {verifiedEnabled ? t('إخفاء الشارة', 'Hide badge') : t('إظهار الشارة', 'Show badge')}
+              </SoftButton>
+            </div>
+            <ClientNoteComposer
+              project={project}
+              notes={linkedNotes}
+              canEdit={canEdit}
+              isAr={isAr}
+              onCreated={async () => {
+                if (project.client_id) setClientNotes(await fetchClientNotes(project.client_id));
+              }}
+            />
           </SoftCard>
         )}
 
@@ -688,90 +763,218 @@ function ProjectDrawer({
                 description={t('هذا المشروع لا يحتوي على خدمات مختارة بعد.', 'This project has no selected services yet.')}
               />
             ) : (
-              project.services.map((service) => (
-                <ServiceWorkroom
-                  key={service.id}
-                  service={service}
-                  project={project}
-                  teamMembers={teamMembers}
-                  canEdit={canEdit}
-                  canAssign={canAssign}
-                  canUpload={canUpload}
-                  isAr={isAr}
-                  onRefresh={onRefresh}
-                />
-              ))
+              <>
+                <SoftCard className="p-3">
+                  <div className="grid gap-2">
+                    {project.services.map((service) => {
+                      const cfg = SERVICE_STATUS[service.status] ?? SERVICE_STATUS.not_started;
+                      const active = (selectedService?.id ?? project.services[0]?.id) === service.id;
+                      return (
+                        <button
+                          key={service.id}
+                          type="button"
+                          onClick={() => setOpenServiceId(service.id)}
+                          className={`flex items-center justify-between gap-3 rounded-2xl px-3 py-2 text-left transition ${
+                            active ? 'bg-slate-900 text-white' : 'bg-white text-slate-700 ring-1 ring-slate-200 hover:ring-slate-300 dark:bg-slate-900 dark:text-slate-100 dark:ring-white/10'
+                          }`}
+                        >
+                          <span className="min-w-0">
+                            <span className="block truncate text-sm font-bold">{service.service_name}</span>
+                            <span className={`mt-0.5 block text-[11px] ${active ? 'text-white/70' : 'text-slate-500'}`}>{service.progress || 0}%</span>
+                          </span>
+                          <SoftBadge tone={cfg.tone}>{label(isAr, cfg)}</SoftBadge>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </SoftCard>
+                {selectedService ? (
+                  <ServiceWorkroom
+                    service={selectedService}
+                    project={project}
+                    teamMembers={teamMembers}
+                    canEdit={canEdit}
+                    canAssign={canAssign}
+                    canUpload={canUpload}
+                    isAr={isAr}
+                    onRefresh={onRefresh}
+                  />
+                ) : null}
+              </>
             )}
           </div>
         )}
 
         {tab === 'files' && (
           <FilesPanel
+            project={project}
+            services={project.services}
             files={project.deliverables}
             isAr={isAr}
             canEdit={canEdit}
+            canUpload={canUpload}
             onRefresh={onRefresh}
           />
         )}
 
-        {tab === 'messages' && (
-          <SoftCard className="p-5 space-y-3">
-            <p className="text-sm font-semibold text-foreground">
-              {t('تواصل مع العميل عن هذا المشروع', 'Message the client about this project')}
-            </p>
-            <p className="text-sm text-slate-500">
-              {t('المحادثات الحقيقية تبقى في قسم الرسائل حتى لا نكرر نظام رسائل جديد هنا.', 'Real conversations stay in Messages so project updates use the existing message system.')}
-            </p>
-            {project.client_id && onOpenMessages ? (
-              <SoftButton variant="primary" size="sm" onClick={() => onOpenMessages(project.client_id!)}>
-                <Send className="w-3.5 h-3.5" />
-                {t('فتح رسائل العميل', 'Open client messages')}
-              </SoftButton>
-            ) : null}
-          </SoftCard>
-        )}
-
-        {tab === 'client' && (
-          <SoftCard className="p-5 grid gap-3 sm:grid-cols-2">
-            <Field label={t('الشركة', 'Company')}>{client?.company_name}</Field>
-            <Field label={t('الاسم', 'Name')}>{client?.full_contact_name || client?.username}</Field>
-            <Field label={t('البريد', 'Email')}>{client?.email}</Field>
-            <Field label={t('الهاتف', 'Phone')}>{client?.phone || client?.phone_number}</Field>
-            <Field label={t('المجال', 'Industry')}>{client?.industry}</Field>
-            <Field label={t('الهوية', 'Identity')}>{client?.brand_feel}</Field>
-          </SoftCard>
-        )}
-
-        {tab === 'timeline' && (
-          <SoftCard className="p-5">
-            <ol className="relative border-l border-emerald-900/10 pl-5 space-y-4">
-              {[
-                { label: t('تم استلام الطلب', 'Request received'), done: true, date: project.created_at },
-                { label: t('بدأ المشروع', 'Project started'), done: Boolean(project.started_at), date: project.started_at },
-                { label: activeService ? activeService.service_name : t('تنفيذ الخدمات', 'Service execution'), done: Boolean(activeService), date: activeService?.updated_at },
-                { label: t('المراجعة', 'Review'), done: project.services.some((service) => service.status === 'review' || service.status === 'completed' || service.status === 'delivered') },
-                { label: t('التسليم', 'Delivery'), done: project.services.every((service) => service.status === 'delivered') && project.services.length > 0, date: project.completed_at },
-              ].map((item, index) => (
-                <li key={index} className="relative">
-                  <span className={`absolute -left-[7px] top-1 w-3 h-3 rounded-full ring-2 ring-white ${item.done ? 'bg-emerald-500' : 'bg-slate-300'}`} />
-                  <p className="text-sm font-semibold text-foreground">{item.label}</p>
-                  <p className="text-xs text-slate-500">{item.date ? formatDate(item.date, isAr) : t('بانتظار', 'Pending')}</p>
-                </li>
-              ))}
-            </ol>
-          </SoftCard>
-        )}
-
-        {tab === 'notes' && (
-          <NotesPanel
+        {tab === 'preview' && (
+          <ClientProjectPreview
             project={project}
-            canEdit={canEdit}
+            notes={linkedNotes}
             isAr={isAr}
-            onSave={updateProjectField}
+          />
+        )}
+
+        {tab === 'activity' && (
+          <ProjectActivityPanel
+            project={project}
+            notes={linkedNotes}
+            isAr={isAr}
+            onOpenMessages={project.client_id && onOpenMessages ? () => onOpenMessages(project.client_id!) : undefined}
           />
         )}
       </div>
     </AdminDrawer>
+  );
+}
+
+function ClientProjectPreview({
+  project,
+  notes,
+  isAr,
+}: {
+  project: Project;
+  notes: ClientNote[];
+  isAr: boolean;
+}) {
+  const t = (ar: string, en: string) => (isAr ? ar : en);
+  const projectFiles = project.deliverables.filter((asset) => getClientAssetPlacements(asset).appearsInProjectHub);
+  const actionFiles = project.deliverables.filter((asset) => getClientAssetPlacements(asset).appearsInActions);
+  const brandFiles = project.deliverables.filter((asset) => getClientAssetPlacements(asset).appearsInBrandKit);
+  const libraryFiles = project.deliverables.filter((asset) => getClientAssetPlacements(asset).appearsInFilesLibrary);
+
+  return (
+    <div className="space-y-4">
+      <SoftCard className="p-5">
+        <p className="text-sm font-bold text-foreground">{t('معاينة تجربة العميل', 'Client experience preview')}</p>
+        <p className="mt-1 text-xs text-slate-500">
+          {t('تستخدم نفس قواعد الظهور المستخدمة في بوابة العميل.', 'Uses the same placement rules as the client portal.')}
+        </p>
+      </SoftCard>
+      <div className="grid gap-4 lg:grid-cols-2">
+        <PreviewPane title={t('الرئيسية', 'Home')} count={notes.filter((note) => ['home', 'both'].includes(note.placement)).length + actionFiles.length}>
+          <p className="text-sm font-semibold text-foreground">{project.project_name || project.package_name || t('مشروع لوموس', 'Lumos project')}</p>
+          <p className="text-xs text-slate-500">{project.progress || 0}% · {currentService(project)?.service_name || t('قيد الإعداد', 'Setup')}</p>
+          {project.client_verified_badge ? <SoftBadge tone="amber" icon={BadgeCheck}>{project.verified_badge_label || t('موثّق', 'Verified')}</SoftBadge> : null}
+        </PreviewPane>
+        <PreviewPane title={t('مركز المشروع', 'Project Hub')} count={projectFiles.length}>
+          {projectFiles.slice(0, 3).map((asset) => (
+            <PreviewFileLine key={asset.id} asset={asset} />
+          ))}
+        </PreviewPane>
+        <PreviewPane title={t('الإجراءات', 'Actions')} count={actionFiles.length + notes.filter((note) => ['project', 'both'].includes(note.placement)).length}>
+          {[...actionFiles.slice(0, 2)].map((asset) => (
+            <PreviewFileLine key={asset.id} asset={asset} />
+          ))}
+          {notes.slice(0, 1).map((note) => <p key={note.id} className="text-xs text-slate-600">{note.title}</p>)}
+        </PreviewPane>
+        <PreviewPane title={t('حزمة الهوية', 'Brand Kit')} count={brandFiles.length}>
+          {brandFiles.slice(0, 3).map((asset) => (
+            <PreviewFileLine key={asset.id} asset={asset} />
+          ))}
+        </PreviewPane>
+        <PreviewPane title={t('مكتبة الملفات', 'Files Library')} count={libraryFiles.length}>
+          {libraryFiles.slice(0, 3).map((asset) => (
+            <PreviewFileLine key={asset.id} asset={asset} />
+          ))}
+        </PreviewPane>
+      </div>
+    </div>
+  );
+}
+
+function PreviewPane({ title, count, children }: { title: string; count: number; children: React.ReactNode }) {
+  return (
+    <SoftCard className="p-4">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <p className="text-sm font-bold text-foreground">{title}</p>
+        <SoftBadge tone="slate">{count}</SoftBadge>
+      </div>
+      <div className="min-h-16 space-y-2 rounded-2xl bg-white p-3 ring-1 ring-slate-200 dark:bg-slate-950 dark:ring-white/10">
+        {count === 0 ? <p className="text-xs text-slate-500">No visible items</p> : children}
+      </div>
+    </SoftCard>
+  );
+}
+
+function PreviewFileLine({ asset }: { asset: ProjectDeliverable }) {
+  return (
+    <div className="flex items-center gap-2 text-xs text-slate-600">
+      <FileIcon className="h-3.5 w-3.5 text-emerald-600" />
+      <span className="truncate">{asset.file_name}</span>
+      <span className="shrink-0 text-slate-400">{clientAssetStatusLabel(asset.deliverable_status)}</span>
+    </div>
+  );
+}
+
+function ProjectActivityPanel({
+  project,
+  notes,
+  isAr,
+  onOpenMessages,
+}: {
+  project: Project;
+  notes: ClientNote[];
+  isAr: boolean;
+  onOpenMessages?: () => void;
+}) {
+  const t = (ar: string, en: string) => (isAr ? ar : en);
+  const events = [
+    { label: t('تم إنشاء المشروع', 'Project created'), date: project.created_at, detail: project.invoice_number },
+    { label: t('بدأ المشروع', 'Project started'), date: project.project_started_at || project.started_at, detail: project.client_verified_badge ? t('شارة موثقة مفعلة', 'Verified badge enabled') : '' },
+    ...project.deliverables.map((asset) => ({
+      label: asset.client_visible ? t('تم إرسال ملف للعميل', 'File sent to client') : t('ملف داخلي', 'Admin-only file'),
+      date: asset.created_at || asset.uploaded_at,
+      detail: asset.file_name,
+    })),
+    ...notes.map((note) => ({
+      label: note.read_at ? t('قرأ العميل ملاحظة', 'Client read note') : t('تم إنشاء ملاحظة للعميل', 'Client note created'),
+      date: note.read_at || note.created_at,
+      detail: note.title,
+    })),
+  ].filter((item) => item.date).sort((a, b) => String(b.date).localeCompare(String(a.date))).slice(0, 12);
+
+  return (
+    <SoftCard className="p-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p className="text-sm font-bold text-foreground">{t('النشاط', 'Activity')}</p>
+          <p className="mt-1 text-xs text-slate-500">
+            {t('أحداث المشروع والملفات والملاحظات المرئية للعميل.', 'Project, file, and client-visible note events.')}
+          </p>
+        </div>
+        {onOpenMessages ? (
+          <SoftButton variant="outline" size="sm" onClick={onOpenMessages}>
+            <MessageSquare className="w-3.5 h-3.5" />
+            {t('فتح الرسائل', 'Open messages')}
+          </SoftButton>
+        ) : null}
+      </div>
+      <ol className="mt-5 space-y-3">
+        {events.length === 0 ? (
+          <p className="text-sm text-slate-500">{t('لا يوجد نشاط بعد.', 'No activity yet.')}</p>
+        ) : events.map((event, index) => (
+          <li key={`${event.label}-${index}`} className="flex gap-3 rounded-2xl bg-white p-3 ring-1 ring-slate-200 dark:bg-slate-900 dark:ring-white/10">
+            <span className="mt-1 h-2.5 w-2.5 rounded-full bg-emerald-500" />
+            <div>
+              <p className="text-sm font-semibold text-foreground">{event.label}</p>
+              {event.detail ? <p className="text-xs text-slate-500">{event.detail}</p> : null}
+              <p className="mt-1 text-[11px] text-slate-400">{formatDate(event.date, isAr)}</p>
+            </div>
+          </li>
+        ))}
+      </ol>
+    </SoftCard>
   );
 }
 
@@ -1059,35 +1262,368 @@ function ServiceFiles({
 }
 
 function FilesPanel({
+  project,
+  services,
   files,
   isAr,
   canEdit,
+  canUpload,
   onRefresh,
 }: {
+  project: Project;
+  services: ProjectService[];
   files: ProjectDeliverable[];
   isAr: boolean;
   canEdit: boolean;
+  canUpload: boolean;
   onRefresh: () => void | Promise<void>;
 }) {
   const t = (ar: string, en: string) => (isAr ? ar : en);
   return (
-    <SoftCard className="p-5 space-y-3">
-      <div className="flex items-center justify-between">
-        <p className="text-sm font-bold text-foreground">{t('مركز التحميل', 'Download Center')}</p>
-        <SoftBadge tone="slate">{files.length}</SoftBadge>
-      </div>
-      {files.length === 0 ? (
-        <p className="text-sm text-slate-500">
-          {t('ستظهر التسليمات هنا بعد رفعها من الخدمات.', 'Deliverables will appear here once uploaded from services.')}
-        </p>
-      ) : (
-        <div className="grid gap-2">
-          {files.map((file) => (
-            <DeliverableRow key={file.id} asset={file} isAr={isAr} canEdit={canEdit} onRefresh={onRefresh} />
-          ))}
+    <div className="space-y-4">
+      <SendToClientWizard
+        project={project}
+        services={services}
+        canUpload={canUpload}
+        isAr={isAr}
+        onRefresh={onRefresh}
+      />
+      <SoftCard className="p-5 space-y-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm font-bold text-foreground">{t('الملفات والتسليم', 'Files & Delivery')}</p>
+            <p className="mt-1 text-xs text-slate-500">
+              {t('كل صف يوضح أين سيظهر الملف للعميل.', 'Every row shows where the client will see the file.')}
+            </p>
+          </div>
+          <SoftBadge tone="slate">{files.length}</SoftBadge>
         </div>
-      )}
+        {files.length === 0 ? (
+          <p className="text-sm text-slate-500">
+            {t('ستظهر التسليمات هنا بعد رفعها من معالج الإرسال.', 'Deliverables will appear here after they are sent through the wizard.')}
+          </p>
+        ) : (
+          <div className="grid gap-2">
+            {files.map((file) => (
+              <DeliverableRow key={file.id} asset={file} isAr={isAr} canEdit={canEdit} onRefresh={onRefresh} />
+            ))}
+          </div>
+        )}
+      </SoftCard>
+    </div>
+  );
+}
+
+function SendToClientWizard({
+  project,
+  services,
+  canUpload,
+  isAr,
+  onRefresh,
+}: {
+  project: Project;
+  services: ProjectService[];
+  canUpload: boolean;
+  isAr: boolean;
+  onRefresh: () => void | Promise<void>;
+}) {
+  const t = (ar: string, en: string) => (isAr ? ar : en);
+  const [step, setStep] = useState(1);
+  const [file, setFile] = useState<File | null>(null);
+  const [fileName, setFileName] = useState('');
+  const [serviceId, setServiceId] = useState('');
+  const [version, setVersion] = useState('V1');
+  const [kind, setKind] = useState<'draft' | 'review' | 'final'>('review');
+  const [placements, setPlacements] = useState({
+    projectHub: true,
+    actionCenter: true,
+    brandKit: false,
+    filesLibrary: true,
+    adminOnly: false,
+  });
+  const [identityCategory, setIdentityCategory] = useState('logo_primary');
+  const [note, setNote] = useState('');
+  const [uploading, setUploading] = useState(false);
+
+  const selectedService = serviceId ? services.find((service) => service.id === serviceId) : null;
+  const clientVisible = !placements.adminOnly && (
+    placements.projectHub || placements.actionCenter || placements.brandKit || placements.filesLibrary
+  );
+  const previewAsset: ProjectDeliverable = {
+    id: 'preview',
+    client_id: project.client_id || '',
+    file_name: fileName || file?.name || t('ملف جديد', 'New file'),
+    file_type: file?.type || null,
+    file_size: file?.size || null,
+    category: placements.brandKit ? 'identity' : 'project_deliverable',
+    project_id: placements.projectHub ? project.id : project.id,
+    project_service_id: selectedService?.id || null,
+    deliverable_status: kind === 'final' ? 'delivered' : kind === 'review' ? 'ready_for_review' : 'draft',
+    is_identity_asset: placements.brandKit,
+    published_to_identity: placements.brandKit,
+    identity_category: placements.brandKit ? identityCategory : null,
+    client_visible: clientVisible,
+    visibility: clientVisible ? 'client' : 'admin_only',
+    is_downloadable: clientVisible,
+    placement_project_hub: placements.projectHub && !placements.adminOnly,
+    placement_action_center: placements.actionCenter && !placements.adminOnly,
+    placement_files_library: placements.filesLibrary && !placements.adminOnly,
+    placement_brand_kit: placements.brandKit && !placements.adminOnly,
+  };
+
+  const updatePlacement = (key: keyof typeof placements, value: boolean) => {
+    setPlacements((current) => {
+      if (key === 'adminOnly' && value) {
+        return { projectHub: false, actionCenter: false, brandKit: false, filesLibrary: false, adminOnly: true };
+      }
+      const next = { ...current, [key]: value, adminOnly: key === 'adminOnly' ? value : false };
+      if (key === 'brandKit' && value) {
+        next.filesLibrary = true;
+        if (kind !== 'final') setKind('final');
+      }
+      return next;
+    });
+  };
+
+  const upload = async () => {
+    if (!file || !project.client_id || uploading) return;
+    setUploading(true);
+    try {
+      const uploadFile = fileName.trim() && fileName.trim() !== file.name
+        ? new File([file], fileName.trim(), { type: file.type, lastModified: file.lastModified })
+        : file;
+      const result = await projectService.uploadProjectDeliverable({
+        projectId: project.id,
+        projectServiceId: selectedService?.id || null,
+        clientId: project.client_id,
+        file: uploadFile,
+        note: [version ? `Version: ${version}` : '', note].filter(Boolean).join('\n') || undefined,
+        clientVisible,
+        deliverableStatus: kind === 'final' ? 'delivered' : kind === 'review' ? 'ready_for_review' : 'draft',
+        publishToIdentity: placements.brandKit && clientVisible,
+        identityCategory: placements.brandKit ? identityCategory : null,
+        placementProjectHub: placements.projectHub && clientVisible,
+        placementActionCenter: placements.actionCenter && clientVisible,
+        placementFilesLibrary: placements.filesLibrary && clientVisible,
+        placementBrandKit: placements.brandKit && clientVisible,
+      });
+
+      if (!result.success) {
+        toast.error(result.error || t('تعذر إرسال الملف', 'Could not send file'));
+        return;
+      }
+
+      toast.success(clientVisible ? t('تم إرسال الملف للعميل', 'File sent to client') : t('تم حفظ الملف داخلياً', 'File saved as admin only'));
+      setFile(null);
+      setFileName('');
+      setServiceId('');
+      setVersion('V1');
+      setKind('review');
+      setPlacements({ projectHub: true, actionCenter: true, brandKit: false, filesLibrary: true, adminOnly: false });
+      setIdentityCategory('logo_primary');
+      setNote('');
+      setStep(1);
+      await onRefresh();
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  return (
+    <SoftCard className="p-5 space-y-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="text-sm font-bold text-foreground">{t('معالج الإرسال للعميل', 'Send to Client Wizard')}</p>
+          <p className="mt-1 text-xs text-slate-500">
+            {t('اختر الملف ومكان ظهوره قبل الإرسال.', 'Choose the file and exactly where it appears before sending.')}
+          </p>
+        </div>
+        <SoftBadge tone="emerald">{t(`خطوة ${step} من 3`, `Step ${step} of 3`)}</SoftBadge>
+      </div>
+
+      {step === 1 ? (
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className="block sm:col-span-2">
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1 block">
+              {t('الملف', 'File')}
+            </span>
+            <input
+              type="file"
+              disabled={!canUpload || uploading}
+              onChange={(event) => {
+                const nextFile = event.target.files?.[0] ?? null;
+                setFile(nextFile);
+                setFileName(nextFile?.name ?? '');
+              }}
+              className="h-10 w-full rounded-2xl border border-slate-200 bg-white px-3 text-sm"
+            />
+          </label>
+          <label className="block">
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1 block">{t('اسم الملف', 'File name')}</span>
+            <input value={fileName} disabled={!canUpload || uploading} onChange={(event) => setFileName(event.target.value)} className={inputCls} />
+          </label>
+          <SelectField
+            label={t('الخدمة المرتبطة', 'Related service')}
+            value={serviceId}
+            disabled={!canUpload || uploading}
+            onChange={setServiceId}
+            options={[
+              { value: '', label: t('عام للمشروع', 'General project file') },
+              ...services.map((service) => ({ value: service.id, label: service.service_name })),
+            ]}
+          />
+          <label className="block">
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1 block">{t('الإصدار', 'Version')}</span>
+            <input value={version} disabled={!canUpload || uploading} onChange={(event) => setVersion(event.target.value)} className={inputCls} />
+          </label>
+          <SelectField
+            label={t('النوع', 'Type')}
+            value={kind}
+            disabled={!canUpload || uploading}
+            onChange={(value) => setKind(value as typeof kind)}
+            options={[
+              { value: 'draft', label: t('مسودة', 'Draft') },
+              { value: 'review', label: t('مراجعة', 'Review') },
+              { value: 'final', label: t('نهائي', 'Final') },
+            ]}
+          />
+          <label className="block sm:col-span-2">
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1 block">{t('ملاحظة للعميل', 'Client note')}</span>
+            <textarea value={note} disabled={!canUpload || uploading} onChange={(event) => setNote(event.target.value)} rows={3} className={`${inputCls} h-auto py-2`} />
+          </label>
+        </div>
+      ) : null}
+
+      {step === 2 ? (
+        <div className="space-y-4">
+          <div className="grid gap-2 sm:grid-cols-2">
+            {[
+              ['projectHub', t('مركز المشروع', 'Project Hub')],
+              ['actionCenter', t('إجراءات العميل / يحتاج موافقة', 'Client Actions / Needs Approval')],
+              ['brandKit', t('حزمة الهوية', 'Brand Kit')],
+              ['filesLibrary', t('مكتبة الملفات', 'Files Library')],
+              ['adminOnly', t('إدارة فقط', 'Admin only')],
+            ].map(([key, text]) => (
+              <label key={key} className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-3 text-sm font-semibold text-slate-700">
+                <input
+                  type="checkbox"
+                  checked={Boolean(placements[key as keyof typeof placements])}
+                  onChange={(event) => updatePlacement(key as keyof typeof placements, event.target.checked)}
+                  disabled={!canUpload || uploading}
+                />
+                {text}
+              </label>
+            ))}
+          </div>
+          {placements.brandKit ? (
+            <SelectField
+              label={t('قسم حزمة الهوية', 'Brand Kit section')}
+              value={identityCategory}
+              disabled={!canUpload || uploading}
+              onChange={setIdentityCategory}
+              options={IDENTITY_ASSET_CATEGORIES.map((category) => ({ value: category.value, label: isAr ? category.labelAr : category.label }))}
+            />
+          ) : null}
+        </div>
+      ) : null}
+
+      {step === 3 ? (
+        <PlacementPreview
+          project={project}
+          service={selectedService}
+          asset={previewAsset}
+          isAr={isAr}
+        />
+      ) : null}
+
+      <div className="flex flex-wrap justify-between gap-2 border-t border-emerald-900/5 pt-4">
+        <SoftButton variant="ghost" size="sm" disabled={step === 1 || uploading} onClick={() => setStep((current) => Math.max(1, current - 1))}>
+          {t('رجوع', 'Back')}
+        </SoftButton>
+        <div className="flex gap-2">
+          {step < 3 ? (
+            <SoftButton variant="primary" size="sm" disabled={!canUpload || (step === 1 && !file)} onClick={() => setStep((current) => Math.min(3, current + 1))}>
+              {t('التالي', 'Next')}
+            </SoftButton>
+          ) : (
+            <SoftButton variant="primary" size="sm" disabled={!canUpload || !file || uploading || !project.client_id} onClick={() => void upload()}>
+              <Upload className="w-3.5 h-3.5" />
+              {uploading ? t('جارٍ الإرسال…', 'Sending…') : t('إرسال للعميل', 'Send to Client')}
+            </SoftButton>
+          )}
+        </div>
+      </div>
     </SoftCard>
+  );
+}
+
+function PlacementPreview({
+  project,
+  service,
+  asset,
+  isAr,
+}: {
+  project: Project;
+  service: ProjectService | null;
+  asset: ProjectDeliverable;
+  isAr: boolean;
+}) {
+  const t = (ar: string, en: string) => (isAr ? ar : en);
+  const placements = getClientAssetPlacements(asset);
+  const lines = [
+    placements.appearsInProjectHub ? `Profile -> Project Hub -> ${project.project_name || project.package_name || 'Project'} -> Project Files` : '',
+    placements.appearsInActions ? 'Profile -> Project Hub -> Actions -> Needs Review' : '',
+    placements.appearsInFilesLibrary ? 'Profile -> Files Library' : '',
+    placements.appearsInBrandKit ? `Profile -> Brand Kit -> ${asset.identity_category || 'Brand Assets'}` : '',
+  ].filter(Boolean);
+
+  return (
+    <div className="grid gap-4 lg:grid-cols-[1fr_0.9fr]">
+      <div className="rounded-3xl bg-white p-4 ring-1 ring-slate-200 dark:bg-slate-900 dark:ring-white/10">
+        <p className="text-xs font-bold uppercase tracking-wide text-emerald-700">{t('معاينة العميل', 'Client Preview')}</p>
+        <div className="mt-4 space-y-3">
+          <div className="rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-200">
+            <p className="text-xs font-semibold text-slate-500">{t('بطاقة الصفحة الرئيسية', 'Home card')}</p>
+            <p className="mt-1 text-sm font-bold text-slate-900">{asset.file_name}</p>
+            <p className="text-xs text-slate-500">{clientAssetStatusLabel(asset.deliverable_status)}</p>
+          </div>
+          {placements.appearsInProjectHub ? (
+            <div className="rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-200">
+              <p className="text-xs font-semibold text-slate-500">{t('ملفات المشروع', 'Project files')}</p>
+              <p className="mt-1 text-sm text-slate-900">{service?.service_name || t('ملف عام للمشروع', 'General project file')}</p>
+            </div>
+          ) : null}
+          {placements.appearsInBrandKit ? (
+            <div className="rounded-2xl bg-amber-50 p-3 ring-1 ring-amber-100">
+              <p className="text-xs font-semibold text-amber-700">{t('حزمة الهوية', 'Brand Kit')}</p>
+              <p className="mt-1 text-sm text-amber-950">{asset.identity_category || 'Brand Assets'}</p>
+            </div>
+          ) : null}
+        </div>
+      </div>
+
+      <div className="rounded-3xl bg-white p-4 ring-1 ring-slate-200 dark:bg-slate-900 dark:ring-white/10">
+        <p className="text-xs font-bold uppercase tracking-wide text-emerald-700">
+          {t('سيظهر للعميل في', 'Client will see this in')}
+        </p>
+        <div className="mt-4 space-y-2">
+          {lines.length === 0 ? (
+            <p className="text-sm text-slate-500">{t('لن يظهر للعميل. هذا ملف إدارة فقط.', 'Client will not see this. This is admin only.')}</p>
+          ) : (
+            lines.map((line) => (
+              <div key={line} className="flex gap-2 text-sm text-slate-700">
+                <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
+                <span>{line}</span>
+              </div>
+            ))
+          )}
+        </div>
+        <div className="mt-4 rounded-2xl bg-emerald-50 p-3 text-xs text-emerald-800 ring-1 ring-emerald-100">
+          <p>✓ {t('مركز الإشعارات', 'Notification Center')}</p>
+          <p>✓ {t('تيليجرام إذا كان مفعلاً', 'Telegram if enabled')}</p>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -1105,6 +1641,7 @@ function DeliverableRow({
   const t = (ar: string, en: string) => (isAr ? ar : en);
   const [identityCategory, setIdentityCategory] = useState(asset.identity_category || 'logo_primary');
   const [busy, setBusy] = useState(false);
+  const placementLabels = clientAssetPlacementLabels(asset);
 
   const open = async () => {
     const url = await getProjectAssetSignedUrl(asset);
@@ -1149,8 +1686,11 @@ function DeliverableRow({
       <div className="min-w-0 flex-1">
         <p className="text-sm font-semibold text-foreground truncate">{asset.file_name}</p>
         <p className="text-[11px] text-slate-500">
-          {asset.deliverable_status || 'draft'} · {asset.client_visible ? t('مرئي للعميل', 'Client visible') : t('داخلي', 'Internal')}
+          {clientAssetStatusLabel(asset.deliverable_status) || 'Draft'} · {asset.client_visible ? t('مرئي للعميل', 'Client visible') : t('داخلي', 'Internal')}
           {asset.published_to_identity ? ` · ${t('في الهوية', 'In Identity')}` : ''}
+        </p>
+        <p className="mt-1 text-[11px] text-slate-500">
+          {t('يظهر في: ', 'Appears in: ')}{placementLabels.join(' · ')}
         </p>
       </div>
       <div className="flex flex-wrap gap-2">
@@ -1180,6 +1720,148 @@ function DeliverableRow({
           </>
         ) : null}
       </div>
+    </div>
+  );
+}
+
+function ClientNoteComposer({
+  project,
+  notes,
+  canEdit,
+  isAr,
+  onCreated,
+}: {
+  project: Project;
+  notes: ClientNote[];
+  canEdit: boolean;
+  isAr: boolean;
+  onCreated: () => void | Promise<void>;
+}) {
+  const t = (ar: string, en: string) => (isAr ? ar : en);
+  const [title, setTitle] = useState('');
+  const [body, setBody] = useState('');
+  const [priority, setPriority] = useState<ClientNotePriority>('important');
+  const [placement, setPlacement] = useState<ClientNotePlacement>('both');
+  const [active, setActive] = useState(true);
+  const [dismissible, setDismissible] = useState(true);
+  const [expiresAt, setExpiresAt] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const submit = async () => {
+    if (!project.client_id || !title.trim() || !body.trim() || saving) return;
+    setSaving(true);
+    try {
+      const result = await createClientNote({
+        clientId: project.client_id,
+        projectId: placement === 'home' ? null : project.id,
+        title,
+        body,
+        priority,
+        placement,
+        isActive: active,
+        isDismissible: dismissible,
+        expiresAt: expiresAt ? new Date(expiresAt).toISOString() : null,
+      });
+
+      if (!result.success) {
+        toast.error(result.error || t('تعذر إنشاء الملاحظة', 'Could not create note'));
+        return;
+      }
+
+      toast.success(t('تم إرسال الملاحظة للعميل', 'Client note sent'));
+      if (result.telegramError) {
+        toast.warning(t('تم حفظ الملاحظة لكن إشعار تيليجرام لم يؤكد الإرسال.', 'Note saved, but Telegram did not confirm delivery.'));
+      }
+      setTitle('');
+      setBody('');
+      setPriority('important');
+      setPlacement('both');
+      setActive(true);
+      setDismissible(true);
+      setExpiresAt('');
+      await onCreated();
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="rounded-3xl bg-white p-4 ring-1 ring-slate-200 dark:bg-slate-900 dark:ring-white/10">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p className="text-sm font-bold text-foreground">{t('ملاحظة مثبتة للعميل', 'Pinned client note')}</p>
+          <p className="mt-1 text-xs text-slate-500">
+            {t('منفصلة عن الملاحظات الإدارية الداخلية وتظهر للعميل فقط.', 'Separate from internal admin notes and visible to the client.')}
+          </p>
+        </div>
+        <SoftBadge tone="slate">{notes.length}</SoftBadge>
+      </div>
+
+      {notes.length > 0 ? (
+        <div className="mt-4 grid gap-2">
+          {notes.slice(0, 2).map((note) => (
+            <div key={note.id} className="rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-200 dark:bg-slate-950 dark:ring-white/10">
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="text-sm font-semibold text-foreground">{note.title}</p>
+                <SoftBadge tone={note.priority === 'urgent' ? 'rose' : note.priority === 'important' ? 'amber' : 'slate'}>
+                  {note.priority}
+                </SoftBadge>
+                {note.read_at ? <SoftBadge tone="emerald">{t('مقروءة', 'Read')}</SoftBadge> : null}
+              </div>
+              <p className="mt-1 line-clamp-2 text-xs text-slate-500">{note.body}</p>
+            </div>
+          ))}
+        </div>
+      ) : null}
+
+      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        <label className="block">
+          <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1 block">{t('العنوان', 'Title')}</span>
+          <input value={title} disabled={!canEdit || saving} onChange={(event) => setTitle(event.target.value)} className={inputCls} />
+        </label>
+        <SelectField
+          label={t('الأولوية', 'Priority')}
+          value={priority}
+          disabled={!canEdit || saving}
+          onChange={(value) => setPriority(value as ClientNotePriority)}
+          options={[
+            { value: 'normal', label: t('عادي', 'Normal') },
+            { value: 'important', label: t('مهم', 'Important') },
+            { value: 'urgent', label: t('عاجل', 'Urgent') },
+          ]}
+        />
+        <SelectField
+          label={t('المكان', 'Placement')}
+          value={placement}
+          disabled={!canEdit || saving}
+          onChange={(value) => setPlacement(value as ClientNotePlacement)}
+          options={[
+            { value: 'home', label: t('الرئيسية', 'Client Home') },
+            { value: 'project', label: t('هذا المشروع', 'Specific Project') },
+            { value: 'both', label: t('كلاهما', 'Both') },
+          ]}
+        />
+        <label className="block">
+          <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1 block">{t('انتهاء اختياري', 'Optional expiry')}</span>
+          <input type="date" value={expiresAt} disabled={!canEdit || saving} onChange={(event) => setExpiresAt(event.target.value)} className={inputCls} />
+        </label>
+        <label className="flex items-center gap-2 text-sm font-semibold text-slate-600">
+          <input type="checkbox" checked={active} disabled={!canEdit || saving} onChange={(event) => setActive(event.target.checked)} />
+          {t('نشطة', 'Active')}
+        </label>
+        <label className="flex items-center gap-2 text-sm font-semibold text-slate-600">
+          <input type="checkbox" checked={dismissible} disabled={!canEdit || saving} onChange={(event) => setDismissible(event.target.checked)} />
+          {t('يمكن للعميل تحديدها كمقروءة', 'Client can mark as read')}
+        </label>
+        <label className="block sm:col-span-2">
+          <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1 block">{t('النص', 'Body')}</span>
+          <textarea value={body} disabled={!canEdit || saving} onChange={(event) => setBody(event.target.value)} rows={3} className={`${inputCls} h-auto py-2`} />
+        </label>
+      </div>
+      <SoftButton variant="primary" size="sm" disabled={!canEdit || saving || !title.trim() || !body.trim() || !project.client_id} onClick={() => void submit()} className="mt-4">
+        <MessageSquare className="w-3.5 h-3.5" />
+        {saving ? t('جارٍ الإرسال…', 'Sending…') : t('إرسال ملاحظة', 'Send note')}
+      </SoftButton>
     </div>
   );
 }

@@ -29,6 +29,7 @@ import {
 } from "lucide-react";
 import { useIsAuthenticated, useIsAdmin, useAuthActions } from "@/context/AuthContext";
 import { useLanguage } from "@/context/LanguageContext";
+import { useAppearance } from "@/context/AppearanceContext";
 
 type DockTheme = "dark" | "light";
 
@@ -160,13 +161,14 @@ const FloatingDock = () => {
     const isAdmin = useIsAdmin();
     const { logout } = useAuthActions();
     const { isArabic, t } = useLanguage();
+    const { theme } = useAppearance();
 
     const isHomePage = location.pathname === "/";
     const isDashboard = location.pathname === "/lumos-admin";
     const isClientProfile = location.pathname === "/profile";
     const isAdminProfile = location.pathname === "/lumos-admin";
     const isProfile = isAdminProfile || isClientProfile;
-    const dockTheme: DockTheme = isProfile ? "light" : "dark";
+    const dockTheme: DockTheme = isProfile || theme === "light" ? "light" : "dark";
 
     const [showGetStartedMenu, setShowGetStartedMenu] = useState(false);
     const [guideStep, setGuideStep] = useState<0 | 1 | 2>(0);

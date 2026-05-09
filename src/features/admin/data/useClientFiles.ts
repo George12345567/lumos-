@@ -21,6 +21,11 @@ export interface AdminClientFile {
   sort_order?: number | null;
   is_downloadable?: boolean | null;
   visibility?: 'client' | 'admin_only' | string | null;
+  client_visible?: boolean | null;
+  placement_project_hub?: boolean | null;
+  placement_action_center?: boolean | null;
+  placement_files_library?: boolean | null;
+  placement_brand_kit?: boolean | null;
   /** Confirmed column. */
   created_at?: string | null;
   /** Optional/legacy column on older schemas. */

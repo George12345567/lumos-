@@ -3,13 +3,15 @@ import { Sparkles, ArrowRight, LogIn } from "lucide-react";
 import { Link } from 'react-router-dom';
 import { useIsAuthenticated, useIsAdmin } from '@/context/AuthContext';
 import { useLanguage } from '@/context/LanguageContext';
-import { TeamModal } from '@/features/team';
 
-const TypewriterHero = () => {
+type TypewriterHeroProps = {
+    onOpenTeam?: () => void;
+};
+
+const TypewriterHero = ({ onOpenTeam }: TypewriterHeroProps) => {
     const isAuthenticated = useIsAuthenticated();
     const isAdmin = useIsAdmin();
     const { isArabic, t } = useLanguage();
-    const [teamOpen, setTeamOpen] = useState(false);
     const words = useMemo(() => (isArabic ? ["براندات", "مواقع", "متاجر", "منصات"] : ["Brands", "Websites", "Stores", "Platforms"]), [isArabic]);
     const [currentWordIndex, setCurrentWordIndex] = useState(0);
     const [currentText, setCurrentText] = useState("");
@@ -50,7 +52,25 @@ const TypewriterHero = () => {
             opacity: 0.4 + Math.random() * 0.6,
         }));
 
-        return { smallStars, mediumStars, largeStars };
+        const shootingStars = Array.from({ length: isMobile ? 1 : 2 }, (_, i) => ({
+            id: `shooting-${i}`,
+            delay: i * 3,
+            duration: 6 + i * 1.5,
+            startX: 15 + i * 25,
+            startY: 5 + i * 20,
+            rotation: -45 + i * 12,
+        }));
+
+        const floatingParticles = Array.from({ length: isMobile ? 4 : 6 }, (_, i) => ({
+            id: `particle-${i}`,
+            size: Math.random() * 3 + 1,
+            duration: 8 + Math.random() * 4,
+            delay: Math.random() * 5,
+            startX: Math.random() * 100,
+            startY: 100 + Math.random() * 20,
+        }));
+
+        return { smallStars, mediumStars, largeStars, shootingStars, floatingParticles };
     }, []);
 
     // Mouse parallax effect (skip on mobile/touch devices and reduced-motion)
@@ -180,19 +200,14 @@ const TypewriterHero = () => {
                 ))}
 
                 {/* Shooting Stars - Enhanced */}
-                {[...Array(2)].map((_, i) => {
-                    const delay = i * 3;
-                    const duration = 6 + i * 1.5;
-                    const startX = 15 + i * 25;
-                    const startY = 5 + i * 20;
-
+                {starsData.shootingStars.map((star) => {
                     return (
                         <div
-                            key={`shooting-${i}`}
+                            key={star.id}
                             className="absolute"
                             style={{
-                                left: `${startX}%`,
-                                top: `${startY}%`,
+                                left: `${star.startX}%`,
+                                top: `${star.startY}%`,
                                 width: '3px',
                                 height: '120px',
                                 background: `linear-gradient(to bottom, 
@@ -203,9 +218,9 @@ const TypewriterHero = () => {
                   rgba(0, 188, 212, 0.3) 80%,
                   transparent 100%
                 )`,
-                                transform: `rotate(${-45 + i * 12}deg)`,
-                                animation: `shootingStar ${duration}s cubic-bezier(0.4, 0, 0.2, 1) infinite`,
-                                animationDelay: `${delay}s`,
+                                transform: `rotate(${star.rotation}deg)`,
+                                animation: `shootingStar ${star.duration}s cubic-bezier(0.4, 0, 0.2, 1) infinite`,
+                                animationDelay: `${star.delay}s`,
                                 filter: 'blur(1.5px)',
                                 willChange: 'transform, opacity',
                             }}
@@ -214,25 +229,19 @@ const TypewriterHero = () => {
                 })}
 
                 {/* Floating Light Particles */}
-                {[...Array(8)].map((_, i) => {
-                    const size = Math.random() * 3 + 1;
-                    const duration = 8 + Math.random() * 4;
-                    const delay = Math.random() * 5;
-                    const startX = Math.random() * 100;
-                    const startY = 100 + Math.random() * 20;
-
+                {starsData.floatingParticles.map((particle) => {
                     return (
                         <div
-                            key={`particle-${i}`}
+                            key={particle.id}
                             className="absolute rounded-full bg-cyan-400"
                             style={{
-                                left: `${startX}%`,
-                                top: `${startY}%`,
-                                width: `${size}px`,
-                                height: `${size}px`,
-                                boxShadow: `0 0 ${size * 4}px rgba(0, 188, 212, 0.8), 0 0 ${size * 8}px rgba(0, 188, 212, 0.4)`,
-                                animation: `floatUp ${duration}s cubic-bezier(0.4, 0, 0.2, 1) infinite`,
-                                animationDelay: `${delay}s`,
+                                left: `${particle.startX}%`,
+                                top: `${particle.startY}%`,
+                                width: `${particle.size}px`,
+                                height: `${particle.size}px`,
+                                boxShadow: `0 0 ${particle.size * 4}px rgba(0, 188, 212, 0.8), 0 0 ${particle.size * 8}px rgba(0, 188, 212, 0.4)`,
+                                animation: `floatUp ${particle.duration}s cubic-bezier(0.4, 0, 0.2, 1) infinite`,
+                                animationDelay: `${particle.delay}s`,
                                 opacity: 0.6,
                                 willChange: 'transform, opacity',
                             }}
@@ -241,11 +250,11 @@ const TypewriterHero = () => {
                 })}
             </div>
 
-            {/* Background Pattern - Gradient Orbs */}
+            {/* Background atmosphere */}
             <div className="absolute inset-0 opacity-40 pointer-events-none">
-                <div className="absolute top-10 left-20 w-64 h-64 bg-primary/15 rounded-full blur-3xl animate-orb"></div>
-                <div className="absolute bottom-10 right-24 w-80 h-80 bg-primary/10 rounded-full blur-3xl animate-orb-delayed"></div>
-                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-cyan-500/5 rounded-full blur-3xl animate-pulse"></div>
+                <div className="absolute top-10 start-20 w-64 h-64 bg-primary/15 rounded-full blur-3xl"></div>
+                <div className="absolute bottom-10 end-24 w-80 h-80 bg-primary/10 rounded-full blur-3xl"></div>
+                <div className="absolute top-1/2 start-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-cyan-500/5 rounded-full blur-3xl"></div>
             </div>
             {/* Smooth transition gradient to next section */}
             <div className="absolute inset-x-0 bottom-0 h-48 bg-gradient-to-b from-transparent via-background/50 to-background pointer-events-none"></div>
@@ -346,9 +355,10 @@ const TypewriterHero = () => {
 
                 {/* Team signature — subtle portfolio-style trigger */}
                 <button
-                    onClick={() => setTeamOpen(true)}
+                    onClick={onOpenTeam}
                     className="group mx-auto flex items-center gap-3 opacity-25 hover:opacity-80 transition-all duration-500 cursor-pointer select-none"
                     title={t('تعرف على الفريق', 'Meet the team')}
+                    type="button"
                 >
                     {/* Overlapping avatars */}
                     <div className="flex items-center">
@@ -361,9 +371,11 @@ const TypewriterHero = () => {
                                 key={src}
                                 src={src}
                                 alt=""
+                                loading="lazy"
+                                decoding="async"
                                 className="w-6 h-6 rounded-full border border-background/60 object-cover object-top group-hover:scale-110 transition-transform duration-300"
                                 style={{
-                                    marginLeft: i === 0 ? 0 : '-8px',
+                                    marginInlineStart: i === 0 ? 0 : '-8px',
                                     zIndex: z,
                                     transitionDelay: `${i * 40}ms`,
                                 }}
@@ -382,7 +394,6 @@ const TypewriterHero = () => {
                     </span>
                 </button>
 
-                <TeamModal open={teamOpen} onClose={() => setTeamOpen(false)} />
             </div>
 
 
@@ -391,4 +402,3 @@ const TypewriterHero = () => {
 };
 
 export default TypewriterHero;
-
