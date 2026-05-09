@@ -1,156 +1,215 @@
-import { CheckCircle2, Lightbulb, Rocket, Search, Sparkles } from "lucide-react";
+import { Search, Lightbulb, Rocket, CheckCircle2 } from "lucide-react";
 import { useLanguage } from "@/context/LanguageContext";
+import { motion, AnimatePresence } from "framer-motion";
+import { useState } from "react";
 
 const ProcessTimeline = () => {
   const { isArabic, t } = useLanguage();
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
 
   const steps = [
     {
-      icon: <Search className="h-8 w-8" />,
-      title: {
-        ar: "الاكتشاف والتحليل",
-        en: "Discovery & Audit",
-      },
-      description: {
-        ar: "نبدأ بفهم نشاطك، أهدافك، وجمهورك، ثم نراجع وضعك الرقمي الحالي لاكتشاف نقاط القوة والفرص.",
-        en: "We start by understanding your business, goals, and audience, then audit your current digital presence to uncover strengths and opportunities.",
-      },
-      deliverable: {
-        ar: "ملخص تشخيصي واضح",
-        en: "Clear Audit Snapshot",
-      },
+      icon: Search,
+      title: { ar: "استخبارات الأعمال", en: "Discovery" },
+      desc: { ar: "تحليل دقيق للبيانات والفرص لاكتشاف المسار الأمثل لعلامتك.", en: "Rigorous data analysis to uncover hidden potential and optimal paths." },
+      number: "01",
+      accent: "from-blue-500/20 to-cyan-500/20"
     },
     {
-      icon: <Lightbulb className="h-8 w-8" />,
-      title: {
-        ar: "بناء الاستراتيجية",
-        en: "Strategy Blueprint",
-      },
-      description: {
-        ar: "نحوّل الأفكار إلى خطة عملية تشمل الأولويات، الرسائل، القنوات، والجدول الزمني المناسب للتنفيذ.",
-        en: "We turn ideas into an actionable plan covering priorities, messaging, channels, and a realistic execution timeline.",
-      },
-      deliverable: {
-        ar: "خارطة طريق تنفيذية",
-        en: "Execution Roadmap",
-      },
+      icon: Lightbulb,
+      title: { ar: "بناء الاستراتيجية", en: "Strategy" },
+      desc: { ar: "تصميم مخطط معماري رقمي يدمج الرؤية مع التكنولوجيا لبناء أساس صلب.", en: "Architecting a blueprint that aligns vision with uncompromising technical precision." },
+      number: "02",
+      accent: "from-purple-500/20 to-pink-500/20"
     },
     {
-      icon: <Rocket className="h-8 w-8" />,
-      title: {
-        ar: "التنفيذ والإنتاج",
-        en: "Build & Execute",
-      },
-      description: {
-        ar: "ننفذ التصميم والمحتوى والتطوير وفق الخطة، مع متابعة دقيقة للجودة والاتساق في كل مرحلة.",
-        en: "We execute design, content, and development according to plan, with strict quality control and consistency at every stage.",
-      },
-      deliverable: {
-        ar: "نسخة جاهزة للمراجعة",
-        en: "Review-Ready Delivery",
-      },
+      icon: Rocket,
+      title: { ar: "التطوير الذكي", en: "Execution" },
+      desc: { ar: "تحويل الأفكار إلى واقع ببرمجيات وتصاميم فائقة الأداء.", en: "Forging ideas into reality with high-performance code and pixel-perfect design." },
+      number: "03",
+      accent: "from-orange-500/20 to-red-500/20"
     },
     {
-      icon: <CheckCircle2 className="h-8 w-8" />,
-      title: {
-        ar: "الإطلاق والتحسين",
-        en: "Launch & Optimize",
-      },
-      description: {
-        ar: "نطلق المشروع بثقة، نقيس النتائج، ونطبق تحسينات مستمرة لضمان نمو مستدام وعائد أفضل.",
-        en: "We launch with confidence, track performance, and apply continuous improvements to ensure sustainable growth and better returns.",
-      },
-      deliverable: {
-        ar: "خطة تطوير مستمرة",
-        en: "Continuous Growth Plan",
-      },
+      icon: CheckCircle2,
+      title: { ar: "الإطلاق والنمو", en: "Scale" },
+      desc: { ar: "إطلاق واثق متبوع بتحسين مستمر لضمان أعلى عائد استثماري ممكن.", en: "Confident deployment followed by continuous optimization for maximum sustainable ROI." },
+      number: "04",
+      accent: "from-emerald-500/20 to-teal-500/20"
     },
   ];
 
   return (
-    <section className="relative overflow-hidden px-4 py-14 sm:px-6 sm:py-20 md:py-24">
-      <style>{`
-        @keyframes launch-path {
-          0%, 100% { opacity: 0.35; background-position: 0% 50%; }
-          50% { opacity: 0.95; background-position: 100% 50%; }
-        }
-        @media (prefers-reduced-motion: reduce) {
-          .launch-path-line { animation: none !important; }
-        }
-      `}</style>
+    <section className="bg-background py-24 sm:py-32 overflow-hidden relative">
+      {/* Very subtle ambient background */}
+      <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_top_right,hsl(var(--primary)/0.03),transparent_50%)]" />
 
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,hsl(var(--primary)/0.10),transparent_48%),radial-gradient(circle_at_bottom,hsl(var(--secondary)/0.12),transparent_54%)]" />
-
-      <div className="container relative mx-auto max-w-7xl" dir={isArabic ? "rtl" : "ltr"}>
-        <div className="mx-auto mb-12 max-w-3xl text-center reveal">
-          <span className="mb-4 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary sm:text-sm">
-            <Sparkles className="h-3.5 w-3.5" />
-            {t("مسار الإطلاق", "Launch Path")}
-          </span>
-          <h2 className="text-3xl font-bold leading-tight text-foreground sm:text-4xl md:text-5xl">
-            {t("آلية", "Our")} <span className="text-primary">{t("العمل", "Process")}</span>
-          </h2>
-          <p className="mx-auto mt-4 max-w-2xl text-sm leading-7 text-muted-foreground sm:text-base lg:text-lg">
-            {t(
-              "من التشخيص إلى الإطلاق: مسار واضح يحوّل فكرتك إلى نتائج قابلة للقياس.",
-              "From audit to launch: a clear workflow that turns your idea into measurable results."
-            )}
-          </p>
-        </div>
-
-        <div className="relative">
-          <div
-            className="launch-path-line pointer-events-none absolute inset-x-[8%] top-[4.4rem] hidden h-[3px] rounded-full bg-[linear-gradient(90deg,transparent,hsl(var(--primary)/0.25),hsl(var(--primary)/0.9),hsl(var(--primary)/0.25),transparent)] bg-[length:220%_100%] xl:block"
-            style={{ animation: "launch-path 5.5s ease-in-out infinite" }}
-          />
-
-          <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
-            {steps.map((step, index) => (
-              <article key={step.title.en} className="reveal group relative">
-                <div className="absolute start-7 top-16 bottom-[-1.25rem] w-px bg-gradient-to-b from-primary/40 to-transparent sm:hidden" />
-                <div className="relative h-full overflow-hidden rounded-3xl border border-border/70 bg-card/75 p-5 shadow-sm backdrop-blur transition duration-300 hover:-translate-y-1 hover:border-primary/35 hover:shadow-xl hover:shadow-primary/10 sm:p-6">
-                  <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-transparent opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
-
-                  <div className="relative z-10 mb-5 flex items-center justify-between gap-4">
-                    <div className="flex items-center gap-3">
-                      <span className="flex h-14 w-14 items-center justify-center rounded-2xl border border-primary/25 bg-primary/10 text-primary shadow-[0_0_24px_hsl(var(--primary)/0.12)] transition-transform duration-300 group-hover:rotate-3 group-hover:scale-105">
-                        {step.icon}
-                      </span>
-                      <span className="font-mono text-xs font-bold uppercase tracking-[0.24em] text-primary/70">
-                        {String(index + 1).padStart(2, "0")}
-                      </span>
-                    </div>
-                    <span className="hidden h-2 w-2 rounded-full bg-primary shadow-[0_0_16px_hsl(var(--primary))] xl:block" />
-                  </div>
-
-                  <div className="relative z-10 text-start">
-                    <h3 className="text-lg font-bold text-foreground sm:text-xl">
-                      {t(step.title.ar, step.title.en)}
-                    </h3>
-                    <p className="mt-3 text-sm leading-7 text-muted-foreground">
-                      {t(step.description.ar, step.description.en)}
-                    </p>
-                    <div className="mt-5 overflow-hidden rounded-2xl border border-primary/20 bg-primary/5 p-3 transition duration-300 group-hover:bg-primary/10">
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-primary/75">
-                        {t("المخرج", "Deliverable")}
-                      </p>
-                      <p className="mt-1 text-sm font-semibold text-foreground">
-                        {t(step.deliverable.ar, step.deliverable.en)}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </article>
-            ))}
+      <div className="container mx-auto px-4 max-w-7xl relative z-10" dir={isArabic ? "rtl" : "ltr"}>
+        
+        {/* Header - Editorial Style */}
+        <div className="mb-24 text-center md:text-start md:flex md:items-end md:justify-between">
+          <div className="max-w-2xl">
+            <h2 className="text-4xl font-extrabold tracking-tight text-foreground sm:text-5xl md:text-6xl lg:text-7xl mb-6">
+              {t("مسار", "The ")} 
+              <span className="text-primary italic font-serif mx-2 relative inline-block">
+                {t("العمل", "Process")}
+                <span className="absolute -bottom-2 left-0 w-full h-[2px] bg-primary/30 rounded-full" />
+              </span>
+            </h2>
+            <p className="text-base text-muted-foreground md:text-lg md:leading-relaxed max-w-lg font-medium">
+              {t(
+                "منهجية مبسطة تحول الأفكار المعقدة إلى نتائج رقمية استثنائية.",
+                "A simplified methodology transforming complex ideas into exceptional digital results."
+              )}
+            </p>
           </div>
         </div>
 
-        <p className="mx-auto mt-9 max-w-2xl text-center text-xs leading-6 text-muted-foreground/90 sm:text-sm reveal">
-          {t(
-            "كل مرحلة لها مخرجات واضحة قبل الانتقال للمرحلة التالية لضمان جودة أعلى وسرعة قرار أفضل.",
-            "Each phase has a clear output before moving forward, ensuring higher quality and faster decisions."
-          )}
-        </p>
+        {/* The Accordion Layout */}
+        <div className="flex flex-col md:flex-row h-auto md:h-[600px] w-full gap-4 lg:gap-6">
+          {steps.map((step, index) => {
+            const Icon = step.icon;
+            const isHovered = hoveredIndex === index;
+            // On desktop, the first one is open by default if nothing is hovered
+            const isActive = hoveredIndex === null ? index === 0 : isHovered;
+
+            return (
+              <motion.div
+                key={step.number}
+                onMouseEnter={() => setHoveredIndex(index)}
+                onMouseLeave={() => setHoveredIndex(null)}
+                animate={{
+                  flex: isActive ? (typeof window !== "undefined" && window.innerWidth >= 768 ? 3.5 : 1) : 1,
+                }}
+                transition={{ duration: 0.7, type: "spring", bounce: 0.15 }}
+                className={`relative overflow-hidden rounded-[2.5rem] cursor-pointer group transition-colors duration-500 ${
+                  isActive ? "bg-card border-transparent shadow-xl shadow-primary/5" : "bg-muted/30 border border-border/40 hover:bg-muted/60"
+                }`}
+                style={{ minHeight: "140px" }}
+              >
+                {/* Active Panel Gradient Blob (Subtle) */}
+                <AnimatePresence>
+                  {isActive && (
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.8 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.8 }}
+                      transition={{ duration: 0.8 }}
+                      className={`absolute -top-32 ${isArabic ? '-left-32' : '-right-32'} w-96 h-96 bg-gradient-to-br ${step.accent} rounded-full blur-[100px] pointer-events-none opacity-60`}
+                    />
+                  )}
+                </AnimatePresence>
+
+                {/* Massive Watermark Number */}
+                <div className={`absolute ${isArabic ? '-left-8' : '-right-8'} -bottom-10 pointer-events-none transition-opacity duration-700 ${isActive ? 'opacity-100' : 'opacity-0'}`}>
+                   <span className="text-[16rem] font-black leading-none text-primary/[0.03] select-none">
+                     {step.number}
+                   </span>
+                </div>
+
+                {/* Mobile Layout (Standard stack) */}
+                <div className="md:hidden p-6 sm:p-8 h-full flex flex-col justify-center relative z-10">
+                  <div className="flex items-center gap-5 mb-4">
+                    <div className={`flex items-center justify-center w-12 h-12 rounded-2xl transition-all duration-300 ${isActive ? 'bg-primary/10 text-primary' : 'bg-background text-muted-foreground shadow-sm'}`}>
+                      <Icon className="w-6 h-6" />
+                    </div>
+                    <h3 className={`text-2xl font-bold tracking-tight ${isActive ? "text-foreground" : "text-muted-foreground"}`}>
+                      {t(step.title.ar, step.title.en)}
+                    </h3>
+                  </div>
+                  <AnimatePresence>
+                    {isActive && (
+                      <motion.div 
+                        initial={{ opacity: 0, height: 0, y: 10 }}
+                        animate={{ opacity: 1, height: "auto", y: 0 }}
+                        exit={{ opacity: 0, height: 0, y: -10 }}
+                        transition={{ duration: 0.4 }}
+                        className="pl-[4.25rem]" // Align with text
+                      >
+                        <p className="text-sm sm:text-base text-muted-foreground leading-relaxed font-medium">
+                          {t(step.desc.ar, step.desc.en)}
+                        </p>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+
+                {/* Desktop Layout (Accordion) */}
+                <div className="hidden md:flex h-full w-full relative z-10">
+                  
+                  {/* Number & Icon Strip (Always visible, left side) */}
+                  <div className="flex flex-col items-center justify-between py-10 px-6 min-w-[100px] h-full z-20">
+                    <div className="relative">
+                      <span className={`text-2xl font-serif italic transition-all duration-500 ${isActive ? "text-primary font-bold" : "text-muted-foreground/40 font-light"}`}>
+                        {step.number}
+                      </span>
+                      {/* Animated dot indicator under number */}
+                      {isActive && (
+                        <motion.div 
+                          layoutId="activeDot"
+                          className="absolute -bottom-4 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-primary"
+                        />
+                      )}
+                    </div>
+
+                    <div className={`flex items-center justify-center w-14 h-14 rounded-2xl transition-all duration-500 ${isActive ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/25 scale-110' : 'bg-background text-muted-foreground shadow-sm group-hover:scale-105 group-hover:text-foreground'}`}>
+                      <Icon className="w-6 h-6" />
+                    </div>
+                  </div>
+
+                  {/* Expanded Content Area */}
+                  <div className="relative flex-1 overflow-hidden h-full">
+                    <AnimatePresence>
+                      {isActive && (
+                        <motion.div 
+                          initial={{ opacity: 0, x: isArabic ? -20 : 20 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          exit={{ opacity: 0, x: isArabic ? 10 : -10 }}
+                          transition={{ duration: 0.5, delay: 0.1 }}
+                          className="absolute inset-0 p-12 lg:p-16 flex flex-col justify-end"
+                        >
+                           <motion.h3 
+                             initial={{ y: 20, opacity: 0 }}
+                             animate={{ y: 0, opacity: 1 }}
+                             transition={{ duration: 0.5, delay: 0.2 }}
+                             className="text-4xl lg:text-5xl font-extrabold mb-6 tracking-tight text-foreground"
+                           >
+                             {t(step.title.ar, step.title.en)}
+                           </motion.h3>
+                           <motion.p 
+                             initial={{ y: 20, opacity: 0 }}
+                             animate={{ y: 0, opacity: 1 }}
+                             transition={{ duration: 0.5, delay: 0.3 }}
+                             className="text-lg lg:text-xl text-muted-foreground max-w-md leading-relaxed font-medium"
+                           >
+                             {t(step.desc.ar, step.desc.en)}
+                           </motion.p>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+
+                    {/* Vertical Title (when collapsed) */}
+                    <AnimatePresence>
+                      {!isActive && (
+                        <motion.div 
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          exit={{ opacity: 0 }}
+                          transition={{ duration: 0.3 }}
+                          className="absolute inset-0 flex items-center justify-center pointer-events-none"
+                        >
+                          <h3 className="text-2xl font-bold text-muted-foreground/30 whitespace-nowrap origin-center -rotate-90 tracking-widest uppercase transition-colors duration-300 group-hover:text-muted-foreground/60">
+                            {t(step.title.ar, step.title.en)}
+                          </h3>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                </div>
+              </motion.div>
+            );
+          })}
+        </div>
+
       </div>
     </section>
   );

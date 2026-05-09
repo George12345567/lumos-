@@ -26,6 +26,10 @@ function json(body: Record<string, unknown>, status = 200) {
   });
 }
 
+function fail(status: number, error: string, details: string) {
+  return json({ success: false, error, details }, status);
+}
+
 function cleanText(value?: string | null) {
   return String(value ?? '').trim();
 }
@@ -52,6 +56,49 @@ function buildMessage(body: RequestBody) {
   return [title, message, url ? `Open: ${url}` : ''].filter(Boolean).join('\n\n');
 }
 
+async function getCallerAuth(params: {
+  adminClient: ReturnType<typeof createClient>;
+  authClient: ReturnType<typeof createClient>;
+  callerId: string;
+  callerEmail?: string | null;
+}) {
+  const { adminClient, authClient, callerId, callerEmail } = params;
+
+  const [isAdminRpc, projectViewRpc, clientsViewRpc] = await Promise.all([
+    authClient.rpc('is_admin').catch(() => ({ data: false, error: null })),
+    authClient.rpc('has_admin_permission', { p_resource: 'projects', p_action: 'view' }).catch(() => ({ data: false, error: null })),
+    authClient.rpc('has_admin_permission', { p_resource: 'clients', p_action: 'view' }).catch(() => ({ data: false, error: null })),
+  ]);
+
+  const clientFilters = [`id.eq.${callerId}`];
+  if (callerEmail) clientFilters.push(`email.eq.${callerEmail}`);
+  const { data: clientRows } = await adminClient
+    .from('clients')
+    .select('id,is_admin,role,email')
+    .or(clientFilters.join(','))
+    .limit(2);
+
+  const teamFilters = [`user_id.eq.${callerId}`, `client_id.eq.${callerId}`];
+  if (callerEmail) teamFilters.push(`email.eq.${callerEmail}`);
+  const { data: teamRows } = await adminClient
+    .from('team_members')
+    .select('id,user_id,client_id,email,role,is_active,permissions')
+    .or(teamFilters.join(','))
+    .limit(2);
+
+  const clientAdmin = (clientRows ?? []).some((row) =>
+    Boolean(row?.is_admin) || ['owner', 'admin'].includes(cleanText(row?.role)),
+  );
+  const teamAdmin = (teamRows ?? []).some((row) =>
+    row?.is_active !== false && ['owner', 'admin', 'manager'].includes(cleanText(row?.role)),
+  );
+
+  return {
+    isAdmin: Boolean(isAdminRpc.data || projectViewRpc.data || clientsViewRpc.data || clientAdmin || teamAdmin),
+    clientIds: new Set((clientRows ?? []).map((row) => cleanText(row?.id)).filter(Boolean)),
+  };
+}
+
 Deno.serve(async (request) => {
   if (request.method === 'OPTIONS') {
     return new Response('ok', {
@@ -62,7 +109,7 @@ Deno.serve(async (request) => {
 
   try {
     if (request.method !== 'POST') {
-      return json({ success: false, error: 'method_not_allowed' }, 405);
+      return fail(405, 'method_not_allowed', 'Only POST is supported.');
     }
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
@@ -70,13 +117,13 @@ Deno.serve(async (request) => {
     const anonKey = Deno.env.get('SUPABASE_ANON_KEY');
 
     if (!supabaseUrl || !serviceRoleKey || !anonKey) {
-      return json({ success: false, error: 'missing_edge_function_env' }, 500);
+      return fail(500, 'missing_edge_function_env', 'SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, and SUPABASE_ANON_KEY must be configured.');
     }
 
     const authHeader = request.headers.get('Authorization') ?? '';
     const jwt = authHeader.replace(/^Bearer\s+/i, '');
     if (!jwt) {
-      return json({ success: false, error: 'missing_authorization' }, 401);
+      return fail(401, 'missing_authorization', 'Authorization Bearer token is required.');
     }
 
     const authClient = createClient(supabaseUrl, anonKey, {
@@ -88,23 +135,23 @@ Deno.serve(async (request) => {
 
     const { data: userData, error: userError } = await authClient.auth.getUser(jwt);
     if (userError || !userData.user?.id) {
-      return json({ success: false, error: 'invalid_authorization' }, 401);
+      return fail(401, 'invalid_authorization', userError?.message || 'The supplied JWT is not valid.');
     }
 
     const body = (await request.json().catch(() => ({}))) as RequestBody;
+    if (body.mode !== 'test' && body.mode !== 'notification') {
+      return fail(400, 'invalid_payload', 'mode must be "test" or "notification".');
+    }
+
     const callerId = userData.user.id;
+    const callerEmail = userData.user.email ?? null;
     const targetUserId = cleanText(body.userId) || callerId;
     const targetClientId = cleanText(body.clientId);
 
-    const { data: callerProfile } = await adminClient
-      .from('clients')
-      .select('id,is_admin,role,email')
-      .eq('id', callerId)
-      .maybeSingle();
-
-    const callerIsAdmin = Boolean(callerProfile?.is_admin || ['owner', 'admin'].includes(cleanText(callerProfile?.role)));
-    if (!callerIsAdmin && targetUserId !== callerId && targetClientId !== callerId) {
-      return json({ success: false, error: 'not_allowed' }, 403);
+    const callerAuth = await getCallerAuth({ adminClient, authClient, callerId, callerEmail });
+    const callerOwnsTarget = targetUserId === callerId || targetClientId === callerId || callerAuth.clientIds.has(targetClientId);
+    if (!callerAuth.isAdmin && !callerOwnsTarget) {
+      return fail(403, 'not_authorized', 'Authenticated user cannot send Telegram notifications for this user/client.');
     }
 
     let query = adminClient
@@ -121,12 +168,23 @@ Deno.serve(async (request) => {
 
     const { data: integrations, error: integrationError } = await query.limit(1);
     if (integrationError) {
-      return json({ success: false, error: integrationError.message }, 500);
+      console.error('[send-telegram-notification] integration lookup failed', {
+        code: integrationError.code,
+        message: integrationError.message,
+        details: integrationError.details,
+        hint: integrationError.hint,
+        targetUserId,
+        targetClientId,
+      });
+      return fail(500, 'integration_lookup_failed', integrationError.message);
     }
 
     const integration = integrations?.[0];
+    if (integration && integration.enabled !== true) {
+      return json({ success: false, error: 'telegram_disabled', details: 'Telegram integration is disabled.' }, 200);
+    }
     if (!integration?.bot_token || !integration?.chat_id) {
-      return json({ success: false, error: 'telegram_not_configured' }, 200);
+      return json({ success: false, error: 'telegram_not_configured', details: 'No enabled Telegram integration with bot token and chat id was found.' }, 200);
     }
 
     const telegramResponse = await fetch(`https://api.telegram.org/bot${integration.bot_token}/sendMessage`, {
@@ -143,7 +201,8 @@ Deno.serve(async (request) => {
     if (!telegramResponse.ok || telegramBody?.ok !== true) {
       return json({
         success: false,
-        error: telegramBody?.description || 'telegram_api_failed',
+        error: 'telegram_api_failed',
+        details: telegramBody?.description || 'Telegram API returned a failure response.',
         status: telegramResponse.status,
       }, 200);
     }
@@ -153,7 +212,8 @@ Deno.serve(async (request) => {
     console.error('[send-telegram-notification] Unhandled error', error);
     return json({
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
+      error: 'edge_function_failed',
+      details: error instanceof Error ? error.message : 'Unknown error',
     }, 500);
   }
 });

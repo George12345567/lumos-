@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabaseClient';
 import type { Notification } from '@/types/dashboard';
+import { logSupabaseError, supabaseErrorMessage } from '@/services/supabaseErrorLogger';
 
 export interface TelegramIntegrationSettings {
   id: string;
@@ -20,9 +21,33 @@ export interface SaveTelegramIntegrationInput {
 }
 
 const SAFE_COLUMNS = 'id,user_id,client_id,provider,chat_id,enabled,created_at,updated_at';
+const TELEGRAM_SKIP_COOLDOWN_MS = 5 * 60 * 1000;
+const INFO_ERRORS = new Set(['telegram_not_configured', 'telegram_disabled', 'missing_authenticated_user']);
+let telegramSkipUntil = 0;
+let lastInfoLogKey = '';
 
 function cleanText(value?: string | null) {
   return String(value ?? '').trim();
+}
+
+function logTelegramInfoOnce(key: string, payload: Record<string, unknown>) {
+  if (lastInfoLogKey === key) return;
+  lastInfoLogKey = key;
+  console.info(`[telegramIntegrationService] ${key}`, payload);
+}
+
+function edgeErrorMessage(error: unknown, fallback: string) {
+  if (error && typeof error === 'object') {
+    const maybeContext = error as { message?: string; context?: { status?: number } };
+    return [maybeContext.context?.status, maybeContext.message].filter(Boolean).join(': ') || fallback;
+  }
+  return error instanceof Error ? error.message : fallback;
+}
+
+async function getSessionAccessToken(): Promise<string | null> {
+  const { data, error } = await supabase.auth.getSession();
+  if (error || !data.session?.access_token) return null;
+  return data.session.access_token;
 }
 
 async function getCurrentUserId(): Promise<string | null> {
@@ -43,11 +68,7 @@ export async function getTelegramIntegration(): Promise<TelegramIntegrationSetti
     .maybeSingle();
 
   if (error) {
-    console.error('[telegramIntegrationService.getTelegramIntegration] Supabase error', {
-      code: error.code,
-      message: error.message,
-      details: error.details,
-      hint: error.hint,
+    logSupabaseError('telegramIntegrationService.getTelegramIntegration', error, {
       table: 'notification_integrations',
       query: 'own telegram integration',
       userId,
@@ -85,15 +106,15 @@ export async function saveTelegramIntegration(
       .single();
 
     if (error) {
-      console.error('[telegramIntegrationService.saveTelegramIntegration] Supabase error', {
-        code: error.code,
-        message: error.message,
-        details: error.details,
-        hint: error.hint,
+      logSupabaseError('telegramIntegrationService.saveTelegramIntegration', error, {
         table: 'notification_integrations',
         query: 'upsert telegram integration',
         userId,
         clientId: input.clientId,
+        payload: {
+          ...payload,
+          bot_token: token ? '[redacted]' : undefined,
+        },
       });
       throw error;
     }
@@ -102,7 +123,7 @@ export async function saveTelegramIntegration(
   } catch (error) {
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'telegram_settings_save_failed',
+      error: supabaseErrorMessage(error, 'telegram_settings_save_failed'),
     };
   }
 }
@@ -111,7 +132,15 @@ export async function sendTelegramTestNotification(
   clientId?: string | null,
 ): Promise<{ success: boolean; error?: string }> {
   try {
+    const accessToken = await getSessionAccessToken();
+    if (!accessToken) {
+      return { success: false, error: 'missing_authenticated_user' };
+    }
+
     const { data, error } = await supabase.functions.invoke('send-telegram-notification', {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
       body: {
         mode: 'test',
         clientId: cleanText(clientId) || null,
@@ -127,8 +156,11 @@ export async function sendTelegramTestNotification(
     }
     return { success: true };
   } catch (error) {
-    console.error('[telegramIntegrationService.sendTelegramTestNotification] Edge Function error', error);
-    return { success: false, error: error instanceof Error ? error.message : 'telegram_test_failed' };
+    console.error('[telegramIntegrationService.sendTelegramTestNotification] Edge Function error', {
+      message: edgeErrorMessage(error, 'telegram_test_failed'),
+      error,
+    });
+    return { success: false, error: edgeErrorMessage(error, 'telegram_test_failed') };
   }
 }
 
@@ -136,7 +168,25 @@ export async function sendTelegramNotificationForNotification(
   notification: Notification,
 ): Promise<{ success: boolean; error?: string }> {
   try {
+    if (Date.now() < telegramSkipUntil) {
+      return { success: false, error: 'telegram_temporarily_skipped' };
+    }
+
+    const accessToken = await getSessionAccessToken();
+    if (!accessToken) {
+      telegramSkipUntil = Date.now() + TELEGRAM_SKIP_COOLDOWN_MS;
+      logTelegramInfoOnce('missing_authenticated_user', {
+        notificationId: notification.id,
+        userId: notification.user_id,
+        clientId: notification.client_id,
+      });
+      return { success: false, error: 'missing_authenticated_user' };
+    }
+
     const { data, error } = await supabase.functions.invoke('send-telegram-notification', {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
       body: {
         mode: 'notification',
         notificationId: notification.id,
@@ -153,9 +203,19 @@ export async function sendTelegramNotificationForNotification(
 
     if (error) throw error;
     if (data && typeof data === 'object' && 'success' in data && data.success !== true) {
+      const code = typeof data.error === 'string' ? data.error : 'telegram_send_failed';
+      if (INFO_ERRORS.has(code)) {
+        telegramSkipUntil = Date.now() + TELEGRAM_SKIP_COOLDOWN_MS;
+        logTelegramInfoOnce(code, {
+          notificationId: notification.id,
+          userId: notification.user_id,
+          clientId: notification.client_id,
+          details: 'details' in data ? data.details : undefined,
+        });
+      }
       return {
         success: false,
-        error: typeof data.error === 'string' ? data.error : 'telegram_send_failed',
+        error: code,
       };
     }
     return { success: true };
@@ -164,9 +224,11 @@ export async function sendTelegramNotificationForNotification(
       notificationId: notification.id,
       userId: notification.user_id,
       clientId: notification.client_id,
+      message: edgeErrorMessage(error, 'telegram_send_failed'),
       error,
     });
-    return { success: false, error: error instanceof Error ? error.message : 'telegram_send_failed' };
+    telegramSkipUntil = Date.now() + TELEGRAM_SKIP_COOLDOWN_MS;
+    return { success: false, error: edgeErrorMessage(error, 'telegram_send_failed') };
   }
 }
 

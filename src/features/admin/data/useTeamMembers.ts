@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import type { Client, TeamMember } from '@/types/dashboard';
 import { toast } from 'sonner';
+import { logSupabaseError, supabaseErrorMessage } from '@/services/supabaseErrorLogger';
 
 export function useTeamMembers() {
   const [members, setMembers] = useState<TeamMember[]>([]);
@@ -14,10 +15,19 @@ export function useTeamMembers() {
         .from('team_members')
         .select('*')
         .order('name', { ascending: true });
-      if (error) throw error;
+      if (error) {
+        logSupabaseError('useTeamMembers.refresh', error, {
+          table: 'team_members',
+          query: 'team members list',
+        });
+        throw error;
+      }
       setMembers((data as TeamMember[]) || []);
     } catch (err) {
-      console.error('useTeamMembers failed:', err);
+      logSupabaseError('useTeamMembers.refresh.catch', err, {
+        table: 'team_members',
+        query: 'team members list',
+      });
       setMembers([]);
     } finally {
       setLoading(false);
@@ -45,12 +55,15 @@ export function useTeamMembers() {
         if (input.permissions) insertPayload.permissions = input.permissions;
 
         const { error } = await supabase.from('team_members').insert([insertPayload]);
-        if (error) throw error;
+        if (error) {
+          logSupabaseError('useTeamMembers.createMember', error, insertPayload);
+          throw error;
+        }
         toast.success('Team member added');
         await refresh();
         return { success: true as const };
       } catch (err) {
-        const message = err instanceof Error ? err.message : 'Failed to add member';
+        const message = supabaseErrorMessage(err, 'Failed to add member');
         toast.error(message);
         return { success: false as const, error: message };
       }
@@ -65,12 +78,18 @@ export function useTeamMembers() {
           .from('team_members')
           .update({ ...updates, updated_at: new Date().toISOString() })
           .eq('id', id);
-        if (error) throw error;
+        if (error) {
+          logSupabaseError('useTeamMembers.updateMember', error, {
+            id,
+            payload: { ...updates, updated_at: new Date().toISOString() },
+          });
+          throw error;
+        }
         toast.success('Team member updated');
         setMembers((prev) => prev.map((m) => (m.id === id ? { ...m, ...updates } : m)));
         return { success: true as const };
       } catch (err) {
-        const message = err instanceof Error ? err.message : 'Failed to update member';
+        const message = supabaseErrorMessage(err, 'Failed to update member');
         toast.error(message);
         return { success: false as const, error: message };
       }
@@ -82,12 +101,15 @@ export function useTeamMembers() {
     async (id: string) => {
       try {
         const { error } = await supabase.from('team_members').delete().eq('id', id);
-        if (error) throw error;
+        if (error) {
+          logSupabaseError('useTeamMembers.deleteMember', error, { id });
+          throw error;
+        }
         toast.success('Team member removed');
         setMembers((prev) => prev.filter((m) => m.id !== id));
         return { success: true as const };
       } catch (err) {
-        const message = err instanceof Error ? err.message : 'Failed to remove member';
+        const message = supabaseErrorMessage(err, 'Failed to remove member');
         toast.error(message);
         return { success: false as const, error: message };
       }
@@ -131,7 +153,13 @@ export function useTeamMembers() {
             .from('team_members')
             .update({ ...updates, updated_at: new Date().toISOString() })
             .eq('id', existing.id);
-          if (error) throw error;
+          if (error) {
+            logSupabaseError('useTeamMembers.linkClientAsMember.updateExisting', error, {
+              id: existing.id,
+              payload: updates,
+            });
+            throw error;
+          }
           toast.success('Team member updated');
           await refresh();
           return { success: true as const, memberId: existing.id, mode: 'updated' as const };
@@ -153,7 +181,10 @@ export function useTeamMembers() {
           .insert([insertPayload])
           .select('id')
           .maybeSingle();
-        if (error) throw error;
+        if (error) {
+          logSupabaseError('useTeamMembers.linkClientAsMember.insert', error, insertPayload);
+          throw error;
+        }
         toast.success('Client added as team member');
         await refresh();
         return {
@@ -162,7 +193,7 @@ export function useTeamMembers() {
           mode: 'created' as const,
         };
       } catch (err) {
-        const message = err instanceof Error ? err.message : 'Failed to link client';
+        const message = supabaseErrorMessage(err, 'Failed to link client');
         toast.error(message);
         return { success: false as const, error: message };
       }

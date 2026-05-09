@@ -49,6 +49,7 @@ import {
   UsersRound,
 } from 'lucide-react';
 import AvatarGenerator, { type AvatarStyle } from '@/components/shared/AvatarGenerator';
+import SafeAvatarImage from '@/components/shared/SafeAvatarImage';
 import EnhancedNavbar from '@/components/layout/EnhancedNavbar';
 import {
   Dialog,
@@ -1495,9 +1496,17 @@ function Avatar({
       )}
     >
       {avatarUrl ? (
-        <img src={avatarUrl} alt="" className="h-full w-full object-cover" />
+        <SafeAvatarImage
+          src={avatarUrl}
+          className="h-full w-full object-cover"
+          fallback={<span className="m-auto font-semibold">{initialsText}</span>}
+        />
       ) : presetUrl && mode === 'preset' ? (
-        <img src={presetUrl} alt="" className="h-full w-full object-cover" />
+        <SafeAvatarImage
+          src={presetUrl}
+          className="h-full w-full object-cover"
+          fallback={<span className="m-auto font-semibold">{initialsText}</span>}
+        />
       ) : mode === 'generate' || avatarConfig?.seed || avatarConfig?.style ? (
         <div className="m-auto overflow-hidden rounded-[inherit]">
           <AvatarGenerator

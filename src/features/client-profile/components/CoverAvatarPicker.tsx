@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react';
 import { Upload, Image as ImageIcon, X } from 'lucide-react';
+import SafeAvatarImage from '@/components/shared/SafeAvatarImage';
 import { AVATAR_PRESETS, COVER_GRADIENT_PRESETS } from '../constants';
 
 interface Props {
@@ -115,11 +116,12 @@ export function CoverAvatarPicker({
                   className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-full border-4 border-white text-2xl font-bold shadow-lg"
                   style={{ backgroundColor: accent, color: '#fff' }}
                 >
-                  {currentAvatarUrl ? (
-                    <img src={currentAvatarUrl} alt="Avatar" className="h-full w-full object-cover" />
-                  ) : (
-                    '?'
-                  )}
+                  <SafeAvatarImage
+                    src={currentAvatarUrl}
+                    alt="Avatar"
+                    className="h-full w-full object-cover"
+                    fallback="?"
+                  />
                 </div>
               </div>
 
@@ -158,7 +160,12 @@ export function CoverAvatarPicker({
                       }`}
                       style={currentAvatarUrl === url ? { borderColor: accent } : undefined}
                     >
-                      <img src={url} alt={`Avatar ${i + 1}`} className="h-full w-full object-cover transition group-hover:scale-105" />
+                      <SafeAvatarImage
+                        src={url}
+                        alt={`Avatar ${i + 1}`}
+                        className="h-full w-full object-cover transition group-hover:scale-105"
+                        fallback={<ImageIcon className="m-auto h-6 w-6 text-slate-400" />}
+                      />
                     </button>
                   ))}
                 </div>

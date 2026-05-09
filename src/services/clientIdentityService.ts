@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabaseClient';
+import { logSupabaseError, supabaseErrorMessage } from '@/services/supabaseErrorLogger';
 
 export type IdentityAssetCategory =
   | 'logo_primary'
@@ -201,15 +202,30 @@ export async function fetchClientIdentitySnapshot(
       })(),
     ]);
 
-    if (identityResult.error) throw identityResult.error;
-    if (assetsResult.error) throw assetsResult.error;
+    if (identityResult.error) {
+      logSupabaseError('clientIdentityService.fetchClientIdentitySnapshot.identity', identityResult.error, {
+        clientId,
+        includeAdminOnly: options.includeAdminOnly,
+      });
+      throw identityResult.error;
+    }
+    if (assetsResult.error) {
+      logSupabaseError('clientIdentityService.fetchClientIdentitySnapshot.assets', assetsResult.error, {
+        clientId,
+        includeAdminOnly: options.includeAdminOnly,
+      });
+      throw assetsResult.error;
+    }
 
     return {
       identity: (identityResult.data as ClientIdentity | null) ?? null,
       assets: sortAssets((assetsResult.data as ClientIdentityAsset[]) ?? []),
     };
   } catch (error) {
-    console.error('fetchClientIdentitySnapshot failed:', error);
+    logSupabaseError('clientIdentityService.fetchClientIdentitySnapshot.catch', error, {
+      clientId,
+      includeAdminOnly: options.includeAdminOnly,
+    });
     return { identity: null, assets: [] };
   }
 }
@@ -231,10 +247,13 @@ export async function upsertClientIdentity(
       .select('*')
       .single();
 
-    if (error) throw error;
+    if (error) {
+      logSupabaseError('clientIdentityService.upsertClientIdentity', error, payload);
+      throw error;
+    }
     return { success: true, identity: identity as ClientIdentity };
   } catch (error) {
-    return { success: false, error: error instanceof Error ? error.message : 'identity_save_failed' };
+    return { success: false, error: supabaseErrorMessage(error, 'identity_save_failed') };
   }
 }
 
@@ -253,9 +272,14 @@ export async function getIdentityAssetSignedUrl(
       .from(BUCKET)
       .createSignedUrl(path, expiresIn);
 
-    if (error || !data?.signedUrl) return null;
+    if (error) {
+      logSupabaseError('clientIdentityService.getIdentityAssetSignedUrl', error, { path, expiresIn });
+      return null;
+    }
+    if (!data?.signedUrl) return null;
     return data.signedUrl;
-  } catch {
+  } catch (error) {
+    logSupabaseError('clientIdentityService.getIdentityAssetSignedUrl.catch', error, { path, expiresIn });
     return null;
   }
 }
@@ -279,7 +303,16 @@ export async function uploadIdentityAsset(input: {
         upsert: false,
       });
 
-    if (uploadError) throw uploadError;
+    if (uploadError) {
+      logSupabaseError('clientIdentityService.uploadIdentityAsset.storageUpload', uploadError, {
+        path,
+        clientId: input.clientId,
+        fileName: input.file.name,
+        fileSize: input.file.size,
+        fileType: input.file.type || null,
+      });
+      throw uploadError;
+    }
 
     const { data: sessionData } = await supabase.auth.getSession();
     const uploaderId = sessionData?.session?.user?.id ?? null;
@@ -318,13 +351,14 @@ export async function uploadIdentityAsset(input: {
 
     if (insertError) {
       await supabase.storage.from(BUCKET).remove([path]);
+      logSupabaseError('clientIdentityService.uploadIdentityAsset.insertAsset', insertError, insertPayload);
       throw insertError;
     }
 
     const signedUrl = await getIdentityAssetSignedUrl(path);
     return { success: true, asset: data as ClientIdentityAsset, signedUrl: signedUrl ?? undefined };
   } catch (error) {
-    return { success: false, error: error instanceof Error ? error.message : 'identity_upload_failed' };
+    return { success: false, error: supabaseErrorMessage(error, 'identity_upload_failed') };
   }
 }
 
@@ -333,7 +367,13 @@ export async function deleteIdentityAsset(asset: ClientIdentityAsset): Promise<{
     const path = getIdentityAssetStoragePath(asset);
     if (path) {
       const { error: storageError } = await supabase.storage.from(BUCKET).remove([path]);
-      if (storageError) throw storageError;
+      if (storageError) {
+        logSupabaseError('clientIdentityService.deleteIdentityAsset.storageRemove', storageError, {
+          assetId: asset.id,
+          path,
+        });
+        throw storageError;
+      }
     }
 
     const { error } = await supabase
@@ -341,10 +381,15 @@ export async function deleteIdentityAsset(asset: ClientIdentityAsset): Promise<{
       .delete()
       .eq('id', asset.id);
 
-    if (error) throw error;
+    if (error) {
+      logSupabaseError('clientIdentityService.deleteIdentityAsset.deleteRow', error, {
+        assetId: asset.id,
+      });
+      throw error;
+    }
     return { success: true };
   } catch (error) {
-    return { success: false, error: error instanceof Error ? error.message : 'identity_delete_failed' };
+    return { success: false, error: supabaseErrorMessage(error, 'identity_delete_failed') };
   }
 }
 

@@ -1,6 +1,7 @@
 import { supabase } from '@/lib/supabaseClient';
 import type { Notification, NotificationEntityType, NotificationType } from '@/types/dashboard';
 import { sendTelegramNotificationForNotification } from '@/services/telegramIntegrationService';
+import { logSupabaseError, supabaseErrorMessage } from '@/services/supabaseErrorLogger';
 
 type NotificationPriority = 'low' | 'normal' | 'high' | 'urgent';
 type NotificationUserType = 'client' | 'team_member' | 'admin';
@@ -130,9 +131,19 @@ async function findRecentDuplicate(
     }
 
     const { data, error } = await query;
-    if (error) return null;
+    if (error) {
+      logSupabaseError('notificationService.findRecentDuplicate', error, {
+        payload,
+        query: 'recent duplicate notification',
+      });
+      return null;
+    }
     return ((data as Notification[] | null)?.[0]) ?? null;
-  } catch {
+  } catch (error) {
+    logSupabaseError('notificationService.findRecentDuplicate.catch', error, {
+      payload,
+      query: 'recent duplicate notification',
+    });
     return null;
   }
 }
@@ -161,16 +172,17 @@ export const createNotification = async (
         .single();
     }
 
-    if (result.error) throw result.error;
+    if (result.error) {
+      logSupabaseError('notificationService.createNotification', result.error, payload);
+      throw result.error;
+    }
 
     const notification = result.data as Notification;
     void sendTelegramNotificationForNotification(notification);
 
     return { success: true, id: notification.id };
   } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    console.error('Error creating notification:', error);
-    return { success: false, error: errorMessage };
+    return { success: false, error: supabaseErrorMessage(error, 'notification_create_failed') };
   }
 };
 
@@ -254,11 +266,22 @@ export const getNotifications = async (
 
     const { data, error } = await query;
 
-    if (error) throw error;
+    if (error) {
+      logSupabaseError('notificationService.getNotifications', error, {
+        userId,
+        includeRead,
+        limit,
+      });
+      throw error;
+    }
 
     return (data as Notification[]) || [];
   } catch (error) {
-    console.error('Error getting notifications:', error);
+    logSupabaseError('notificationService.getNotifications.catch', error, {
+      userId,
+      includeRead,
+      limit,
+    });
     return [];
   }
 };
@@ -288,10 +311,23 @@ export const getNotificationCenterItems = async ({
     }
 
     const { data, error } = await query;
-    if (error) throw error;
+    if (error) {
+      logSupabaseError('notificationService.getNotificationCenterItems', error, {
+        scope,
+        userId,
+        includeRead,
+        limit,
+      });
+      throw error;
+    }
     return (data as Notification[]) || [];
   } catch (error) {
-    console.error('Error getting notification center items:', error);
+    logSupabaseError('notificationService.getNotificationCenterItems.catch', error, {
+      scope,
+      userId,
+      includeRead,
+      limit,
+    });
     return [];
   }
 };
@@ -304,10 +340,17 @@ export const getUnreadNotificationCount = async (userId: string): Promise<number
       .eq('user_id', userId)
       .eq('is_read', false);
 
-    if (error) throw error;
+    if (error) {
+      logSupabaseError('notificationService.getUnreadNotificationCount', error, {
+        userId,
+      });
+      throw error;
+    }
     return count || 0;
   } catch (error) {
-    console.error('Error getting unread count:', error);
+    logSupabaseError('notificationService.getUnreadNotificationCount.catch', error, {
+      userId,
+    });
     return 0;
   }
 };
@@ -334,13 +377,19 @@ export const markNotificationAsRead = async (
 
     const { error } = await query;
 
-    if (error) throw error;
+    if (error) {
+      logSupabaseError('notificationService.markNotificationAsRead', error, {
+        notificationId,
+        userId,
+        payload: { is_read: true },
+        scope: options.scope,
+      });
+      throw error;
+    }
 
     return { success: true };
   } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    console.error('Error marking notification as read:', error);
-    return { success: false, error: errorMessage };
+    return { success: false, error: supabaseErrorMessage(error, 'notification_mark_read_failed') };
   }
 };
 
@@ -367,13 +416,18 @@ export const markAllNotificationsAsRead = async (
 
     const { error } = await query;
 
-    if (error) throw error;
+    if (error) {
+      logSupabaseError('notificationService.markAllNotificationsAsRead', error, {
+        userId,
+        payload: { is_read: true },
+        scope: options.scope,
+      });
+      throw error;
+    }
 
     return { success: true };
   } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    console.error('Error marking all notifications as read:', error);
-    return { success: false, error: errorMessage };
+    return { success: false, error: supabaseErrorMessage(error, 'notifications_mark_all_read_failed') };
   }
 };
 
@@ -398,13 +452,18 @@ export const deleteNotification = async (
 
     const { error } = await query;
 
-    if (error) throw error;
+    if (error) {
+      logSupabaseError('notificationService.deleteNotification', error, {
+        notificationId,
+        userId,
+        scope: options.scope,
+      });
+      throw error;
+    }
 
     return { success: true };
   } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    console.error('Error deleting notification:', error);
-    return { success: false, error: errorMessage };
+    return { success: false, error: supabaseErrorMessage(error, 'notification_delete_failed') };
   }
 };
 
@@ -428,11 +487,22 @@ export const getTeamNotifications = async (
 
     const { data, error } = await query;
 
-    if (error) throw error;
+    if (error) {
+      logSupabaseError('notificationService.getTeamNotifications', error, {
+        teamMemberId,
+        includeRead,
+        limit,
+      });
+      throw error;
+    }
 
     return (data as Notification[]) || [];
   } catch (error) {
-    console.error('Error getting team notifications:', error);
+    logSupabaseError('notificationService.getTeamNotifications.catch', error, {
+      teamMemberId,
+      includeRead,
+      limit,
+    });
     return [];
   }
 };
@@ -451,9 +521,10 @@ export const sendBulkNotifications = async (
       error: failed?.error,
     };
   } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    console.error('Error sending bulk notifications:', error);
-    return { success: false, sentCount: 0, error: errorMessage };
+    logSupabaseError('notificationService.sendBulkNotifications.catch', error, {
+      notificationCount: notifications.length,
+    });
+    return { success: false, sentCount: 0, error: supabaseErrorMessage(error, 'bulk_notifications_failed') };
   }
 };
 

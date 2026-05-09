@@ -3,6 +3,7 @@ import { useLanguage } from '@/context/LanguageContext';
 import { useAppearance } from '@/context/AppearanceContext';
 import { cn } from '@/lib/utils';
 import NotificationCenter from '@/components/notifications/NotificationCenter';
+import SafeAvatarImage from '@/components/shared/SafeAvatarImage';
 import { useAdminRole } from '../hooks/useAdminPermission';
 import { ROLE_LABELS } from '../permissions';
 import { SoftBadge, SoftButton } from './primitives';
@@ -95,11 +96,12 @@ export function AdminTopbar({
               className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-300 to-teal-500 flex items-center justify-center text-white font-bold ring-2 ring-white dark:ring-slate-950"
               title={email}
             >
-              {avatarUrl ? (
-                <img src={avatarUrl} alt={name} className="w-full h-full rounded-full object-cover" />
-              ) : (
-                <span>{initials}</span>
-              )}
+              <SafeAvatarImage
+                src={avatarUrl}
+                alt={name}
+                className="w-full h-full rounded-full object-cover"
+                fallback={<span>{initials}</span>}
+              />
             </div>
           </div>
         </div>

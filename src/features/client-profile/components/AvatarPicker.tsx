@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Camera } from 'lucide-react';
+import SafeAvatarImage from '@/components/shared/SafeAvatarImage';
 import { profileService } from '@/services/profileService';
 import { ImageUpload } from './ImageUpload';
 import { STORAGE_PATHS } from '../constants';
@@ -58,11 +59,12 @@ export function AvatarPicker({ clientId, avatarUrl, displayName, onUpload, onSel
               style={{ width: size, height: size, color: accent }}
               aria-label="Change profile picture"
             >
-              {avatarUrl ? (
-                <img src={avatarUrl} alt={displayName} className="h-full w-full object-cover" />
-              ) : (
-                <span className="text-2xl font-semibold" style={{ color: accent }}>{initialsOf(displayName)}</span>
-              )}
+              <SafeAvatarImage
+                src={avatarUrl}
+                alt={displayName}
+                className="h-full w-full object-cover"
+                fallback={<span className="text-2xl font-semibold" style={{ color: accent }}>{initialsOf(displayName)}</span>}
+              />
               <span className="absolute inset-0 flex items-center justify-center bg-slate-900/40 opacity-0 transition group-hover:opacity-100">
                 <Camera className="h-5 w-5 text-white" />
               </span>

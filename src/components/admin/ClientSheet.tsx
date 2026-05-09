@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Client, SavedDesign, PricingRequest } from "@/types/dashboard";
 import ClientMasterModal from "@/components/admin/ClientMasterModal";
+import SafeAvatarImage from "@/components/shared/SafeAvatarImage";
 import {
   useClientSheetData,
 } from "@/components/admin/client-sheet/useClientSheetData";
@@ -791,13 +792,16 @@ export default function ClientSheet({ client, designs, open, onOpenChange, onRef
                   <>
                     <SCard className="p-5">
                       <div className="flex items-center gap-4 mb-4">
-                        {profile.avatar_url ? (
-                          <img src={profile.avatar_url} alt="avatar" className="w-16 h-16 rounded-2xl object-cover border-2 border-slate-100 shadow-sm" />
-                        ) : (
+                        <SafeAvatarImage
+                          src={profile.avatar_url}
+                          alt="avatar"
+                          className="w-16 h-16 rounded-2xl object-cover border-2 border-slate-100 shadow-sm"
+                          fallback={
                           <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-100 to-violet-100 flex items-center justify-center text-2xl font-bold text-indigo-700">
                             {displayName.charAt(0)}
                           </div>
-                        )}
+                          }
+                        />
                         <div>
                           <p className="text-base font-bold text-slate-900">{profile.display_name || displayName}</p>
                           {profile.tagline && <p className="text-xs text-slate-400 mt-0.5">{profile.tagline}</p>}

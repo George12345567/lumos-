@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Check, ExternalLink, Info, Link as LinkIcon, Mail, Phone, Plus, RefreshCw, Search, ShieldCheck, Trash2, X } from 'lucide-react';
 import { useLanguage } from '@/context/LanguageContext';
+import SafeAvatarImage from '@/components/shared/SafeAvatarImage';
 import type { Client, TeamMember } from '@/types/dashboard';
 import { useTeamMembers } from '../data/useTeamMembers';
 import {
@@ -252,9 +253,11 @@ function TeamMemberCard({
         <span className={`w-12 h-12 rounded-2xl text-white font-bold text-base flex items-center justify-center shrink-0 ${
           member.is_active ? 'bg-gradient-to-br from-emerald-400 to-teal-500' : 'bg-slate-300'
         }`}>
-          {member.avatar_url ? (
-            <img src={member.avatar_url} className="w-full h-full rounded-2xl object-cover" alt="" />
-          ) : initial}
+          <SafeAvatarImage
+            src={member.avatar_url}
+            className="w-full h-full rounded-2xl object-cover"
+            fallback={initial}
+          />
         </span>
         <div className="min-w-0 flex-1 space-y-1">
           <div className="flex items-center gap-2 flex-wrap">

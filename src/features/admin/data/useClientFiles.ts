@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { toast } from 'sonner';
+import { logSupabaseError, supabaseErrorMessage } from '@/services/supabaseErrorLogger';
 
 export interface AdminClientFile {
   id: string;
@@ -85,7 +86,13 @@ export function useClientFiles() {
         .select('*')
         .order('created_at', { ascending: false })
         .limit(500);
-      if (queryError) throw queryError;
+      if (queryError) {
+        logSupabaseError('useClientFiles.refresh', queryError, {
+          table: 'client_assets',
+          query: 'admin client files list',
+        });
+        throw queryError;
+      }
       const sorted = ((data as AdminClientFile[]) || []).slice().sort((a, b) => {
         const ad = fileTimestamp(a) || '';
         const bd = fileTimestamp(b) || '';
@@ -94,8 +101,7 @@ export function useClientFiles() {
       setFiles(sorted);
       failedRef.current = false;
     } catch (err) {
-      const m = err instanceof Error ? err.message : 'Failed to load files';
-      console.error('useClientFiles refresh failed:', m);
+      const m = supabaseErrorMessage(err, 'Failed to load files');
       setFiles([]);
       setError(m);
       failedRef.current = true;
@@ -130,12 +136,28 @@ export function useClientFiles() {
         const { error: uploadError } = await supabase.storage
           .from(BUCKET)
           .upload(path, file, { cacheControl: '3600', upsert: false });
-        if (uploadError) throw uploadError;
+        if (uploadError) {
+          logSupabaseError('useClientFiles.upload.storageUpload', uploadError, {
+            clientId,
+            path,
+            fileName: file.name,
+            fileSize: file.size,
+            fileType: file.type || null,
+          });
+          throw uploadError;
+        }
 
         const { data: signed, error: signedError } = await supabase.storage
           .from(BUCKET)
           .createSignedUrl(path, 60 * 60 * 24 * 365);
-        if (signedError) throw signedError;
+        if (signedError) {
+          logSupabaseError('useClientFiles.upload.createSignedUrl', signedError, {
+            clientId,
+            path,
+            fileName: file.name,
+          });
+          throw signedError;
+        }
 
         const { data: sessionData } = await supabase.auth.getSession();
         const uploaderId = sessionData?.session?.user?.id ?? null;
@@ -167,8 +189,12 @@ export function useClientFiles() {
             const { file_type: _ignored, ...withoutType } = insertPayload;
             void _ignored;
             const { error: retryError } = await supabase.from('client_assets').insert([withoutType]);
-            if (retryError) throw retryError;
+            if (retryError) {
+              logSupabaseError('useClientFiles.upload.insertAsset.retryWithoutFileType', retryError, withoutType);
+              throw retryError;
+            }
           } else {
+            logSupabaseError('useClientFiles.upload.insertAsset', insertError, insertPayload);
             throw insertError;
           }
         }
@@ -177,7 +203,7 @@ export function useClientFiles() {
         await refresh();
         return { success: true as const, signedUrl: signed?.signedUrl };
       } catch (err) {
-        const m = err instanceof Error ? err.message : 'Upload failed';
+        const m = supabaseErrorMessage(err, 'Upload failed');
         toast.error(m);
         return { success: false as const, error: m };
       }
@@ -188,14 +214,26 @@ export function useClientFiles() {
   const remove = useCallback(async (file: AdminClientFile) => {
     try {
       if (file.storage_path) {
-        await supabase.storage.from(BUCKET).remove([file.storage_path]);
+        const { error: storageError } = await supabase.storage.from(BUCKET).remove([file.storage_path]);
+        if (storageError) {
+          logSupabaseError('useClientFiles.remove.storageRemove', storageError, {
+            assetId: file.id,
+            path: file.storage_path,
+          });
+          throw storageError;
+        }
       }
       const { error } = await supabase.from('client_assets').delete().eq('id', file.id);
-      if (error) throw error;
+      if (error) {
+        logSupabaseError('useClientFiles.remove.deleteAsset', error, {
+          assetId: file.id,
+        });
+        throw error;
+      }
       toast.success('File removed');
       setFiles((prev) => prev.filter((f) => f.id !== file.id));
     } catch (err) {
-      const m = err instanceof Error ? err.message : 'Failed to remove';
+      const m = supabaseErrorMessage(err, 'Failed to remove');
       toast.error(m);
     }
   }, []);
@@ -205,6 +243,7 @@ export function useClientFiles() {
       .from(BUCKET)
       .createSignedUrl(path, 60 * 5);
     if (signedError) {
+      logSupabaseError('useClientFiles.getSignedUrl', signedError, { path });
       toast.error('Could not generate download URL');
       return null;
     }

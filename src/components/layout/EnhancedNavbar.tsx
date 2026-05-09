@@ -43,6 +43,7 @@ import {
 import PricingModal from "@/components/pricing/PricingModal";
 import FloatingDock from "@/components/layout/FloatingDock";
 import NotificationCenter from "@/components/notifications/NotificationCenter";
+import SafeAvatarImage from "@/components/shared/SafeAvatarImage";
 import { useAuthActions, useAuthState } from "@/context/AuthContext";
 import { useAppearance } from "@/context/AppearanceContext";
 import { profileService } from "@/services/profileService";
@@ -482,13 +483,16 @@ const EnhancedNavbar = () => {
                             title={t("افتح قائمة الحساب", "Open account menu")}
                           >
                             <span className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border bg-background/80 ring-1 ring-black/5 dark:border-white/10 dark:bg-white/10">
-                              {clientAvatarUrl ? (
-                                <img src={clientAvatarUrl} alt={clientDisplayName || client.username} className="h-full w-full object-cover" />
-                              ) : (
+                              <SafeAvatarImage
+                                src={clientAvatarUrl}
+                                alt={clientDisplayName || client.username}
+                                className="h-full w-full object-cover"
+                                fallback={
                                 <span className="text-[10px] font-bold uppercase text-[hsl(150,100%,40%)]">
                                   {(clientDisplayName || client.username || "LC").slice(0, 2)}
                                 </span>
-                              )}
+                                }
+                              />
                             </span>
                             <span className="hidden min-w-0 max-w-[108px] truncate text-xs font-semibold text-foreground md:inline">
                               {clientDisplayName || client.username}
@@ -504,13 +508,15 @@ const EnhancedNavbar = () => {
                           <DropdownMenuLabel className="p-2">
                             <div className="flex min-w-0 items-center gap-3">
                               <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border bg-background">
-                                {clientAvatarUrl ? (
-                                  <img src={clientAvatarUrl} alt="" className="h-full w-full object-cover" />
-                                ) : (
+                                <SafeAvatarImage
+                                  src={clientAvatarUrl}
+                                  className="h-full w-full object-cover"
+                                  fallback={
                                   <span className="text-xs font-bold uppercase text-[hsl(150,100%,40%)]">
                                     {(clientDisplayName || client.username || "LC").slice(0, 2)}
                                   </span>
-                                )}
+                                  }
+                                />
                               </span>
                               <span className="min-w-0">
                                 <span className="block truncate text-sm font-semibold text-card-foreground">

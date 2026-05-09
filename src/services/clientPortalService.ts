@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabaseClient';
+import { logSupabaseError } from '@/services/supabaseErrorLogger';
 
 export interface PortalMessage {
   id: string;
@@ -19,7 +20,6 @@ export interface PortalAsset {
   client_id?: string;
   name?: string;
   asset_url?: string;
-  asset_type?: string;
   file_url?: string | null;
   file_name?: string | null;
   uploaded_by?: string | null;
@@ -61,8 +61,18 @@ export async function sendMessage(clientId: string, message: string): Promise<{ 
     const { error } = await supabase
       .from('client_messages')
       .insert({ client_id: clientId, message, sender: 'client' });
+    if (error) {
+      logSupabaseError('clientPortalService.sendMessage', error, {
+        clientId,
+        payload: { client_id: clientId, message, sender: 'client' },
+      });
+    }
     return { success: !error };
-  } catch {
+  } catch (error) {
+    logSupabaseError('clientPortalService.sendMessage.catch', error, {
+      clientId,
+      payload: { client_id: clientId, message, sender: 'client' },
+    });
     return { success: false };
   }
 }
@@ -74,9 +84,20 @@ export async function getMessages(clientId: string): Promise<PortalMessage[]> {
       .select('*')
       .eq('client_id', clientId)
       .order('created_at', { ascending: true });
-    if (error || !data) return [];
+    if (error) {
+      logSupabaseError('clientPortalService.getMessages', error, {
+        clientId,
+        query: 'client_messages by client_id',
+      });
+      return [];
+    }
+    if (!data) return [];
     return data as PortalMessage[];
-  } catch {
+  } catch (error) {
+    logSupabaseError('clientPortalService.getMessages.catch', error, {
+      clientId,
+      query: 'client_messages by client_id',
+    });
     return [];
   }
 }
@@ -99,11 +120,28 @@ export async function fetchClientPortalSnapshot(clientId: string): Promise<Porta
         .order('created_at', { ascending: false }),
     ]);
 
+    if (messagesResult.error) {
+      logSupabaseError('clientPortalService.fetchClientPortalSnapshot.messages', messagesResult.error, {
+        clientId,
+        query: 'client portal messages',
+      });
+    }
+    if (assetsResult.error) {
+      logSupabaseError('clientPortalService.fetchClientPortalSnapshot.assets', assetsResult.error, {
+        clientId,
+        query: 'client portal assets',
+      });
+    }
+
     return {
       messages: (messagesResult.data ?? []) as PortalMessage[],
       assets: (assetsResult.data ?? []) as PortalAsset[],
     };
-  } catch {
+  } catch (error) {
+    logSupabaseError('clientPortalService.fetchClientPortalSnapshot.catch', error, {
+      clientId,
+      query: 'client portal snapshot',
+    });
     return { messages: [], assets: [] };
   }
 }
@@ -134,9 +172,20 @@ export async function getAssetDownloadUrl(asset: PortalAsset): Promise<string | 
       .from('client-assets')
       .createSignedUrl(path, 60 * 10);
 
-    if (error || !data?.signedUrl) return null;
+    if (error) {
+      logSupabaseError('clientPortalService.getAssetDownloadUrl', error, {
+        path,
+        assetId: asset.id,
+      });
+      return null;
+    }
+    if (!data?.signedUrl) return null;
     return data.signedUrl;
-  } catch {
+  } catch (error) {
+    logSupabaseError('clientPortalService.getAssetDownloadUrl.catch', error, {
+      path,
+      assetId: asset.id,
+    });
     return null;
   }
 }

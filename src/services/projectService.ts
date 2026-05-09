@@ -176,6 +176,7 @@ function logSupabaseError(
     message: parsed.message,
     details: parsed.details,
     hint: parsed.hint,
+    payload: meta.payload ?? meta,
     ...meta,
   });
 }
@@ -728,7 +729,15 @@ export async function updateProject(
       .from('projects')
       .update(payload)
       .eq('id', projectId);
-    if (error) throw error;
+    if (error) {
+      logSupabaseError('projectService.updateProject', error, {
+        table: 'projects',
+        query: 'update project',
+        projectId,
+        payload,
+      });
+      throw error;
+    }
 
     const updated = await fetchProjectById(projectId);
     const clientId = updated?.client_id ?? existing?.client_id;
@@ -765,7 +774,12 @@ export async function updateProject(
 
     return { success: true };
   } catch (error) {
-    return { success: false, error: error instanceof Error ? error.message : 'project_update_failed' };
+    logSupabaseError('projectService.updateProject.catch', error, {
+      query: 'update project',
+      projectId,
+      payload: updates,
+    });
+    return { success: false, error: supabaseErrorMessage(error, 'project_update_failed') };
   }
 }
 
@@ -792,10 +806,23 @@ export async function updateProjectService(
       .from('project_services')
       .update(payload)
       .eq('id', serviceId);
-    if (error) throw error;
+    if (error) {
+      logSupabaseError('projectService.updateProjectService', error, {
+        table: 'project_services',
+        query: 'update project service',
+        serviceId,
+        payload,
+      });
+      throw error;
+    }
     return { success: true };
   } catch (error) {
-    return { success: false, error: error instanceof Error ? error.message : 'project_service_update_failed' };
+    logSupabaseError('projectService.updateProjectService.catch', error, {
+      query: 'update project service',
+      serviceId,
+      payload: updates,
+    });
+    return { success: false, error: supabaseErrorMessage(error, 'project_service_update_failed') };
   }
 }
 
@@ -814,7 +841,18 @@ export async function uploadProjectDeliverable(
         contentType: input.file.type || undefined,
         upsert: false,
       });
-    if (uploadError) throw uploadError;
+    if (uploadError) {
+      logSupabaseError('projectService.uploadProjectDeliverable.storageUpload', uploadError, {
+        path,
+        clientId: input.clientId,
+        projectId: input.projectId,
+        projectServiceId: input.projectServiceId || null,
+        fileName: input.file.name,
+        fileSize: input.file.size,
+        fileType: input.file.type || null,
+      });
+      throw uploadError;
+    }
 
     const { data: sessionData } = await supabase.auth.getSession();
     const uploaderId = sessionData?.session?.user?.id ?? null;
@@ -861,6 +899,7 @@ export async function uploadProjectDeliverable(
 
     if (insertError) {
       await supabase.storage.from(BUCKET).remove([path]);
+      logSupabaseError('projectService.uploadProjectDeliverable.insertAsset', insertError, insertPayload);
       throw insertError;
     }
 
@@ -882,7 +921,24 @@ export async function uploadProjectDeliverable(
 
     return { success: true, asset };
   } catch (error) {
-    return { success: false, error: error instanceof Error ? error.message : 'deliverable_upload_failed' };
+    logSupabaseError('projectService.uploadProjectDeliverable.catch', error, {
+      clientId: input.clientId,
+      projectId: input.projectId,
+      projectServiceId: input.projectServiceId || null,
+      fileName: input.file.name,
+      payload: {
+        clientVisible: input.clientVisible,
+        deliverableStatus: input.deliverableStatus,
+        publishToIdentity: input.publishToIdentity,
+        publishToIdentityOnDelivery: input.publishToIdentityOnDelivery,
+        identityCategory: input.identityCategory,
+        placementProjectHub: input.placementProjectHub,
+        placementActionCenter: input.placementActionCenter,
+        placementFilesLibrary: input.placementFilesLibrary,
+        placementBrandKit: input.placementBrandKit,
+      },
+    });
+    return { success: false, error: supabaseErrorMessage(error, 'deliverable_upload_failed') };
   }
 }
 
@@ -914,7 +970,15 @@ export async function publishProjectDeliverableToIdentity(
         placement_project_hub: true,
       })
       .eq('id', assetId);
-    if (error) throw error;
+    if (error) {
+      logSupabaseError('projectService.publishProjectDeliverableToIdentity', error, {
+        table: 'client_assets',
+        query: 'publish deliverable to identity',
+        assetId,
+        payload: { identityCategory },
+      });
+      throw error;
+    }
 
     const asset = current as Pick<ProjectDeliverable, 'id' | 'client_id' | 'file_name'> | null;
     if (asset?.client_id) {
@@ -932,7 +996,12 @@ export async function publishProjectDeliverableToIdentity(
 
     return { success: true };
   } catch (error) {
-    return { success: false, error: error instanceof Error ? error.message : 'identity_publish_failed' };
+    logSupabaseError('projectService.publishProjectDeliverableToIdentity.catch', error, {
+      query: 'publish deliverable to identity',
+      assetId,
+      payload: { identityCategory },
+    });
+    return { success: false, error: supabaseErrorMessage(error, 'identity_publish_failed') };
   }
 }
 
@@ -955,7 +1024,14 @@ export async function markProjectDeliverableDelivered(assetId: string): Promise<
         placement_files_library: true,
       })
       .eq('id', assetId);
-    if (error) throw error;
+    if (error) {
+      logSupabaseError('projectService.markProjectDeliverableDelivered', error, {
+        table: 'client_assets',
+        query: 'mark deliverable delivered',
+        assetId,
+      });
+      throw error;
+    }
 
     const asset = current as Pick<ProjectDeliverable, 'id' | 'client_id' | 'file_name'> | null;
     if (asset?.client_id) {
@@ -973,7 +1049,11 @@ export async function markProjectDeliverableDelivered(assetId: string): Promise<
 
     return { success: true };
   } catch (error) {
-    return { success: false, error: error instanceof Error ? error.message : 'deliverable_update_failed' };
+    logSupabaseError('projectService.markProjectDeliverableDelivered.catch', error, {
+      query: 'mark deliverable delivered',
+      assetId,
+    });
+    return { success: false, error: supabaseErrorMessage(error, 'deliverable_update_failed') };
   }
 }
 
@@ -1031,9 +1111,14 @@ export async function getProjectAssetSignedUrl(
     const { data, error } = await supabase.storage
       .from(BUCKET)
       .createSignedUrl(path, expiresIn);
-    if (error || !data?.signedUrl) return null;
+    if (error) {
+      logSupabaseError('projectService.getProjectAssetSignedUrl', error, { path, expiresIn });
+      return null;
+    }
+    if (!data?.signedUrl) return null;
     return data.signedUrl;
-  } catch {
+  } catch (error) {
+    logSupabaseError('projectService.getProjectAssetSignedUrl.catch', error, { path, expiresIn });
     return null;
   }
 }

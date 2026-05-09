@@ -4,7 +4,7 @@
  * ═══════════════════════════════════════════════════════════════════
  */
 
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useRef, memo } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
@@ -33,7 +33,7 @@ import { useAppearance } from "@/context/AppearanceContext";
 
 type DockTheme = "dark" | "light";
 
-const DockItem = ({
+const DockItem = memo(({
     icon: Icon,
     label,
     description,
@@ -70,9 +70,12 @@ const DockItem = ({
         return val - bounds.x - bounds.width / 2;
     });
 
-    const sizeSync = useTransform(distance, [-150, 0, 150], [52, 80, 52]);
-    const springConfig = { mass: 0.1, stiffness: 150, damping: 12 };
+    const sizeSync = useTransform(distance, [-150, 0, 150], [52, 94, 52]);
+    const springConfig = { mass: 0.1, stiffness: 180, damping: 14 };
     const size = useSpring(sizeSync, springConfig);
+
+    const iconSizeSync = useTransform(distance, [-150, 0, 150], [22, 38, 22]);
+    const iconSize = useSpring(iconSizeSync, springConfig);
 
     const mobileSize = 50;
 
@@ -133,7 +136,9 @@ const DockItem = ({
             className={`${baseClasses} ${variantClasses[variant]} ${highlighted ? highlightClasses : ""}`}
             aria-label={label}
         >
-            <Icon className={`h-5.5 w-5.5 ${theme === "dark" && isActive ? "drop-shadow-[0_0_8px_rgba(0,188,212,0.8)]" : ""}`} />
+            <motion.div style={{ width: iconSize, height: iconSize }} className="flex items-center justify-center">
+                <Icon className={`h-full w-full ${theme === "dark" && isActive ? "drop-shadow-[0_0_8px_rgba(0,188,212,0.8)]" : ""}`} />
+            </motion.div>
 
             <span
                 className={`pointer-events-none absolute -top-[66px] left-1/2 w-max max-w-[220px] -translate-x-1/2 rounded-xl px-3 py-2 text-[12px] font-semibold transition-all duration-200 ${showTooltip ? "translate-y-0 opacity-100" : "translate-y-2 opacity-0"} ${tooltipClasses}`}
@@ -148,11 +153,15 @@ const DockItem = ({
             )}
         </motion.button>
     );
-};
+});
 
-const DockSeparator = ({ theme = "dark" }: { theme?: DockTheme }) => (
+DockItem.displayName = "DockItem";
+
+const DockSeparator = memo(({ theme = "dark" }: { theme?: DockTheme }) => (
     <div className={`mx-0.5 h-6 w-px ${theme === "light" ? "bg-[rgba(127,142,106,0.2)]" : "bg-black/10"}`} />
-);
+));
+
+DockSeparator.displayName = "DockSeparator";
 
 const FloatingDock = () => {
     const navigate = useNavigate();
@@ -175,9 +184,21 @@ const FloatingDock = () => {
     const [typedGuideText, setTypedGuideText] = useState("");
     const [isMobile, setIsMobile] = useState(false);
     const [isVisible, setIsVisible] = useState(true);
+    type TimerHandle = ReturnType<typeof setTimeout>;
+    const timers = useRef<Record<string, TimerHandle | undefined>>({});
     const lastScrollY = useRef(0);
     const dockRef = useRef<HTMLDivElement>(null);
     const mouseX = useMotionValue(Infinity);
+
+    const clearAllTimers = useCallback(() => {
+        Object.values(timers.current).forEach((timer) => {
+            if (timer !== undefined) {
+                clearTimeout(timer);
+                clearInterval(timer);
+            }
+        });
+        timers.current = {};
+    }, []);
 
     const { scrollY } = useScroll();
     useMotionValueEvent(scrollY, "change", (latest) => {
@@ -226,23 +247,25 @@ const FloatingDock = () => {
         if (location.pathname !== "/" || isAuthenticated) return;
         if (sessionStorage.getItem("lumos_dock_guide_seen") === "1") return;
 
-        const id = setTimeout(() => setGuideStep(1), 30000);
-        return () => clearTimeout(id);
+        timers.current.initialGuide = setTimeout(() => setGuideStep(1), 30000);
+        return () => {
+            if (timers.current.initialGuide !== undefined) clearTimeout(timers.current.initialGuide);
+        };
     }, [location.pathname, isAuthenticated]);
 
     useEffect(() => {
-        if (guideStep !== 1) return;
-        const id = setTimeout(() => setGuideStep(2), 8500);
-        return () => clearTimeout(id);
-    }, [guideStep]);
-
-    useEffect(() => {
-        if (guideStep !== 2) return;
-        const id = setTimeout(() => {
-            setGuideStep(0);
-            sessionStorage.setItem("lumos_dock_guide_seen", "1");
-        }, 8500);
-        return () => clearTimeout(id);
+        if (guideStep === 1) {
+            timers.current.stepTransition = setTimeout(() => setGuideStep(2), 8500);
+        } else if (guideStep === 2) {
+            timers.current.finalTransition = setTimeout(() => {
+                setGuideStep(0);
+                sessionStorage.setItem("lumos_dock_guide_seen", "1");
+            }, 8500);
+        }
+        return () => {
+            if (timers.current.stepTransition !== undefined) clearTimeout(timers.current.stepTransition);
+            if (timers.current.finalTransition !== undefined) clearTimeout(timers.current.finalTransition);
+        };
     }, [guideStep]);
 
     useEffect(() => {
@@ -253,14 +276,22 @@ const FloatingDock = () => {
 
         let index = 0;
         setTypedGuideText("");
-        const id = setInterval(() => {
+        if (timers.current.typing !== undefined) clearInterval(timers.current.typing);
+        
+        timers.current.typing = setInterval(() => {
             index += 1;
             setTypedGuideText(guideText.slice(0, index));
-            if (index >= guideText.length) clearInterval(id);
+            if (index >= guideText.length && timers.current.typing !== undefined) clearInterval(timers.current.typing);
         }, 28);
 
-        return () => clearInterval(id);
+        return () => {
+            if (timers.current.typing !== undefined) clearInterval(timers.current.typing);
+        };
     }, [guideText]);
+
+    useEffect(() => {
+        return () => clearAllTimers();
+    }, [clearAllTimers]);
 
     useEffect(() => {
         const onOutsideClick = (event: MouseEvent) => {

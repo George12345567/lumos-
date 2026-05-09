@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { BadgeCheck, Pencil, Camera, MapPin, Globe, ExternalLink, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabaseClient';
+import SafeAvatarImage from '@/components/shared/SafeAvatarImage';
 import { CoverAvatarPicker } from '../components/CoverAvatarPicker';
 import { EditProfileModal } from '../components/EditProfileModal';
 import { STORAGE_BUCKET, STORAGE_PATHS, MAX_UPLOAD_BYTES } from '../constants';
@@ -213,20 +214,12 @@ export function ProfileHero({
                   className="flex h-28 w-28 items-center justify-center overflow-hidden rounded-full border-4 border-white text-3xl font-bold shadow-md sm:h-32 sm:w-32 sm:text-4xl"
                   style={{ backgroundColor: accent, color: '#fff' }}
                 >
-                  {profile.avatar_url ? (
-                    <img
-                      src={profile.avatar_url}
-                      alt={displayName}
-                      className="h-full w-full object-cover"
-                      onError={(e) => {
-                        // Legacy / expired signed URL: fall back to initials by
-                        // hiding the broken image and letting the colored circle show.
-                        (e.currentTarget as HTMLImageElement).style.display = 'none';
-                      }}
-                    />
-                  ) : (
-                    initials(displayName)
-                  )}
+                  <SafeAvatarImage
+                    src={profile.avatar_url}
+                    alt={displayName}
+                    className="h-full w-full object-cover"
+                    fallback={initials(displayName)}
+                  />
                 </div>
                 <span className="absolute inset-0 flex items-center justify-center rounded-full bg-black/0 transition group-hover/avatar:bg-black/30">
                   {uploading ? (

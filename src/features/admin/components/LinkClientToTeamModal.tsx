@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Check, Info, ShieldCheck, X } from 'lucide-react';
 import { useLanguage } from '@/context/LanguageContext';
+import SafeAvatarImage from '@/components/shared/SafeAvatarImage';
 import type { Client, TeamMember } from '@/types/dashboard';
 import { AdminDrawer } from './AdminDrawer';
 import { SoftBadge, SoftButton, SoftCard } from './primitives';
@@ -142,9 +143,11 @@ export function LinkClientToTeamModal({
       <div className="space-y-5">
         <SoftCard className="p-4 flex items-center gap-3">
           <span className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-400 to-teal-500 text-white font-bold flex items-center justify-center shrink-0">
-            {client.avatar_url ? (
-              <img src={client.avatar_url} alt="" className="w-full h-full rounded-2xl object-cover" />
-            ) : initial}
+            <SafeAvatarImage
+              src={client.avatar_url}
+              className="w-full h-full rounded-2xl object-cover"
+              fallback={initial}
+            />
           </span>
           <div className="min-w-0">
             <p className="text-sm font-bold truncate">{client.company_name || client.username || client.email}</p>

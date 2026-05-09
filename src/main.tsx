@@ -2,6 +2,9 @@ import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
 import { ErrorBoundary } from "./components/shared";
+import { applyStoredTheme } from "./lib/themeBootstrap";
+
+applyStoredTheme();
 
 // Monkey patch removeChild to prevent crashes from Google Translate/Extensions
 if (typeof Node === 'function' && Node.prototype) {

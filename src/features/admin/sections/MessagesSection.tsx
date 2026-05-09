@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useLanguage } from '@/context/LanguageContext';
+import SafeAvatarImage from '@/components/shared/SafeAvatarImage';
 import { useClient, useSessionEmail } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabaseClient';
 import type { Client, PricingRequest } from '@/types/dashboard';
@@ -174,12 +175,12 @@ export function MessagesSection({
                         active ? 'bg-emerald-50 ring-1 ring-emerald-100' : 'hover:bg-slate-50 dark:hover:bg-white/5'
                       }`}
                     >
-                      <span className={`w-9 h-9 rounded-2xl text-white font-bold text-sm flex items-center justify-center shrink-0 ${
-                        client?.avatar_url ? '' : 'bg-gradient-to-br from-emerald-400 to-teal-500'
-                      }`}>
-                        {client?.avatar_url ? (
-                          <img src={client.avatar_url} className="w-full h-full rounded-2xl object-cover" alt="" />
-                        ) : initial}
+                      <span className="w-9 h-9 rounded-2xl text-white font-bold text-sm flex items-center justify-center shrink-0 bg-gradient-to-br from-emerald-400 to-teal-500">
+                        <SafeAvatarImage
+                          src={client?.avatar_url}
+                          className="w-full h-full rounded-2xl object-cover"
+                          fallback={initial}
+                        />
                       </span>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-1.5">
@@ -248,9 +249,11 @@ export function MessagesSection({
               <>
                 <div className="flex items-center gap-3">
                   <span className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-400 to-teal-500 text-white font-bold flex items-center justify-center">
-                    {activeClient.avatar_url ? (
-                      <img src={activeClient.avatar_url} className="w-full h-full rounded-2xl object-cover" alt="" />
-                    ) : (activeClient.company_name || activeClient.username || '?').slice(0, 1).toUpperCase()}
+                    <SafeAvatarImage
+                      src={activeClient.avatar_url}
+                      className="w-full h-full rounded-2xl object-cover"
+                      fallback={(activeClient.company_name || activeClient.username || '?').slice(0, 1).toUpperCase()}
+                    />
                   </span>
                   <div className="min-w-0">
                     <p className="text-sm font-bold truncate">{activeClient.company_name || activeClient.username}</p>
@@ -374,9 +377,11 @@ function ChatThread({
     <>
       <header className="px-5 py-4 border-b border-emerald-900/5 dark:border-white/5 flex items-center gap-3">
         <span className="w-9 h-9 rounded-2xl bg-gradient-to-br from-emerald-400 to-teal-500 text-white font-bold text-sm flex items-center justify-center">
-          {client.avatar_url ? (
-            <img src={client.avatar_url} className="w-full h-full rounded-2xl object-cover" alt="" />
-          ) : (client.company_name || client.username || '?').slice(0, 1).toUpperCase()}
+          <SafeAvatarImage
+            src={client.avatar_url}
+            className="w-full h-full rounded-2xl object-cover"
+            fallback={(client.company_name || client.username || '?').slice(0, 1).toUpperCase()}
+          />
         </span>
         <div className="min-w-0">
           <p className="text-sm font-bold truncate">{client.company_name || client.username || clientId.slice(0, 8)}</p>
