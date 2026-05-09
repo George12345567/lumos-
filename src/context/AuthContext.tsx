@@ -3,6 +3,8 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 import { useQueryClient } from "@tanstack/react-query";
 import { authService, type AuthClient, type SignupResult } from "@/services/authService";
 import { isSupabaseConfigured, isAdminEmail } from "@/config/auth";
+import { supabase } from "@/lib/supabaseClient";
+import type { TeamMember } from "@/types/dashboard";
 
 /**
  * Auth state.
@@ -20,6 +22,12 @@ interface AuthStateContextType {
   sessionEmail: string | null;
   isAuthenticated: boolean;
   isAdmin: boolean;
+  isTeamMember: boolean;
+  teamMemberId: string | null;
+  teamRole: string | null;
+  teamJobTitle: string | null;
+  teamPermissions: Record<string, unknown>;
+  linkedClientId: string | null;
   loading: boolean;
   profileLoading: boolean;
   profileError: string | null;
@@ -53,6 +61,12 @@ const NULL_STATE: AuthStateContextType = {
   sessionEmail: null,
   isAuthenticated: false,
   isAdmin: false,
+  isTeamMember: false,
+  teamMemberId: null,
+  teamRole: null,
+  teamJobTitle: null,
+  teamPermissions: {},
+  linkedClientId: null,
   loading: false,
   profileLoading: false,
   profileError: null,
@@ -80,6 +94,22 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
   });
 }
 
+async function resolveActiveTeamMember(userId: string, email: string | null): Promise<TeamMember | null> {
+  try {
+    const attempts: Array<{ col: string; val: string }> = [{ col: 'user_id', val: userId }];
+    if (email) attempts.push({ col: 'email', val: email });
+
+    for (const { col, val } of attempts) {
+      const q = supabase.from('team_members').select('*').eq('is_active', true);
+      const { data, error } = await (col === 'email' ? q.ilike(col, val) : q.eq(col, val)).maybeSingle();
+      if (!error && data) return data as TeamMember;
+    }
+  } catch {
+    // ignore
+  }
+  return null;
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const queryClient = useQueryClient();
   const [client, setClient] = useState<AuthClient | null>(null);
@@ -88,6 +118,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [profileLoading, setProfileLoading] = useState(false);
   const [profileError, setProfileError] = useState<string | null>(null);
+  const [teamMember, setTeamMember] = useState<TeamMember | null>(null);
   const mountedRef = useRef(true);
   const authConfigured = isSupabaseConfigured();
 
@@ -102,14 +133,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!mountedRef.current) return;
     setProfileLoading(true);
     try {
-      const profile = await resolveProfile();
+      const { data: { user } } = await supabase.auth.getUser();
+      const [profile, tm] = await Promise.all([
+        resolveProfile(),
+        user ? resolveActiveTeamMember(user.id, user.email?.trim().toLowerCase() ?? null) : Promise.resolve(null),
+      ]);
       if (!mountedRef.current) return;
       setClient(profile);
+      setTeamMember(tm);
       setProfileError(profile ? null : "profile_fetch_failed");
     } catch {
       if (!mountedRef.current) return;
       setProfileError("profile_fetch_failed");
-      // Keep existing `client` so UI can keep showing previously-loaded data.
     } finally {
       if (mountedRef.current) setProfileLoading(false);
     }
@@ -121,9 +156,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       for (let attempt = 1; attempt <= retries; attempt++) {
         try {
-          const profile = await resolveProfile();
+          const { data: { user } } = await supabase.auth.getUser();
+          const [profile, tm] = await Promise.all([
+            resolveProfile(),
+            user ? resolveActiveTeamMember(user.id, user.email?.trim().toLowerCase() ?? null) : Promise.resolve(null),
+          ]);
           if (!mountedRef.current) return;
           setClient(profile);
+          setTeamMember(tm);
           setProfileError(profile ? null : "profile_fetch_failed");
           if (profile) return;
         } catch {
@@ -189,6 +229,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setHasSession(false);
         setSessionEmail(null);
         setClient(null);
+        setTeamMember(null);
         setProfileError(null);
       }
     });
@@ -216,6 +257,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setHasSession(false);
       setSessionEmail(null);
       setClient(null);
+      setTeamMember(null);
       setProfileError(null);
       setLoading(false);
     }
@@ -232,12 +274,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     sessionEmail,
     isAuthenticated,
     isAdmin,
+    isTeamMember: Boolean(teamMember?.is_active),
+    teamMemberId: teamMember?.id ?? null,
+    teamRole: (teamMember?.role as string) ?? null,
+    teamJobTitle: teamMember?.job_title ?? null,
+    teamPermissions: (teamMember?.permissions as Record<string, unknown>) ?? {},
+    linkedClientId: teamMember?.client_id ?? null,
     loading,
     profileLoading,
     profileError,
     authConfigured,
     error: profileError,
-  }), [client, sessionEmail, isAuthenticated, isAdmin, loading, profileLoading, profileError, authConfigured]);
+  }), [client, sessionEmail, isAuthenticated, isAdmin, teamMember, loading, profileLoading, profileError, authConfigured]);
 
   const actionsValue = useMemo<AuthActionsContextType>(() => ({
     login,
@@ -326,4 +374,24 @@ export function useProfileLoading() {
 export function useProfileError() {
   const { profileError } = useAuthState();
   return profileError;
+}
+
+export function useIsTeamMember() {
+  const { isTeamMember } = useAuthState();
+  return isTeamMember;
+}
+
+export function useTeamRole() {
+  const { teamRole } = useAuthState();
+  return teamRole;
+}
+
+export function useTeamMemberId() {
+  const { teamMemberId } = useAuthState();
+  return teamMemberId;
+}
+
+export function useTeamPermissions() {
+  const { teamPermissions } = useAuthState();
+  return teamPermissions;
 }

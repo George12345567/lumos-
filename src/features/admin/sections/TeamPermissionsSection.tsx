@@ -155,19 +155,19 @@ export function TeamPermissionsSection({
         </div>
       </SoftCard>
 
-      <SoftCard className="p-4 ring-1 ring-amber-100 bg-amber-50/40">
+      <SoftCard className="p-4 ring-1 ring-emerald-100 bg-emerald-50/40">
         <div className="flex items-start gap-3">
-          <span className="w-8 h-8 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
-            <Info className="w-4 h-4" />
+          <span className="w-8 h-8 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
+            <ShieldCheck className="w-4 h-4" />
           </span>
           <div>
-            <p className="text-sm font-semibold text-amber-900">
-              {t('الصلاحيات تُحفظ في قاعدة البيانات لكنها UI-only.', 'Permissions persist to the database but are UI-only.')}
+            <p className="text-sm font-semibold text-emerald-900">
+              {t('الصلاحيات مُطبَّقة على مستوى قاعدة البيانات.', 'Permissions are enforced by database policies and dashboard controls.')}
             </p>
-            <p className="text-xs text-amber-800 mt-1">
+            <p className="text-xs text-emerald-800 mt-1">
               {t(
-                'الصلاحيات تُخزّن في team_members.permissions ويمكن للوحة قراءتها وكتابتها. لتطبيقها فعلياً على مستوى قاعدة البيانات، راجع RBAC_BACKEND_TODO.md.',
-                'Permissions are stored in team_members.permissions and the dashboard can read/write them. Real DB-level enforcement still requires the work in RBAC_BACKEND_TODO.md.',
+                'دالة has_admin_permission() تُطبّق صلاحيات أعضاء الفريق على مستوى RLS في كل جداول المشاريع والعملاء والملفات والرسائل.',
+                'The has_admin_permission() DB function enforces team member permissions at RLS level across projects, clients, files, messages, and more.',
               )}
             </p>
           </div>
