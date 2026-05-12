@@ -27,6 +27,7 @@ import {
 import { useLanguage } from '@/context/LanguageContext';
 import type { Client, PricingRequest, TeamMember } from '@/types/dashboard';
 import { profileService } from '@/services/profileService';
+import VerifiedClientBadge from '@/components/shared/VerifiedClientBadge';
 import { useAdminPermission } from '../hooks/useAdminPermission';
 import {
   EmptyState,
@@ -53,6 +54,7 @@ interface ClientsSectionProps {
   onEdit: (client: Client) => void;
   onDelete: (id: string) => void | Promise<void>;
   onOpenRequest?: (id: string) => void;
+  onUpdateClient?: (id: string, updates: Partial<Client>) => Promise<void>;
   onOpenMessages?: (clientId: string) => void;
   onLinkAsTeam?: (client: Client) => void;
   onManageTeamMember?: (memberId: string) => void;
@@ -73,6 +75,7 @@ export function ClientsSection({
   onAdd,
   onEdit,
   onDelete,
+  onUpdateClient,
   onOpenRequest,
   onOpenMessages,
   onLinkAsTeam,
@@ -214,6 +217,7 @@ export function ClientsSection({
         onLinkAsTeam={onLinkAsTeam}
         onManageTeamMember={onManageTeamMember}
         onAfterSecurityChange={onAfterSecurityChange}
+        onUpdateClient={onUpdateClient}
       />
     </div>
   );
@@ -295,9 +299,14 @@ function ClientCard({
             </SoftBadge>
           </div>
           <div className="mt-3 space-y-1.5">
-            <p className="text-[15px] font-bold text-foreground truncate">
-              {client.company_name || client.username || t('عميل', 'Client')}
-            </p>
+            <div className="flex min-w-0 items-center gap-1.5">
+              <p className="min-w-0 truncate text-[15px] font-bold text-foreground">
+                {client.company_name || client.username || t('عميل', 'Client')}
+              </p>
+              {client.is_verified && (
+                <VerifiedClientBadge compact label={client.verified_label || 'Verified Lumos Client'} />
+              )}
+            </div>
             <p className="text-xs text-slate-500 truncate">
               {client.full_contact_name || client.username || ''}
               {client.package_name ? ` · ${client.package_name}` : ''}
@@ -327,7 +336,7 @@ function ClientCard({
 }
 
 function ClientDetailDrawer({
-  client, pricingRequests, teamMember, onClose, canEdit, canDelete, onEdit, onDelete, onOpenRequest, onOpenMessages, onLinkAsTeam, onManageTeamMember, onAfterSecurityChange,
+  client, pricingRequests, teamMember, onClose, canEdit, canDelete, onEdit, onDelete, onOpenRequest, onOpenMessages, onLinkAsTeam, onManageTeamMember, onAfterSecurityChange, onUpdateClient,
 }: {
   client: Client | null;
   pricingRequests: PricingRequest[];
@@ -342,6 +351,7 @@ function ClientDetailDrawer({
   onLinkAsTeam?: (c: Client) => void;
   onManageTeamMember?: (memberId: string) => void;
   onAfterSecurityChange?: () => void | Promise<void>;
+  onUpdateClient?: (id: string, updates: Partial<Client>) => Promise<void>;
 }) {
   const { language } = useLanguage();
   const isAr = language === 'ar';
@@ -428,6 +438,9 @@ function ClientDetailDrawer({
               <p className="text-base font-bold text-foreground truncate">
                 {client.full_contact_name || client.username}
               </p>
+              {client.is_verified ? (
+                <VerifiedClientBadge label={client.verified_label || 'Verified Lumos Client'} />
+              ) : null}
               {teamMember ? (
                 <SoftBadge tone="violet" icon={ShieldCheck}>
                   {t('عضو فريق', 'Team member')}
@@ -750,10 +763,60 @@ function ClientDetailDrawer({
       )}
 
       {tab === 'admin' && (
-        <SoftCard className="p-5 space-y-3">
+        <SoftCard className="p-5 space-y-4">
+          {client.is_verified ? (
+            <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-emerald-500/15 bg-emerald-500/5 p-3">
+              <VerifiedClientBadge label={client.verified_label || 'Verified Lumos Client'} />
+              <p className="text-xs text-muted-foreground">{t('موثّق بواسطة لوموس ويظهر في ملف العميل.', 'Verified by Lumos and visible on the client profile.')}</p>
+            </div>
+          ) : null}
           <Info label={t('ملاحظات الإدارة', 'Admin notes')} value={client.admin_notes} />
           <Info label={t('العرض النشط', 'Active offer')} value={client.active_offer} />
           <Info label={t('رابط العرض', 'Offer link')} value={client.active_offer_link} />
+          <div className="border-t border-border pt-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-semibold text-foreground">{t('عميل موثّق', 'Verified client')}</p>
+                <p className="text-[11px] text-muted-foreground mt-0.5">{t('وضع علامة التحقق المميزة على ملف العميل.', 'Mark this client with a premium verified badge on their profile.')}</p>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  className="sr-only peer"
+                  checked={Boolean(client.is_verified)}
+                  onChange={async (e) => {
+                    if (!onUpdateClient) return;
+                    const verified = e.target.checked;
+                    await onUpdateClient(client.id, {
+                      is_verified: verified,
+                      verified_label: verified ? (client.verified_label || 'Verified Lumos Client') : null,
+                      verified_by: undefined,
+                    });
+                  }}
+                  disabled={!onUpdateClient}
+                />
+                <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-[color:var(--profile-accent)] rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:bg-[color:var(--profile-accent)] after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all" />
+              </label>
+            </div>
+            {client.is_verified && (
+              <div className="mt-3">
+                <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                  {t('تسمية التحقق', 'Verified label')}
+                </label>
+                <input
+                  type="text"
+                  className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-[color:var(--profile-accent)]"
+                  placeholder="Verified Lumos Client"
+                  value={client.verified_label || 'Verified Lumos Client'}
+                  onChange={async (e) => {
+                    if (!onUpdateClient) return;
+                    await onUpdateClient(client.id, { verified_label: e.target.value || null });
+                  }}
+                  disabled={!onUpdateClient}
+                />
+              </div>
+            )}
+          </div>
         </SoftCard>
       )}
     </AdminDrawer>

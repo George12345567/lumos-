@@ -1744,6 +1744,7 @@ function ClientNoteComposer({
   const [placement, setPlacement] = useState<ClientNotePlacement>('both');
   const [active, setActive] = useState(true);
   const [dismissible, setDismissible] = useState(true);
+  const [showInHero, setShowInHero] = useState(false);
   const [expiresAt, setExpiresAt] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -1760,6 +1761,7 @@ function ClientNoteComposer({
         placement,
         isActive: active,
         isDismissible: dismissible,
+        showInProfileHero: showInHero,
         expiresAt: expiresAt ? new Date(expiresAt).toISOString() : null,
       });
 
@@ -1778,6 +1780,7 @@ function ClientNoteComposer({
       setPlacement('both');
       setActive(true);
       setDismissible(true);
+      setShowInHero(false);
       setExpiresAt('');
       await onCreated();
     } finally {
@@ -1852,6 +1855,10 @@ function ClientNoteComposer({
         <label className="flex items-center gap-2 text-sm font-semibold text-slate-600">
           <input type="checkbox" checked={dismissible} disabled={!canEdit || saving} onChange={(event) => setDismissible(event.target.checked)} />
           {t('يمكن للعميل تحديدها كمقروءة', 'Client can mark as read')}
+        </label>
+        <label className="flex items-center gap-2 text-sm font-semibold text-slate-600">
+          <input type="checkbox" checked={showInHero} disabled={!canEdit || saving} onChange={(event) => setShowInHero(event.target.checked)} />
+          {t('إظهار بجانب اسم العميل في الملف الشخصي', 'Show beside client name in profile hero')}
         </label>
         <label className="block sm:col-span-2">
           <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1 block">{t('النص', 'Body')}</span>

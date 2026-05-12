@@ -67,6 +67,7 @@ import { resendConfirmationEmail } from "@/services/authService";
 import type { AvailabilityStatus } from "@/services/authService";
 import { useAvailabilityCheck } from "@/hooks/useAvailabilityCheck";
 import AvatarGenerator, { type AvatarStyle } from "@/components/shared/AvatarGenerator";
+import LumosLogo from "@/components/shared/LumosLogo";
 import {
   signupFormSchema,
   SignupInput,
@@ -502,7 +503,10 @@ export default function SignUpPage() {
   if (authLoading) {
     return (
       <div className="min-h-screen bg-background text-foreground flex items-center justify-center" dir={isArabic ? "rtl" : "ltr"}>
-        <Loader2 className="w-6 h-6 animate-spin text-primary" />
+        <div className="flex flex-col items-center gap-4">
+          <LumosLogo variant="iconOnly" size="lg" />
+          <div className="h-6 w-6 rounded-full border-2 border-primary/50 border-t-transparent animate-spin" />
+        </div>
       </div>
     );
   }
@@ -524,6 +528,7 @@ export default function SignUpPage() {
             <div className="absolute -bottom-20 -right-20 w-[300px] h-[300px] rounded-full bg-[#00bcd4]/6 blur-[80px] animate-orb-delayed" />
           </div>
           <div className="container mx-auto max-w-md relative z-10" dir={isArabic ? "rtl" : "ltr"}>
+            <LumosLogo variant="hero" size="lg" showText className="mx-auto mb-6" />
             <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.5 }} className="glass-card rounded-2xl glow-border-hover p-6 sm:p-8 text-center">
               <div className="w-20 h-20 mx-auto rounded-full bg-primary/10 border-2 border-primary/30 flex items-center justify-center mb-6">
                 <MailCheck className="w-10 h-10 text-primary" />
@@ -570,6 +575,9 @@ export default function SignUpPage() {
         </div>
 
         <div className="container mx-auto max-w-4xl relative z-10 text-center" dir={isArabic ? "rtl" : "ltr"}>
+          <motion.div initial={{ opacity: 0, y: -10, scale: 0.96 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ duration: 0.5 }}>
+            <LumosLogo variant="hero" size="lg" showText className="mx-auto mb-5" />
+          </motion.div>
           <motion.div initial={{ opacity: 0, y: -15 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
             <span className="inline-block py-1 px-3 rounded-full bg-primary/10 border border-primary/20 text-primary text-[10px] sm:text-xs font-bold tracking-[0.2em] uppercase shadow-[0_0_12px_rgba(0,188,212,0.1)] mb-4">
               {t("شريكك الرقمي", "YOUR DIGITAL PARTNER")}
@@ -578,8 +586,7 @@ export default function SignUpPage() {
 
           <motion.h1 initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.1 }}
             className="text-3xl sm:text-4xl md:text-5xl font-extrabold leading-tight">
-            {t("انضم إلى", "Join")}{" "}
-            <span className="text-primary">Lumos</span>
+            {t("انضم إلى لوموس", "Join Lumos")}
           </motion.h1>
 
           <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.4, delay: 0.2 }}

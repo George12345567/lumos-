@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { BadgeCheck, Pencil, Camera, MapPin, Globe, ExternalLink, Loader2 } from 'lucide-react';
+import { Pencil, Camera, MapPin, Globe, ExternalLink, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabaseClient';
 import SafeAvatarImage from '@/components/shared/SafeAvatarImage';
+import VerifiedClientBadge from '@/components/shared/VerifiedClientBadge';
 import { CoverAvatarPicker } from '../components/CoverAvatarPicker';
 import { EditProfileModal } from '../components/EditProfileModal';
 import { STORAGE_BUCKET, STORAGE_PATHS, MAX_UPLOAD_BYTES } from '../constants';
@@ -18,6 +19,7 @@ interface Props {
   onUpdate: <K extends keyof ProfileData>(field: K, value: ProfileData[K]) => void;
   isArabic?: boolean;
   isVerified?: boolean;
+  verifiedLabel?: string;
 }
 
 function initials(name: string): string {
@@ -66,6 +68,7 @@ export function ProfileHero({
   onUpdate,
   isArabic,
   isVerified,
+  verifiedLabel,
 }: Props) {
   const [editOpen, setEditOpen] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -228,19 +231,14 @@ export function ProfileHero({
                     <Camera className="h-6 w-6 text-white opacity-0 transition group-hover/avatar:opacity-100" />
                   )}
                 </span>
-                {isVerified && (
-                  <span className="absolute -bottom-0.5 -right-0.5 flex h-7 w-7 items-center justify-center rounded-full border-2 border-white bg-white">
-                    <BadgeCheck className="h-6 w-6" style={{ color: accent }} />
-                  </span>
-                )}
-              </button>
+                </button>
 
               {/* Identity */}
               <div className="mt-3 flex flex-col items-center gap-1 text-center sm:items-start sm:text-left">
                 <div className="flex flex-wrap items-center justify-center gap-2 sm:justify-start">
                   <h1 className="text-2xl font-semibold text-slate-900 sm:text-3xl">{displayName}</h1>
                   {isVerified && (
-                    <BadgeCheck className="h-5 w-5 shrink-0" style={{ color: accent }} />
+                    <VerifiedClientBadge label={verifiedLabel || (isArabic ? 'عميل لوموس موثّق' : 'Verified Lumos Client')} />
                   )}
                 </div>
                 <p className="text-sm text-slate-400">@{username}</p>

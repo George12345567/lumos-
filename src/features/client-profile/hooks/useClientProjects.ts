@@ -2,19 +2,27 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { fetchClientProjects, type Project } from '@/services/projectService';
 
+const projectsCache = new Map<string, Project[]>();
+
 export function useClientProjects(clientId: string | undefined) {
-  const [projects, setProjects] = useState<Project[]>([]);
+  const cached = clientId ? projectsCache.get(clientId) : undefined;
+  const [projects, setProjects] = useState<Project[]>(() => cached ?? []);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const failedRef = useRef(false);
 
   const refetch = useCallback(async () => {
-    if (!clientId) return;
+    if (!clientId) {
+      setProjects([]);
+      setLoading(false);
+      return;
+    }
 
-    setLoading(true);
+    setLoading(!projectsCache.has(clientId));
     setError(null);
     try {
       const nextProjects = await fetchClientProjects(clientId);
+      projectsCache.set(clientId, nextProjects);
       setProjects(nextProjects);
       failedRef.current = false;
     } catch (err) {
@@ -27,10 +35,12 @@ export function useClientProjects(clientId: string | undefined) {
   }, [clientId]);
 
   useEffect(() => {
-    setProjects([]);
     setError(null);
 
     if (!clientId) return;
+    const nextCached = projectsCache.get(clientId);
+    setProjects(nextCached ?? []);
+    setLoading(!nextCached);
     void refetch();
   }, [clientId, refetch]);
 

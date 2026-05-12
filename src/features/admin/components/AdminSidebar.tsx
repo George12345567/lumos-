@@ -1,7 +1,8 @@
 import { useMemo } from 'react';
-import { ArrowLeft, LogOut, Sparkles } from 'lucide-react';
+import { ArrowLeft, LogOut } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { cn } from '@/lib/utils';
+import LumosLogo from '@/components/shared/LumosLogo';
 import { useLanguage } from '@/context/LanguageContext';
 import { SIDEBAR_ITEMS } from '../constants/sidebar';
 import { useCanAccessResource } from '../hooks/useAdminPermission';
@@ -27,9 +28,7 @@ export function AdminSidebar({ active, onChange, onSignOut, badges, collapsed }:
       )}
     >
       <div className="px-5 pt-6 pb-4 flex items-center gap-3">
-        <span className="w-9 h-9 rounded-2xl bg-gradient-to-br from-emerald-400 to-teal-500 text-white flex items-center justify-center shadow-sm">
-          <Sparkles className="w-4 h-4" />
-        </span>
+        <LumosLogo variant="iconOnly" size="md" />
         {!collapsed ? (
           <div className="min-w-0">
             <p className="text-[15px] font-bold tracking-tight text-foreground truncate">

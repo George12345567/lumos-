@@ -6,18 +6,26 @@ import {
   type ClientNote,
 } from '@/services/clientNotesService';
 
+const clientNotesCache = new Map<string, ClientNote[]>();
+
 export function useClientNotes(clientId: string | undefined) {
-  const [notes, setNotes] = useState<ClientNote[]>([]);
+  const cached = clientId ? clientNotesCache.get(clientId) : undefined;
+  const [notes, setNotes] = useState<ClientNote[]>(() => cached ?? []);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const failedRef = useRef(false);
 
   const refetch = useCallback(async () => {
-    if (!clientId) return;
-    setLoading(true);
+    if (!clientId) {
+      setNotes([]);
+      setLoading(false);
+      return;
+    }
+    setLoading(!clientNotesCache.has(clientId));
     setError(null);
     try {
       const next = await fetchClientNotes(clientId);
+      clientNotesCache.set(clientId, next);
       setNotes(next);
       failedRef.current = false;
     } catch (err) {
@@ -30,9 +38,11 @@ export function useClientNotes(clientId: string | undefined) {
   }, [clientId]);
 
   useEffect(() => {
-    setNotes([]);
     setError(null);
     if (!clientId) return;
+    const nextCached = clientNotesCache.get(clientId);
+    setNotes(nextCached ?? []);
+    setLoading(!nextCached);
     void refetch();
   }, [clientId, refetch]);
 
@@ -58,12 +68,16 @@ export function useClientNotes(clientId: string | undefined) {
     const result = await markClientNoteRead(noteId);
     if (result.success) {
       const readAt = new Date().toISOString();
-      setNotes((current) => current.map((note) => (
-        note.id === noteId ? { ...note, read_at: note.read_at || readAt } : note
-      )));
+      setNotes((current) => {
+        const next = current.map((note) => (
+          note.id === noteId ? { ...note, read_at: note.read_at || readAt } : note
+        ));
+        if (clientId) clientNotesCache.set(clientId, next);
+        return next;
+      });
     }
     return result;
-  }, []);
+  }, [clientId]);
 
   return { notes, loading, error, refetch, markRead };
 }

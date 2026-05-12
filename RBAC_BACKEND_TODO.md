@@ -212,16 +212,20 @@ viewer. Anything that lets a lower role escalate is a launch blocker.
 The frontend is permission-aware **today**. To turn that awareness into
 real security:
 
-- [ ] Persist server-trusted roles (`clients.role` or
+- [x] Persist server-trusted roles (`clients.role` or
       `team_members.user_id` link).
-- [ ] Write `current_admin_role()` and `has_perm(resource, action)` as
+- [x] Write `current_admin_role()` and `has_perm(resource, action)` as
       SECURITY DEFINER functions.
-- [ ] Replace blanket `is_admin()` policies with `has_perm(...)` policies
+- [x] Replace blanket `is_admin()` policies with `has_perm(...)` policies
       across every admin-touched table.
-- [ ] Add ownership scoping for designer/sales.
-- [ ] (Optional) `role_permissions` table for per-user overrides.
+- [x] Add ownership scoping for designer/sales.
+- [x] (Optional) `role_permissions` table for per-user overrides — using
+      `team_members.permissions` JSONB column instead.
 - [ ] Audit triggers / hooks.
 - [ ] Run the cross-role test matrix.
 
-Until those land, the admin dashboard's UI gating is an ergonomic
-convenience — not a security boundary.
+RBAC is now enforced at the database level. `has_admin_permission()`
+checks `team_members.permissions` JSONB overrides and falls back to
+`default_role_permission()`. Team members without permission are blocked
+at the RLS layer. The admin dashboard's UI gating mirrors the same
+permission matrix.

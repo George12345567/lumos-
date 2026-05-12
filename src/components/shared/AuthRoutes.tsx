@@ -1,4 +1,4 @@
-import { Navigate, useLocation } from "react-router-dom";
+import { Navigate, useLocation, useSearchParams } from "react-router-dom";
 import { useEffect, useState } from "react";
 import {
   useIsAuthenticated,
@@ -6,6 +6,7 @@ import {
   useAuthConfigured,
   useClient,
   useProfileLoading,
+  useIsTeamMember,
 } from "@/context/AuthContext";
 import { ROUTES } from "@/lib/constants";
 import { LoadingFallback } from "@/components/shared";
@@ -36,7 +37,9 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const loading = useAuthLoading();
   const profileLoading = useProfileLoading();
   const client = useClient();
+  const isTeamMember = useIsTeamMember();
   const location = useLocation();
+  const [searchParams] = useSearchParams();
 
   if (loading || (isAuthenticated && profileLoading && !client)) {
     return <LoadingFallback />;
@@ -51,6 +54,10 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
     location.pathname !== ROUTES.CHANGE_PASSWORD
   ) {
     return <Navigate to={ROUTES.CHANGE_PASSWORD} replace />;
+  }
+
+  if (isTeamMember && location.pathname === ROUTES.CLIENT_PROFILE && searchParams.get('mode') !== 'client') {
+    return <Navigate to={ROUTES.ADMIN_DASHBOARD} replace />;
   }
 
   return <>{children}</>;

@@ -3,9 +3,12 @@ import { supabase } from '@/lib/supabaseClient';
 import { getNotifications, markNotificationAsRead } from '@/services/notificationService';
 import type { Notification } from '@/types/dashboard';
 
+const notificationsCache = new Map<string, Notification[]>();
+
 export function useNotifications(clientId: string | undefined) {
-  const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [loading, setLoading] = useState(true);
+  const cached = clientId ? notificationsCache.get(clientId) : undefined;
+  const [notifications, setNotifications] = useState<Notification[]>(() => cached ?? []);
+  const [loading, setLoading] = useState(() => Boolean(clientId && !cached));
   const [error, setError] = useState<string | null>(null);
 
   const fetchNotifications = useCallback(async () => {
@@ -13,10 +16,11 @@ export function useNotifications(clientId: string | undefined) {
       setLoading(false);
       return;
     }
-    setLoading(true);
+    setLoading(!notificationsCache.has(clientId));
     setError(null);
     try {
       const data = await getNotifications(clientId, true, 20);
+      notificationsCache.set(clientId, data);
       setNotifications(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load notifications');
@@ -26,8 +30,16 @@ export function useNotifications(clientId: string | undefined) {
   }, [clientId]);
 
   useEffect(() => {
+    if (clientId) {
+      const nextCached = notificationsCache.get(clientId);
+      setNotifications(nextCached ?? []);
+      setLoading(!nextCached);
+    } else {
+      setNotifications([]);
+      setLoading(false);
+    }
     void fetchNotifications();
-  }, [fetchNotifications]);
+  }, [clientId, fetchNotifications]);
 
   useEffect(() => {
     if (!clientId) return;
@@ -40,7 +52,11 @@ export function useNotifications(clientId: string | undefined) {
         .on('postgres_changes',
           { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${clientId}` },
           (payload) => {
-            setNotifications((prev) => [payload.new as Notification, ...prev]);
+            setNotifications((prev) => {
+              const next = [payload.new as Notification, ...prev];
+              notificationsCache.set(clientId, next);
+              return next;
+            });
           })
         .subscribe();
     } catch {
@@ -60,7 +76,11 @@ export function useNotifications(clientId: string | undefined) {
     if (!clientId) return;
     try {
       await markNotificationAsRead(notifId, clientId);
-      setNotifications((prev) => prev.map((n) => n.id === notifId ? { ...n, is_read: true } : n));
+      setNotifications((prev) => {
+        const next = prev.map((n) => n.id === notifId ? { ...n, is_read: true } : n);
+        notificationsCache.set(clientId, next);
+        return next;
+      });
     } catch {
       // silently fail
     }

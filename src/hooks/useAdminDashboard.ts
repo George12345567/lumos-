@@ -4,6 +4,7 @@ import { hashPassword } from '@/lib/secretHash';
 import { Order, Contact, Client, ClientUpdate, DashboardStats, SavedDesign, PricingRequest } from '@/types/dashboard';
 import type { Project } from '@/services/projectService';
 import { toast } from 'sonner';
+import { adminUpdateClient as adminUpdateClientRecord } from '@/services/adminClientModalService';
 import {
     adminCancelPricingRequest,
     adminConvertPricingRequest,
@@ -324,8 +325,7 @@ export const useAdminDashboard = () => {
             headers: {
                 'Content-Type': 'application/json',
                 apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
-                Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-                'x-session-token': sessionToken,
+                Authorization: `Bearer ${sessionToken}`,
             },
             body: JSON.stringify({
                 action: 'create',
@@ -347,8 +347,7 @@ export const useAdminDashboard = () => {
                 headers: {
                     'Content-Type': 'application/json',
                     apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
-                    Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-                    'x-session-token': sessionToken,
+                    Authorization: `Bearer ${sessionToken}`,
                 },
                 body: JSON.stringify({ action: 'delete', clientId: id }),
             });
@@ -363,26 +362,23 @@ export const useAdminDashboard = () => {
 
     const updateClient = useCallback(async (id: string, data: Partial<Client>) => {
         try {
-            const sessionToken = await getSessionToken();
-            if (!sessionToken) throw new Error('Missing admin session token');
-            const response = await fetch(ADMIN_EDGE_URL, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
-                    Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-                    'x-session-token': sessionToken,
-                },
-                body: JSON.stringify({ action: 'update', clientId: id, payload: data }),
-            });
-            const payload = await response.json().catch(() => ({ success: false, error: 'Failed to update client' }));
-            if (!response.ok || !payload.success) throw new Error(payload.error || 'Failed to update client');
+            const updatedClient = await adminUpdateClientRecord(id, data);
             toast.success('Client updated!');
-            setClients(prev => prev.map(c => c.id === id ? { ...c, ...data } : c));
-        } catch {
+            if (updatedClient) {
+                setClients(prev => prev.map(c => c.id === id ? updatedClient : c));
+            }
+            await fetchData();
+        } catch (error) {
+            console.error('[useAdminDashboard.updateClient]', {
+                error,
+                payload: {
+                    clientId: id,
+                    fields: Object.keys(data),
+                },
+            });
             toast.error('Failed to update client');
         }
-    }, []);
+    }, [fetchData]);
 
     return {
         orders,

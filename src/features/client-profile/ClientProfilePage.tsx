@@ -9,6 +9,7 @@ import {
   type RefObject,
 } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { toast } from 'sonner';
 import {
   AlertTriangle,
   Archive,
@@ -50,6 +51,8 @@ import {
 } from 'lucide-react';
 import AvatarGenerator, { type AvatarStyle } from '@/components/shared/AvatarGenerator';
 import SafeAvatarImage from '@/components/shared/SafeAvatarImage';
+import VerifiedClientBadge from '@/components/shared/VerifiedClientBadge';
+import LumosLogo from '@/components/shared/LumosLogo';
 import EnhancedNavbar from '@/components/layout/EnhancedNavbar';
 import {
   Dialog,
@@ -64,12 +67,15 @@ import {
   useAuthActions,
   useAuthLoading,
   useIsAuthenticated,
+  useIsTeamMember,
+  useTeamRole,
   useProfileError,
   useProfileLoading,
 } from '@/context/AuthContext';
 import { useAppearance } from '@/context/AppearanceContext';
 import { useLanguage } from '@/context/LanguageContext';
 import { cn } from '@/lib/utils';
+import { supabase } from '@/lib/supabaseClient';
 import {
   BUDGET_RANGE_OPTIONS,
   INDUSTRY_OPTIONS,
@@ -114,12 +120,14 @@ import { useOrders } from './hooks/useOrders';
 import { useClientProjects } from './hooks/useClientProjects';
 import { useClientPricingRequests } from './hooks/useClientPricingRequests';
 import { useClientNotes } from './hooks/useClientNotes';
+import { fetchClientHeroNotes, type ClientNote as HeroNote } from '@/services/clientNotesService';
 import { usePortalData } from './hooks/usePortalData';
 import { useProfileMutation } from './hooks/useProfileMutation';
 import type { PricingRequest } from '@/types/dashboard';
 import { DEFAULT_ACCENT, TAB_ALIASES } from './constants';
 import { RequestStatusTimeline } from '@/components/requests/RequestStatusTimeline';
 import type { ClientNote } from '@/services/clientNotesService';
+import { HeroNoteBanner } from './components/HeroNoteBanner';
 
 type ProfileTab = 'overview' | 'projects' | 'messages' | 'files' | 'identity' | 'account';
 
@@ -203,6 +211,15 @@ function normalizeProfileTab(value?: string | null): ProfileTab | null {
   if (!key) return null;
   if (PROFILE_NAV.some((item) => item.id === key)) return key as ProfileTab;
   return TAB_ALIASES[key] ?? null;
+}
+
+function getStoredProfileTab(): ProfileTab | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    return normalizeProfileTab(window.localStorage.getItem('lumos:lastClientProfileTab'));
+  } catch {
+    return null;
+  }
 }
 
 function formatDate(value?: string | null, fallback = '—') {
@@ -660,6 +677,8 @@ export default function ClientProfilePage() {
   const isAuthenticated = useIsAuthenticated();
   const profileError = useProfileError();
   const profileLoading = useProfileLoading();
+  const isTeamMember = useIsTeamMember();
+  const teamRole = useTeamRole();
   const { isArabic } = useLanguage();
   const { theme, toggleTheme } = useAppearance();
   const navigate = useNavigate();
@@ -701,8 +720,21 @@ export default function ClientProfilePage() {
     markRead: markClientNoteRead,
   } = useClientNotes(client?.id);
   const { notifications } = useNotifications(client?.id);
+  const [heroNotes, setHeroNotes] = useState<HeroNote[]>([]);
 
-  const tab = normalizeProfileTab(searchParams.get('tab')) ?? 'overview';
+  useEffect(() => {
+    if (!client?.id) return;
+    let cancelled = false;
+    void fetchClientHeroNotes(client.id).then((notes) => {
+      if (!cancelled) setHeroNotes(notes);
+    });
+    return () => { cancelled = true; };
+  }, [client?.id]);
+
+  const [activeTab, setActiveTab] = useState<ProfileTab>(() => (
+    normalizeProfileTab(searchParams.get('tab')) ?? getStoredProfileTab() ?? 'overview'
+  ));
+  const tab = activeTab;
   const [editorOpen, setEditorOpen] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [coverUrl, setCoverUrl] = useState<string | null>(null);
@@ -715,6 +747,26 @@ export default function ClientProfilePage() {
     if (authLoading) return;
     if (!isAuthenticated) navigate('/client-login', { replace: true });
   }, [authLoading, isAuthenticated, navigate]);
+
+  useEffect(() => {
+    const urlTab = normalizeProfileTab(searchParams.get('tab'));
+
+    if (urlTab) {
+      setActiveTab((current) => (current === urlTab ? current : urlTab));
+      try { window.localStorage.setItem('lumos:lastClientProfileTab', urlTab); } catch { /* ignore */ }
+      return;
+    }
+
+    const storedTab = getStoredProfileTab();
+    if (storedTab && storedTab !== 'overview') {
+      setActiveTab((current) => (current === storedTab ? current : storedTab));
+      setSearchParams((current) => {
+        const next = new URLSearchParams(current);
+        next.set('tab', storedTab);
+        return next;
+      }, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
 
   useEffect(() => {
     let cancelled = false;
@@ -756,6 +808,7 @@ export default function ClientProfilePage() {
 
   const handleTabChange = useCallback(
     (nextTab: ProfileTab) => {
+      setActiveTab(nextTab);
       setSearchParams((current) => {
         const next = new URLSearchParams(current);
         if (nextTab === 'overview') {
@@ -766,9 +819,7 @@ export default function ClientProfilePage() {
         return next;
       }, { replace: true });
 
-      window.requestAnimationFrame(() => {
-        contentStartRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      });
+      try { window.localStorage.setItem('lumos:lastClientProfileTab', nextTab); } catch { /* ignore */ }
     },
     [setSearchParams],
   );
@@ -832,9 +883,52 @@ export default function ClientProfilePage() {
     [client, saveProfilePatch],
   );
 
+  const handleApproveAsset = useCallback(
+    async (assetId: string) => {
+      if (!client) return;
+      try {
+        const { data, error } = await supabase.rpc('client_approve_deliverable', { p_asset_id: assetId });
+        if (error) throw error;
+        if (data && !data.ok) throw new Error(data.error || 'approval_failed');
+        await Promise.all([reloadPortal(), reloadIdentity(), refetchProjects()]);
+        toast.success(isArabic ? 'تم اعتماد الملف' : 'File approved');
+      } catch (error) {
+        console.error('[ClientProfilePage.handleApproveAsset]', {
+          error,
+          assetId,
+        });
+        toast.error(isArabic ? 'تعذر اعتماد الملف' : 'Could not approve the file');
+      }
+    },
+    [client, isArabic, reloadPortal, reloadIdentity, refetchProjects],
+  );
+
+  const handleRequestChanges = useCallback(
+    async (assetId: string, message?: string) => {
+      if (!client) return;
+      try {
+        const { data, error } = await supabase.rpc('client_request_deliverable_changes', {
+          p_asset_id: assetId,
+          p_message: message?.trim() || null,
+        });
+        if (error) throw error;
+        if (data && !data.ok) throw new Error(data.error || 'changes_request_failed');
+        await Promise.all([reloadPortal(), refetchProjects()]);
+        toast.success(isArabic ? 'تم إرسال طلب التعديلات' : 'Change request sent');
+      } catch (error) {
+        console.error('[ClientProfilePage.handleRequestChanges]', {
+          error,
+          assetId,
+        });
+        toast.error(isArabic ? 'تعذر طلب التعديلات' : 'Could not request changes');
+      }
+    },
+    [client, isArabic, reloadPortal, refetchProjects],
+  );
+
   const loadingProfile =
     authLoading ||
-    profileLoading ||
+    (profileLoading && !client) ||
     (isAuthenticated && !client && !profileError) ||
     (isAuthenticated && Boolean(client) && !profile && loading);
 
@@ -922,6 +1016,27 @@ export default function ClientProfilePage() {
       style={{ '--profile-accent': accent } as CSSProperties}
     >
       <EnhancedNavbar />
+      {isTeamMember && searchParams.get('mode') !== 'client' && (
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 pt-20 lg:pt-24">
+          <div className="rounded-xl border border-amber-200 bg-gradient-to-r from-amber-50 to-orange-50 px-4 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <ShieldCheck className="h-5 w-5 text-amber-600 shrink-0" />
+              <p className="text-sm font-medium text-amber-900">
+                {isArabic
+                  ? `أنت جزء من فريق لوموس بدور ${teamRole || 'عضو فريق'}`
+                  : `You're part of the Lumos team as ${teamRole || 'team member'}`}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => navigate('/lumos-admin')}
+              className="inline-flex items-center justify-center rounded-full bg-amber-600 px-4 py-1.5 text-sm font-semibold text-white transition hover:bg-amber-700 shrink-0"
+            >
+              {isArabic ? 'لوحة العمليات' : 'Open Operations Dashboard'}
+            </button>
+          </div>
+        </div>
+      )}
       <div className="mx-auto grid w-full max-w-7xl gap-5 px-4 pb-44 pt-24 sm:px-6 lg:grid-cols-[240px_minmax(0,1fr)] lg:pb-28 lg:pt-28">
         <Sidebar active={tab} isArabic={isArabic} onChange={handleTabChange} onSignOut={handleSignOut} />
 
@@ -936,50 +1051,47 @@ export default function ClientProfilePage() {
             onToggleTheme={toggleTheme}
           />
 
-          {tab === 'overview' ? (
-            <>
-              <HeroProfileCard
-                avatarConfig={profile.avatar_config ?? client.avatar_config}
-                avatarError={avatarError}
-                avatarUploading={avatarUploading}
-                avatarUrl={avatarUrl}
-                coverUrl={coverUrl}
-                displayName={displayName}
-                fileInputRef={fileInputRef}
-                isArabic={isArabic}
-                isVerified={Boolean(client.is_verified || profile.is_verified)}
-                location={cleanText(profile.location)}
-                onAvatarChange={handleAvatarChange}
-                onEdit={() => setEditorOpen(true)}
-                packageName={packageName}
-                tagline={tagline}
-                username={username}
-                website={getClientWebsite(profile, client)}
-                coverGradient={profile.cover_gradient}
-              />
+          <HeroProfileCard
+            avatarConfig={profile.avatar_config ?? client.avatar_config}
+            avatarError={avatarError}
+            avatarUploading={avatarUploading}
+            avatarUrl={avatarUrl}
+            coverUrl={coverUrl}
+            displayName={displayName}
+            fileInputRef={fileInputRef}
+            isArabic={isArabic}
+            isVerified={Boolean(client.is_verified || profile.is_verified)}
+            verifiedLabel={client.verified_label || (client.is_verified || profile.is_verified ? 'Verified Lumos Client' : undefined)}
+            location={cleanText(profile.location)}
+            onAvatarChange={handleAvatarChange}
+            onEdit={() => setEditorOpen(true)}
+            packageName={packageName}
+            tagline={tagline}
+            username={username}
+            website={getClientWebsite(profile, client)}
+            coverGradient={profile.cover_gradient}
+          />
 
-              <StatsRow
-                activeProjects={activeProjects}
-                unreadMessages={unreadMessages}
-                profileProgress={profileProgress}
-                nextDelivery={nextDelivery}
-                isArabic={isArabic}
-              />
-            </>
-          ) : (
-            <CompactSectionHeader
-              activeTab={tab}
-              avatarConfig={profile.avatar_config ?? client.avatar_config}
-              avatarUrl={avatarUrl}
-              displayName={displayName}
-              initialsText={initials(displayName)}
+          {heroNotes.length > 0 && (
+            <HeroNoteBanner
+              notes={heroNotes}
               isArabic={isArabic}
-              packageName={packageName}
-              username={username}
+              onMarkRead={async (noteId) => {
+                await markClientNoteRead(noteId);
+                setHeroNotes((prev) => prev.filter((n) => n.id !== noteId));
+              }}
+              onNavigateMessages={() => handleTabChange('messages')}
             />
           )}
 
-          {tab === 'overview' && (
+          <ProfileTabPanel active={tab === 'overview'}>
+            <StatsRow
+              activeProjects={activeProjects}
+              unreadMessages={unreadMessages}
+              profileProgress={profileProgress}
+              nextDelivery={nextDelivery}
+              isArabic={isArabic}
+            />
             <HomeTab
               profile={profile}
               client={client}
@@ -994,9 +1106,9 @@ export default function ClientProfilePage() {
               onNavigate={handleTabChange}
               onMarkNoteRead={markClientNoteRead}
             />
-          )}
+          </ProfileTabPanel>
 
-          {tab === 'projects' && (
+          <ProfileTabPanel active={tab === 'projects'}>
             <ProjectsTab
               projects={projects}
               loading={projectsLoading}
@@ -1010,10 +1122,12 @@ export default function ClientProfilePage() {
               clientNotes={clientNotes}
               onMessage={() => handleTabChange('messages')}
               onMarkNoteRead={markClientNoteRead}
+              onApproveAsset={handleApproveAsset}
+              onRequestChanges={handleRequestChanges}
             />
-          )}
+          </ProfileTabPanel>
 
-          {tab === 'messages' && (
+          <ProfileTabPanel active={tab === 'messages'}>
             <MessagesTab
               messages={messages}
               loading={portalLoading}
@@ -1023,9 +1137,9 @@ export default function ClientProfilePage() {
               onRefresh={reloadPortal}
               onSendMessage={sendMessage}
             />
-          )}
+          </ProfileTabPanel>
 
-          {tab === 'files' && (
+          <ProfileTabPanel active={tab === 'files'}>
             <FilesTab
               assets={libraryAssets}
               projects={projects}
@@ -1034,9 +1148,9 @@ export default function ClientProfilePage() {
               isArabic={isArabic}
               onRefresh={reloadPortal}
             />
-          )}
+          </ProfileTabPanel>
 
-          {tab === 'identity' && (
+          <ProfileTabPanel active={tab === 'identity'}>
             <IdentityTab
               identity={identity}
               assets={identityAssets}
@@ -1047,9 +1161,9 @@ export default function ClientProfilePage() {
               isArabic={isArabic}
               onRefresh={reloadIdentity}
             />
-          )}
+          </ProfileTabPanel>
 
-          {tab === 'account' && (
+          <ProfileTabPanel active={tab === 'account'}>
             <AccountTab
               profile={profile}
               client={client}
@@ -1059,7 +1173,7 @@ export default function ClientProfilePage() {
               onEdit={() => setEditorOpen(true)}
               onSignOut={handleSignOut}
             />
-          )}
+          </ProfileTabPanel>
         </main>
       </div>
 
@@ -1074,6 +1188,24 @@ export default function ClientProfilePage() {
         onSave={saveProfilePatch}
       />
     </div>
+  );
+}
+
+function ProfileTabPanel({
+  active,
+  children,
+}: {
+  active: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <section
+      className={cn('profile-tab-panel space-y-5', active ? 'block' : 'hidden')}
+      data-active={active ? 'true' : 'false'}
+      aria-hidden={!active}
+    >
+      {children}
+    </section>
   );
 }
 
@@ -1092,10 +1224,10 @@ function Sidebar({
     <aside className="hidden lg:block">
       <div className="sticky top-24 flex h-[calc(100vh-7rem)] flex-col rounded-2xl border border-border bg-card p-3 shadow-sm">
         <div className="px-3 py-2">
-          <p className="text-xs font-medium uppercase text-muted-foreground">Lumos</p>
-          <h1 className="mt-1 text-lg font-semibold text-card-foreground">
+          <LumosLogo variant="nav" size="sm" showText />
+          <p className="mt-2 text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
             {isArabic ? 'بوابة العميل' : 'Client Portal'}
-          </h1>
+          </p>
         </div>
 
         <nav className="mt-3 space-y-1" aria-label={isArabic ? 'تنقل ملف العميل' : 'Client profile navigation'}>
@@ -1190,8 +1322,8 @@ function ProfilePageSkeleton({ isArabic }: { isArabic: boolean }) {
       <div className="mx-auto grid w-full max-w-7xl gap-5 px-4 pb-44 pt-24 sm:px-6 lg:grid-cols-[240px_minmax(0,1fr)] lg:pb-28 lg:pt-28">
         <aside className="hidden lg:block">
           <div className="sticky top-24 h-[calc(100vh-7rem)] rounded-2xl border border-border bg-card p-3 shadow-sm">
-            <div className="h-5 w-20 animate-pulse rounded-full bg-muted" />
-            <div className="mt-3 h-7 w-32 animate-pulse rounded-full bg-muted" />
+            <LumosLogo variant="nav" size="sm" showText />
+            <div className="mt-3 h-4 w-28 animate-pulse rounded-full bg-muted" />
             <div className="mt-6 space-y-2">
               {Array.from({ length: 6 }).map((_, index) => (
                 <div key={index} className="h-11 animate-pulse rounded-xl bg-muted" />
@@ -1347,6 +1479,7 @@ function HeroProfileCard({
   fileInputRef,
   isArabic,
   isVerified,
+  verifiedLabel,
   location,
   onAvatarChange,
   onEdit,
@@ -1365,6 +1498,7 @@ function HeroProfileCard({
   fileInputRef: RefObject<HTMLInputElement>;
   isArabic: boolean;
   isVerified: boolean;
+  verifiedLabel?: string;
   location: string;
   onAvatarChange: (file: File | undefined) => Promise<void>;
   onEdit: () => void;
@@ -1414,10 +1548,7 @@ function HeroProfileCard({
               <div className="flex flex-wrap items-center gap-2">
                 <h1 className="text-2xl font-semibold text-card-foreground sm:text-3xl">{displayName}</h1>
                 {isVerified && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-[color:var(--profile-accent)]/10 px-2.5 py-1 text-xs font-semibold text-[color:var(--profile-accent)]">
-                    <ShieldCheck className="h-3.5 w-3.5" />
-                    {isArabic ? 'موثّق' : 'Verified'}
-                  </span>
+                  <VerifiedClientBadge label={verifiedLabel || (isArabic ? 'عميل لوموس موثّق' : 'Verified Lumos Client')} />
                 )}
               </div>
               <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted-foreground">
@@ -2165,6 +2296,8 @@ function ProjectsTab({
   clientNotes,
   onMessage,
   onMarkNoteRead,
+  onApproveAsset,
+  onRequestChanges,
 }: {
   projects: Project[];
   loading: boolean;
@@ -2178,6 +2311,8 @@ function ProjectsTab({
   clientNotes: ClientNote[];
   onMessage: () => void;
   onMarkNoteRead: (noteId: string) => Promise<{ success: boolean; error?: string }>;
+  onApproveAsset?: (assetId: string) => Promise<void> | void;
+  onRequestChanges?: (assetId: string, message?: string) => Promise<void> | void;
 }) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const selectedProject = useMemo(
@@ -2227,6 +2362,8 @@ function ProjectsTab({
         notes={clientNotes}
         onMessage={onMessage}
         onMarkNoteRead={onMarkNoteRead}
+        onApproveAsset={onApproveAsset}
+        onRequestChanges={onRequestChanges}
         onOpenChange={(open) => {
           if (!open) setSelectedId(null);
         }}
@@ -2333,6 +2470,8 @@ function ProjectDetailsDialog({
   notes,
   onMessage,
   onMarkNoteRead,
+  onApproveAsset,
+  onRequestChanges,
   onOpenChange,
 }: {
   project: Project | null;
@@ -2340,6 +2479,8 @@ function ProjectDetailsDialog({
   notes: ClientNote[];
   onMessage: () => void;
   onMarkNoteRead: (noteId: string) => Promise<{ success: boolean; error?: string }>;
+  onApproveAsset?: (assetId: string) => Promise<void> | void;
+  onRequestChanges?: (assetId: string, message?: string) => Promise<void> | void;
   onOpenChange: (open: boolean) => void;
 }) {
   if (!project) return null;
@@ -2405,6 +2546,8 @@ function ProjectDetailsDialog({
             isArabic={isArabic}
             onMessage={onMessage}
             onMarkNoteRead={onMarkNoteRead}
+            onApproveAsset={onApproveAsset}
+            onRequestChanges={onRequestChanges}
           />
 
           <Card className="p-5">
@@ -2518,18 +2661,38 @@ function ClientActionCenter({
   isArabic,
   onMessage,
   onMarkNoteRead,
+  onApproveAsset,
+  onRequestChanges,
 }: {
   project: Project;
   notes: ClientNote[];
   isArabic: boolean;
   onMessage: () => void;
   onMarkNoteRead: (noteId: string) => Promise<{ success: boolean; error?: string }>;
+  onApproveAsset?: (assetId: string) => Promise<void> | void;
+  onRequestChanges?: (assetId: string, message?: string) => Promise<void> | void;
 }) {
   const activeService = getActiveProjectService(project);
   const projectFiles = getProjectDeliverables(project);
   const delivered = projectFiles.filter((asset) => asset.deliverable_status === 'delivered');
   const reviewFiles = projectFiles.filter((asset) => getClientAssetPlacements(asset).appearsInActions);
   const needsReview = activeService?.status === 'review' || activeService?.status === 'changes_requested';
+  const [approving, setApproving] = useState<string | null>(null);
+  const [requesting, setRequesting] = useState<string | null>(null);
+
+  const handleApprove = async (assetId: string) => {
+    if (!onApproveAsset) { onMessage(); return; }
+    setApproving(assetId);
+    try { await onApproveAsset(assetId); } finally { setApproving(null); }
+  };
+
+  const handleRequestChanges = async (assetId: string) => {
+    if (!onRequestChanges) { onMessage(); return; }
+    setRequesting(assetId);
+    try { await onRequestChanges(assetId); } finally { setRequesting(null); }
+  };
+
+  const firstReviewAsset = reviewFiles[0];
 
   return (
     <Card className="p-5">
@@ -2583,12 +2746,34 @@ function ClientActionCenter({
       ) : null}
 
       <div className="mt-4 flex flex-wrap gap-2">
-        <button type="button" onClick={onMessage} className="rounded-full bg-foreground px-3 py-1.5 text-xs font-semibold text-background transition hover:opacity-90">
-          {isArabic ? 'اعتماد عبر الرسائل' : 'Approve'}
-        </button>
-        <button type="button" onClick={onMessage} className="rounded-full border border-border px-3 py-1.5 text-xs font-semibold text-foreground transition hover:bg-muted">
-          {isArabic ? 'طلب تعديلات' : 'Request Changes'}
-        </button>
+        {onApproveAsset && firstReviewAsset ? (
+          <button
+            type="button"
+            disabled={approving === firstReviewAsset.id}
+            onClick={() => void handleApprove(firstReviewAsset.id)}
+            className="rounded-full bg-foreground px-3 py-1.5 text-xs font-semibold text-background transition hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {approving === firstReviewAsset.id ? (isArabic ? 'جارٍ الاعتماد…' : 'Approving…') : (isArabic ? 'اعتماد' : 'Approve')}
+          </button>
+        ) : (
+          <button type="button" onClick={onMessage} className="rounded-full bg-foreground px-3 py-1.5 text-xs font-semibold text-background transition hover:opacity-90">
+            {isArabic ? 'اعتماد عبر الرسائل' : 'Approve'}
+          </button>
+        )}
+        {onRequestChanges && firstReviewAsset ? (
+          <button
+            type="button"
+            disabled={requesting === firstReviewAsset.id}
+            onClick={() => void handleRequestChanges(firstReviewAsset.id)}
+            className="rounded-full border border-border px-3 py-1.5 text-xs font-semibold text-foreground transition hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {requesting === firstReviewAsset.id ? (isArabic ? 'جارٍ الطلب…' : 'Requesting…') : (isArabic ? 'طلب تعديلات' : 'Request Changes')}
+          </button>
+        ) : (
+          <button type="button" onClick={onMessage} className="rounded-full border border-border px-3 py-1.5 text-xs font-semibold text-foreground transition hover:bg-muted">
+            {isArabic ? 'طلب تعديلات' : 'Request Changes'}
+          </button>
+        )}
         <button type="button" onClick={onMessage} className="rounded-full border border-border px-3 py-1.5 text-xs font-semibold text-foreground transition hover:bg-muted">
           {isArabic ? 'اسأل سؤالاً' : 'Ask Question'}
         </button>

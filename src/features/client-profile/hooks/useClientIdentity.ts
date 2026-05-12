@@ -6,20 +6,34 @@ import {
   type ClientIdentityAsset,
 } from '@/services/clientIdentityService';
 
+type IdentityCacheEntry = {
+  identity: ClientIdentity | null;
+  assets: ClientIdentityAsset[];
+};
+
+const identityCache = new Map<string, IdentityCacheEntry>();
+
 export function useClientIdentity(clientId: string | undefined) {
-  const [identity, setIdentity] = useState<ClientIdentity | null>(null);
-  const [assets, setAssets] = useState<ClientIdentityAsset[]>([]);
+  const cached = clientId ? identityCache.get(clientId) : undefined;
+  const [identity, setIdentity] = useState<ClientIdentity | null>(() => cached?.identity ?? null);
+  const [assets, setAssets] = useState<ClientIdentityAsset[]>(() => cached?.assets ?? []);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const failedRef = useRef(false);
 
   const reload = useCallback(async () => {
-    if (!clientId) return;
+    if (!clientId) {
+      setIdentity(null);
+      setAssets([]);
+      setLoading(false);
+      return;
+    }
 
-    setLoading(true);
+    setLoading(!identityCache.has(clientId));
     setError(null);
     try {
       const snapshot = await fetchClientIdentitySnapshot(clientId);
+      identityCache.set(clientId, snapshot);
       setIdentity(snapshot.identity);
       setAssets(snapshot.assets);
       failedRef.current = false;
@@ -34,11 +48,13 @@ export function useClientIdentity(clientId: string | undefined) {
   }, [clientId]);
 
   useEffect(() => {
-    setIdentity(null);
-    setAssets([]);
     setError(null);
 
     if (!clientId) return;
+    const nextCached = identityCache.get(clientId);
+    setIdentity(nextCached?.identity ?? null);
+    setAssets(nextCached?.assets ?? []);
+    setLoading(!nextCached);
     void reload();
   }, [clientId, reload]);
 

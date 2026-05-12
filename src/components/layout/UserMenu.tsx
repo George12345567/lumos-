@@ -20,6 +20,7 @@
 import { useEffect, useState, useCallback, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import { LayoutDashboard, Crown, Settings, LogOut, ChevronRight } from "lucide-react";
+import LumosLogo from "@/components/shared/LumosLogo";
 
 // ─── Types ───────────────────────────────────────────────────────
 interface UserMenuProps {
@@ -32,6 +33,7 @@ interface UserMenuProps {
         username?: string;
     } | null;
     isAdmin: boolean;
+    isTeamMember?: boolean;
     onNavigate: (path: string) => void;
     onLogout: () => void;
     onPricingOpen: () => void;
@@ -75,10 +77,12 @@ const UserMenu = ({
     triggerRef,
     client,
     isAdmin,
+    isTeamMember,
     onNavigate,
     onLogout,
     onPricingOpen,
 }: UserMenuProps) => {
+    const showAdmin = isAdmin || isTeamMember;
     const pos = useMenuPosition(triggerRef, isOpen);
 
     // Close on Escape
@@ -126,28 +130,30 @@ const UserMenu = ({
                     <button
                         onClick={() =>
                             handleAction(() =>
-                                onNavigate(isAdmin ? "/lumos-admin" : "/profile")
+                                onNavigate(showAdmin ? "/lumos-admin" : "/profile")
                             )
                         }
                         className="w-full px-4 pt-4 pb-3 border-b border-slate-700/60 hover:bg-slate-800/60 transition-colors text-left"
                     >
                         <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#64ffda]/20 to-cyan-400/10 border border-[#64ffda]/20 flex items-center justify-center flex-shrink-0">
-                                <span className="text-sm font-bold text-[#64ffda]">
-                                    {initial}
-                                </span>
-                            </div>
+                            {showAdmin ? (
+                                <LumosLogo variant="iconOnly" size="sm" />
+                            ) : (
+                                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#64ffda]/20 to-cyan-400/10 border border-[#64ffda]/20 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                                    <span className="text-sm font-bold text-[#64ffda]">{initial}</span>
+                                </div>
+                            )}
                             <div className="flex-1 min-w-0">
                                 <p className="text-sm font-semibold text-white truncate">
                                     {displayName}
                                 </p>
                                 <div className="flex items-center gap-1.5 mt-0.5">
                                     <span
-                                        className={`w-1.5 h-1.5 rounded-full ${isAdmin ? "bg-amber-400" : "bg-[#64ffda]"
+                                        className={`w-1.5 h-1.5 rounded-full ${showAdmin ? "bg-amber-400" : "bg-[#64ffda]"
                                             }`}
                                     />
                                     <span className="text-[10px] text-slate-400 font-medium">
-                                        {isAdmin ? "Admin" : "Client"}
+                                        {isAdmin ? "Admin" : isTeamMember ? "Team" : "Client"}
                                     </span>
                                 </div>
                             </div>
@@ -161,7 +167,7 @@ const UserMenu = ({
                             role="menuitem"
                             onClick={() =>
                                 handleAction(() =>
-                                    onNavigate(isAdmin ? "/lumos-admin" : "/profile")
+                                    onNavigate(showAdmin ? "/lumos-admin" : "/profile")
                                 )
                             }
                             className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-300 hover:text-white hover:bg-slate-800 transition-all duration-150 group"
@@ -183,7 +189,7 @@ const UserMenu = ({
                             role="menuitem"
                             onClick={() =>
                                 handleAction(() =>
-                                    onNavigate(isAdmin ? "/lumos-admin" : "/profile")
+                                    onNavigate(showAdmin ? "/lumos-admin" : "/profile")
                                 )
                             }
                             className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-300 hover:text-white hover:bg-slate-800 transition-all duration-150 group"

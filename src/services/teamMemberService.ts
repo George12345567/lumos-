@@ -1,6 +1,7 @@
 import { supabase } from '@/lib/supabaseClient';
 import type { TeamMember } from '@/types/dashboard';
 import { logSupabaseError, supabaseErrorMessage } from '@/services/supabaseErrorLogger';
+import { createClientNotification } from '@/services/notificationService';
 
 export const getTeamMembers = async (): Promise<TeamMember[]> => {
   try {
@@ -79,7 +80,32 @@ export const createTeamMember = async (memberData: {
       throw error;
     }
 
-    return { success: true, id: data.id };
+    const member = data as TeamMember;
+
+    if (member.email || member.client_id) {
+      try {
+        const roleLabel = member.role;
+        const clientId = member.client_id;
+        if (clientId) {
+          await createClientNotification({
+            clientId,
+            type: 'account',
+            title: 'You\'ve been added to the Lumos team',
+            titleAr: 'تمت إضافتك إلى فريق لوموس',
+            message: `You now have access to the Lumos Operations Dashboard as ${roleLabel}.`,
+            messageAr: `لديك الآن صلاحية الوصول إلى لوحة العمليات بدور ${roleLabel}.`,
+            entityType: 'team_member',
+            entityId: member.id,
+            actionUrl: '/lumos-admin',
+            priority: 'high',
+          });
+        }
+      } catch {
+        // Non-blocking: notification failure should not affect member creation
+      }
+    }
+
+    return { success: true, id: member.id };
   } catch (error: unknown) {
     return { success: false, error: supabaseErrorMessage(error, 'team_member_create_failed') };
   }

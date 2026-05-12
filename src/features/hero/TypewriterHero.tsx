@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { Sparkles, ArrowRight, LogIn } from "lucide-react";
 import { Link } from 'react-router-dom';
-import { useIsAuthenticated, useIsAdmin } from '@/context/AuthContext';
+import { useIsAuthenticated, useIsAdmin, useIsTeamMember } from '@/context/AuthContext';
 import { useLanguage } from '@/context/LanguageContext';
 
 type TypewriterHeroProps = {
@@ -11,6 +11,8 @@ type TypewriterHeroProps = {
 const TypewriterHero = ({ onOpenTeam }: TypewriterHeroProps) => {
     const isAuthenticated = useIsAuthenticated();
     const isAdmin = useIsAdmin();
+    const isTeamMember = useIsTeamMember();
+    const showAdmin = isAdmin || isTeamMember;
     const { isArabic, t } = useLanguage();
     const words = useMemo(() => (isArabic ? ["براندات", "مواقع", "متاجر", "منصات"] : ["Brands", "Websites", "Stores", "Platforms"]), [isArabic]);
     const [currentWordIndex, setCurrentWordIndex] = useState(0);
@@ -311,7 +313,7 @@ const TypewriterHero = ({ onOpenTeam }: TypewriterHeroProps) => {
 
                     {/* Client Portal Button */}
                     <Link
-                        to={isAuthenticated ? (isAdmin ? '/lumos-admin' : '/profile') : '/client-login'}
+                        to={isAuthenticated ? (showAdmin ? '/lumos-admin' : '/profile') : '/client-login'}
                         className="px-6 sm:px-8 lg:px-10 py-3 sm:py-3.5 lg:py-4 rounded-full text-sm sm:text-base lg:text-lg font-bold relative group border-2 border-primary/60 text-primary hover:border-primary hover:shadow-[0_0_24px_rgba(0,188,212,0.15)] transition-all duration-300 inline-flex items-center gap-2"
                     >
                         {isAuthenticated ? (

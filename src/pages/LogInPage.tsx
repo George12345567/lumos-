@@ -30,8 +30,9 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { EnhancedNavbar, Footer } from "@/components/layout";
+import LumosLogo from "@/components/shared/LumosLogo";
 import { useLanguage } from "@/context/LanguageContext";
-import { useAuthActions, useIsAuthenticated, useAuthLoading, useAuthConfigured, useClient, useProfileLoading } from "@/context/AuthContext";
+import { useAuthActions, useIsAuthenticated, useAuthLoading, useAuthConfigured, useClient, useProfileLoading, useIsTeamMember } from "@/context/AuthContext";
 import { authService, resolveAuthEmail } from "@/services/authService";
 import { loginSchema, type LoginInput } from "@/lib/validation";
 
@@ -95,6 +96,7 @@ export default function LogInPage() {
   const { login } = useAuthActions();
   const authLoading = useAuthLoading();
   const isAuthenticated = useIsAuthenticated();
+  const isTeamMember = useIsTeamMember();
   const client = useClient();
   const profileLoading = useProfileLoading();
   const authConfigured = useAuthConfigured();
@@ -114,9 +116,10 @@ export default function LogInPage() {
     if (client?.password_must_change) {
       navigate(ROUTES.CHANGE_PASSWORD, { replace: true });
     } else {
-      navigate(redirectTo, { replace: true });
+      const defaultDest = isTeamMember ? ROUTES.ADMIN_DASHBOARD : ROUTES.CLIENT_PROFILE;
+      navigate(redirectTo === "/" ? defaultDest : redirectTo, { replace: true });
     }
-  }, [authLoading, client, isAuthenticated, navigate, profileLoading, redirectTo]);
+  }, [authLoading, client, isAuthenticated, isTeamMember, navigate, profileLoading, redirectTo]);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -217,7 +220,10 @@ export default function LogInPage() {
   if (authLoading) {
     return (
       <div className="min-h-screen bg-background text-foreground flex items-center justify-center" dir={isArabic ? "rtl" : "ltr"}>
-        <Loader2 className="w-6 h-6 animate-spin text-primary" />
+        <div className="flex flex-col items-center gap-4">
+          <LumosLogo variant="iconOnly" size="lg" />
+          <div className="h-6 w-6 rounded-full border-2 border-primary/50 border-t-transparent animate-spin" />
+        </div>
       </div>
     );
   }
@@ -234,6 +240,9 @@ export default function LogInPage() {
         </div>
 
         <div className="container mx-auto max-w-4xl relative z-10 text-center" dir={isArabic ? "rtl" : "ltr"}>
+          <motion.div initial={{ opacity: 0, y: -10, scale: 0.96 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ duration: 0.5 }}>
+            <LumosLogo variant="hero" size="lg" showText className="mx-auto mb-5" />
+          </motion.div>
           <motion.div initial={{ opacity: 0, y: -15 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
             <span className="inline-block py-1 px-3 rounded-full bg-primary/10 border border-primary/20 text-primary text-[10px] sm:text-xs font-bold tracking-[0.2em] uppercase shadow-[0_0_12px_rgba(0,188,212,0.1)] mb-4">
               {t("شريكك الرقمي", "YOUR DIGITAL PARTNER")}
@@ -242,8 +251,7 @@ export default function LogInPage() {
 
           <motion.h1 initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.1 }}
             className="text-3xl sm:text-4xl md:text-5xl font-extrabold leading-tight">
-            {t("مرحباً بعودتك إلى", "Welcome back to")}{" "}
-            <span className="text-primary">Lumos</span>
+            {t("مرحباً بعودتك", "Welcome back")}
           </motion.h1>
 
           <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.4, delay: 0.2 }}
@@ -264,9 +272,7 @@ export default function LogInPage() {
           >
             <div className="glass-card rounded-2xl glow-border-hover p-6 sm:p-8">
               <div className="flex items-center gap-2 mb-6">
-                <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
-                  <ShieldCheck className="w-5 h-5 text-primary" />
-                </div>
+                <LumosLogo variant="iconOnly" size="md" />
                 <div>
                   <h2 className="text-lg font-bold text-foreground">
                     {t("تسجيل الدخول", "Sign In")}

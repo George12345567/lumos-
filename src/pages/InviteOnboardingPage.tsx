@@ -49,6 +49,7 @@ import {
   useAuthConfigured,
   useIsAdmin,
   useIsAuthenticated,
+  useIsTeamMember,
 } from "@/context/AuthContext";
 import { ROUTES, INDUSTRY_OPTIONS } from "@/lib/constants";
 import {
@@ -216,6 +217,8 @@ export default function InviteOnboardingPage() {
   const authConfigured = useAuthConfigured();
   const isAuthenticated = useIsAuthenticated();
   const isAdmin = useIsAdmin();
+  const isTeamMember = useIsTeamMember();
+  const showAdmin = isAdmin || isTeamMember;
   const { refreshProfile } = useAuthActions();
   const navigate = useNavigate();
 
@@ -280,7 +283,7 @@ export default function InviteOnboardingPage() {
         if (!cancelled) {
           setPhase("already_onboarded");
           // Admin shouldn't be hijacked into /profile from here.
-          setTimeout(() => navigate(isAdmin ? ROUTES.ADMIN_DASHBOARD : ROUTES.CLIENT_PROFILE, { replace: true }), 600);
+          setTimeout(() => navigate(showAdmin ? ROUTES.ADMIN_DASHBOARD : ROUTES.CLIENT_PROFILE, { replace: true }), 600);
         }
         return;
       }
@@ -294,7 +297,7 @@ export default function InviteOnboardingPage() {
     return () => {
       cancelled = true;
     };
-  }, [authConfigured, isAdmin, navigate]);
+  }, [authConfigured, showAdmin, navigate]);
 
   const industryOptions = useMemo(
     () =>

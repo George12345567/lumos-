@@ -288,6 +288,7 @@ export function AdminShell() {
                 onManageTeamMember={openTeamMember}
                 teamMemberByClientId={memberByClientId}
                 onAfterSecurityChange={() => void dashboard.refresh()}
+                onUpdateClient={dashboard.updateClient}
               />
             )}
 

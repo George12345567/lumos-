@@ -30,11 +30,14 @@ const EMPTY_PROFILE: ProfileData = {
   package_details: null,
 };
 
+const profileCache = new Map<string, ProfileData>();
+
 export function useClientProfile() {
   const client = useClient();
   const { refreshProfile } = useAuthActions();
-  const [profile, setProfile] = useState<ProfileData | null>(null);
-  const [loading, setLoading] = useState(true);
+  const cachedProfile = client?.id ? profileCache.get(client.id) : undefined;
+  const [profile, setProfile] = useState<ProfileData | null>(() => cachedProfile ?? null);
+  const [loading, setLoading] = useState(() => Boolean(client?.id && !cachedProfile));
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -44,11 +47,13 @@ export function useClientProfile() {
       setLoading(false);
       return;
     }
-    setLoading(true);
+    setLoading(!profileCache.has(client.id));
     setError(null);
     try {
       const data = await profileService.getProfile(client.id);
-      setProfile({ ...EMPTY_PROFILE, ...(data ?? {}) });
+      const nextProfile = { ...EMPTY_PROFILE, ...(data ?? {}) };
+      profileCache.set(client.id, nextProfile);
+      setProfile(nextProfile);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load profile');
       setProfile({ ...EMPTY_PROFILE });
@@ -62,8 +67,13 @@ export function useClientProfile() {
   }, [load]);
 
   const setField = useCallback(<K extends keyof ProfileData>(field: K, value: ProfileData[K]) => {
-    setProfile((prev) => (prev ? { ...prev, [field]: value } : prev));
-  }, []);
+    setProfile((prev) => {
+      if (!prev) return prev;
+      const next = { ...prev, [field]: value };
+      if (client?.id) profileCache.set(client.id, next);
+      return next;
+    });
+  }, [client?.id]);
 
   const reload = useCallback(async () => {
     await load();

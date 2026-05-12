@@ -1,6 +1,7 @@
-import { Facebook, Mail, MessageCircle, Phone, Star, Users } from "lucide-react";
+import { Facebook, Mail, MessageCircle, Phone, Users } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useLanguage } from "@/context/LanguageContext";
+import LumosLogo from "@/components/shared/LumosLogo";
 
 type FooterProps = {
   onOpenTeam?: () => void;
@@ -33,10 +34,7 @@ const Footer = ({ onOpenTeam }: FooterProps) => {
           <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1fr_1.2fr]">
             <div>
               <div className="mb-4 flex items-center gap-2">
-                <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-primary/20 bg-primary/10 text-primary">
-                  <Star className="h-4 w-4 fill-current" />
-                </span>
-                <h3 className="text-2xl font-bold text-foreground">Lumos</h3>
+                <LumosLogo variant="nav" size="md" showText />
               </div>
               <p className="max-w-sm text-sm leading-7 text-muted-foreground">
                 {t(

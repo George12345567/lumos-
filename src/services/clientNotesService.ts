@@ -14,6 +14,7 @@ export interface ClientNote {
   placement: ClientNotePlacement;
   is_active: boolean;
   is_dismissible: boolean;
+  show_in_profile_hero: boolean;
   expires_at?: string | null;
   created_by?: string | null;
   created_at: string;
@@ -30,6 +31,7 @@ export interface CreateClientNoteInput {
   placement: ClientNotePlacement;
   isActive: boolean;
   isDismissible: boolean;
+  showInProfileHero?: boolean;
   expiresAt?: string | null;
 }
 
@@ -57,6 +59,29 @@ export async function fetchClientNotes(clientId: string): Promise<ClientNote[]> 
   }
 }
 
+export async function fetchClientHeroNotes(clientId: string): Promise<ClientNote[]> {
+  try {
+    const now = new Date().toISOString();
+    const { data, error } = await supabase
+      .from('client_notes')
+      .select('*')
+      .eq('client_id', clientId)
+      .eq('is_active', true)
+      .eq('show_in_profile_hero', true)
+      .or(`expires_at.is.null,expires_at.gt.${now}`)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('[clientNotesService.fetchClientHeroNotes] failed', error);
+      return [];
+    }
+    return ((data as ClientNote[]) ?? []).filter(isActiveForClient);
+  } catch (error) {
+    console.error('[clientNotesService.fetchClientHeroNotes] failed', error);
+    return [];
+  }
+}
+
 export async function createClientNote(
   input: CreateClientNoteInput,
 ): Promise<{ success: boolean; note?: ClientNote; notificationId?: string; telegramError?: string; error?: string }> {
@@ -72,6 +97,7 @@ export async function createClientNote(
       placement: input.placement,
       is_active: input.isActive,
       is_dismissible: input.isDismissible,
+      show_in_profile_hero: input.showInProfileHero ?? false,
       expires_at: input.expiresAt || null,
       created_by: createdBy,
     };
@@ -133,6 +159,7 @@ export async function markClientNoteRead(noteId: string): Promise<{ success: boo
 
 export const clientNotesService = {
   fetchClientNotes,
+  fetchClientHeroNotes,
   createClientNote,
   markClientNoteRead,
 };

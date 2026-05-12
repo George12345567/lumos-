@@ -44,7 +44,8 @@ import PricingModal from "@/components/pricing/PricingModal";
 import FloatingDock from "@/components/layout/FloatingDock";
 import NotificationCenter from "@/components/notifications/NotificationCenter";
 import SafeAvatarImage from "@/components/shared/SafeAvatarImage";
-import { useAuthActions, useAuthState } from "@/context/AuthContext";
+import LumosLogo from "@/components/shared/LumosLogo";
+import { useAuthActions, useAuthState, useIsTeamMember } from "@/context/AuthContext";
 import { useAppearance } from "@/context/AppearanceContext";
 import { profileService } from "@/services/profileService";
 import type { PricingRequest } from "@/types/dashboard";
@@ -79,6 +80,8 @@ const EnhancedNavbar = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { isAuthenticated, isAdmin, client } = useAuthState();
+  const isTeamMember = useIsTeamMember();
+  const showAdmin = isAdmin || isTeamMember;
   const { logout } = useAuthActions();
   const { theme, toggleTheme } = useAppearance();
   const { isArabic, t, toggleLanguage } = useLanguage();
@@ -192,7 +195,7 @@ const EnhancedNavbar = () => {
   useEffect(() => {
     let cancelled = false;
 
-    if (!isAuthenticated || !client || isAdmin) {
+    if (!isAuthenticated || !client || showAdmin) {
       setClientAvatarUrl(null);
       setClientDisplayName("");
       return;
@@ -215,7 +218,7 @@ const EnhancedNavbar = () => {
     return () => {
       cancelled = true;
     };
-  }, [client, isAdmin, isAuthenticated]);
+  }, [client, showAdmin, isAuthenticated]);
 
   // Scroll tracking: progress + direction-based hide/show
   useEffect(() => {
@@ -302,10 +305,6 @@ const EnhancedNavbar = () => {
     navigate("/client-login", { replace: true });
   }, [logout, navigate]);
 
-  // SVG circle progress for logo ring
-  const circumference = 2 * Math.PI * 14;
-  const strokeDashoffset = circumference - (scrollProgress / 100) * circumference;
-
   return (
     <>
       {/* ════════════════════════════════════════════════════ */}
@@ -356,43 +355,17 @@ const EnhancedNavbar = () => {
               <div className="container mx-auto px-5 sm:px-6 lg:px-8">
                 <div className="flex items-center justify-between h-16 sm:h-[68px]">
 
-                  {/* ── Logo with scroll progress ring ── */}
+                  {/* ── Official Lumos brand mark ── */}
                   <div
-                    className="flex items-center gap-2.5 cursor-pointer group"
+                    className="cursor-pointer group"
                     onClick={() => scrollToSection("hero")}
                   >
-                    <div className="relative w-9 h-9 flex items-center justify-center">
-                      <svg className="absolute inset-0 -rotate-90" width="36" height="36" viewBox="0 0 36 36">
-                        <circle
-                          cx="18" cy="18" r="14"
-                          fill="none"
-                          stroke="hsla(150,100%,40%,0.08)"
-                          strokeWidth="2"
-                        />
-                        <circle
-                          cx="18" cy="18" r="14"
-                          fill="none"
-                          stroke="url(#progressGradient)"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeDasharray={circumference}
-                          strokeDashoffset={strokeDashoffset}
-                          className="transition-all duration-300"
-                        />
-                        <defs>
-                          <linearGradient id="progressGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                            <stop offset="0%" stopColor="#64ffda" />
-                            <stop offset="100%" stopColor="#00bcd4" />
-                          </linearGradient>
-                        </defs>
-                      </svg>
-                      <span className="text-[hsl(150,100%,40%)] text-lg font-bold transition-all duration-300 group-hover:scale-110 group-hover:drop-shadow-[0_0_6px_hsla(150,100%,40%,0.6)]">
-                        ★
-                      </span>
-                    </div>
-                    <span className="text-xl font-bold bg-gradient-to-r from-foreground to-foreground/65 bg-clip-text text-transparent transition-all duration-300 group-hover:from-[hsl(var(--primary))] group-hover:to-[hsl(var(--secondary))]">
-                      Lumos
-                    </span>
+                    <LumosLogo
+                      variant="nav"
+                      size="md"
+                      showText
+                      className="transition-transform duration-300 group-hover:scale-[1.02]"
+                    />
                   </div>
 
                   {/* ── Desktop Navigation Pills (section scroll) ── */}
@@ -468,12 +441,12 @@ const EnhancedNavbar = () => {
                         {nextThemeLabel}
                       </span>
                     </button>
+{isAuthenticated && (showAdmin || client) && (
 
-                    {isAuthenticated && (isAdmin || client) && (
-                      <NotificationCenter scope={isAdmin ? "admin" : "client"} />
+                      <NotificationCenter scope={showAdmin ? "admin" : "client"} />
                     )}
 
-                    {isAuthenticated && client && !isAdmin && (
+                    {isAuthenticated && client && !showAdmin && (
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <button

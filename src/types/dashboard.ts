@@ -159,8 +159,12 @@ export interface Client {
     timeline?: string;
     referral_source?: string;
     project_summary?: string;
-    role?: 'client' | 'admin' | 'owner' | string;
+role?: 'client' | 'admin' | 'owner' | string;
     account_type?: 'client' | 'admin' | 'team' | 'internal' | string;
+    is_verified?: boolean;
+    verified_at?: string | null;
+    verified_by?: string | null;
+    verified_label?: string | null;
     created_at: string;
 }
 

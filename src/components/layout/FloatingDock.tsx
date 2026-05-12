@@ -27,7 +27,7 @@ import {
     LogIn,
     Sparkles,
 } from "lucide-react";
-import { useIsAuthenticated, useIsAdmin, useAuthActions } from "@/context/AuthContext";
+import { useIsAuthenticated, useIsAdmin, useIsTeamMember, useAuthActions } from "@/context/AuthContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { useAppearance } from "@/context/AppearanceContext";
 
@@ -168,6 +168,8 @@ const FloatingDock = () => {
     const location = useLocation();
     const isAuthenticated = useIsAuthenticated();
     const isAdmin = useIsAdmin();
+    const isTeamMember = useIsTeamMember();
+    const showAdmin = isAdmin || isTeamMember;
     const { logout } = useAuthActions();
     const { isArabic, t } = useLanguage();
     const { theme } = useAppearance();
@@ -409,7 +411,7 @@ const FloatingDock = () => {
                                         isActive={isHomePage}
                                         theme={dockTheme}
                                     />
-                                    {isAdmin && (
+                                    {showAdmin && (
                                         <DockItem mouseX={mouseX} isMobile={isMobile}
                                             icon={LayoutDashboard}
                                             label={t("لوحة التحكم", "Dashboard")}
@@ -421,9 +423,9 @@ const FloatingDock = () => {
                                     )}
                                     <DockItem mouseX={mouseX} isMobile={isMobile}
                                         icon={User}
-                                        label={isAdmin ? t("ملفي", "My Profile") : t("بوابتي", "My Portal")}
-                                        description={isAdmin ? t("افتح ملفك الإداري وإعداداتك الشخصية.", "Open your admin profile and personal settings.") : t("افتح بوابة العميل والملفات وتقدّم المشروع.", "Open your client portal, files, and project progress.")}
-                                        onClick={() => navigate(isAdmin ? "/lumos-admin" : "/profile")}
+                                        label={showAdmin ? t("ملفي", "My Profile") : t("بوابتي", "My Portal")}
+                                        description={showAdmin ? t("افتح ملفك الإداري وإعداداتك الشخصية.", "Open your admin profile and personal settings.") : t("افتح بوابة العميل والملفات وتقدّم المشروع.", "Open your client portal, files, and project progress.")}
+                                        onClick={() => navigate(showAdmin ? "/lumos-admin" : "/profile")}
                                         isActive={isProfile}
                                         theme={dockTheme}
                                     />
